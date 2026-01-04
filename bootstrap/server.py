@@ -440,15 +440,13 @@ def _parse_bootstrap_peers_static(peers_str: str) -> List[Dict[str, Any]]:
 def _setup_routes_static(app, api_version, start_time, registered_nodes, bootstrap_peers, port, limiter):
     """Static version of route setup for WSGI compatibility."""
 
-    # Root health check (for Railway) - exempt from rate limiting
+    # Root health check (for Railway)
     @app.route('/', methods=['GET'])
-    @limiter.exempt
     def root_health():
         return jsonify({'status': 'healthy'})
 
-    # Health check - exempt from rate limiting
+    # Health check
     @app.route(f'/api/{api_version}/health', methods=['GET'])
-    @limiter.exempt
     def health():
         return jsonify({
             'status': 'healthy',
@@ -714,13 +712,14 @@ def create_app():
     app = Flask(__name__)
     CORS(app)
 
-    # Rate limiting (temporary - in production should use Redis)
-    rate_limit = os.getenv('RATE_LIMIT', '100 per minute')
-    limiter = Limiter(
-        get_remote_address,
-        app=app,
-        default_limits=[rate_limit]
-    )
+    # Temporarily disable rate limiting for debugging
+    # rate_limit = os.getenv('RATE_LIMIT', '100 per minute')
+    # limiter = Limiter(
+    #     get_remote_address,
+    #     app=app,
+    #     default_limits=[rate_limit]
+    # )
+    limiter = None  # Disabled for debugging
 
     # Bootstrap configuration
     api_version = "v1"
