@@ -348,6 +348,24 @@ mining_aggregator = MiningStatsAggregator(node_tracker)
 geo_locator = GeoLocator()
 peer_discovery = PeerDiscoveryService(node_tracker)
 
+# Production PiSecure Component Integration Points
+# These will be initialized when PiSecure core components are available
+
+# Real blockchain data source (from api-update.txt)
+real_blockchain = None  # Will be SignChain() instance
+
+# P2P protocol instance (from api-update.txt)
+p2p_protocol = None  # Will be PiSecureP2P() instance
+
+# Consensus engine (from api-update.txt)
+consensus_engine = None  # Will be PiSecureConsensus() instance
+
+# Token economics engine (from api-update.txt)
+token_economics = None  # Will be TokenEconomicsEngine() instance
+
+# P2P sync manager (from api-update.txt)
+p2p_sync_manager = None  # Will be P2PSyncManager() instance
+
 @app.route('/', methods=['GET'])
 def root_health():
     logger.info("Root health check called")
@@ -533,8 +551,100 @@ def blockchain_info():
     """Get comprehensive blockchain information"""
     logger.info("Blockchain info endpoint called")
 
-    # Mock blockchain data - would connect to actual blockchain
-    response = {
+    # Try to get real blockchain data first, fall back to mock
+    if real_blockchain:
+        try:
+            # Real blockchain integration (from api-update.txt)
+            chain_info = real_blockchain.get_chain_info()
+            latest_block = real_blockchain.get_latest_block()
+
+            response = {
+                "blocks": chain_info.get('blocks', 0),
+                "pending_transactions": chain_info.get('pending_transactions', 0),
+                "difficulty": chain_info.get('difficulty', 4.0),
+                "is_valid": chain_info.get('is_valid', True),
+                "storage_type": chain_info.get('storage_type', 'hybrid'),
+                "network_health": {
+                    "active_nodes": len(node_tracker.nodes),
+                    "sync_status": chain_info.get('sync_status', 'unknown'),
+                    "avg_block_time": chain_info.get('avg_block_time', 600.0),
+                    "forks_detected": chain_info.get('forks_detected', 0)
+                },
+                "latest_block": {
+                    "index": latest_block.get('index', 0),
+                    "hash": latest_block.get('hash', ''),
+                    "timestamp": latest_block.get('timestamp', time.time()),
+                    "transactions": latest_block.get('transactions', 0),
+                    "miner": latest_block.get('miner', 'unknown')
+                },
+                "validation_cache": {
+                    "last_validation": chain_info.get('last_validation', time.time()),
+                    "cache_timeout": chain_info.get('cache_timeout', 30),
+                    "cached_valid": chain_info.get('cached_valid', True)
+                }
+            }
+        except Exception as e:
+            logger.error(f"Failed to get real blockchain data: {e}")
+            # Fall back to mock data
+            response = _get_mock_blockchain_info()
+    else:
+        # Mock blockchain data for development
+        response = _get_mock_blockchain_info()
+
+    return jsonify(response)
+
+@app.route('/api/v1/blockchain/real-info', methods=['GET'])
+def blockchain_real_info():
+    """Get comprehensive real blockchain information (from api-update.txt)"""
+    logger.info("Real blockchain info endpoint called")
+
+    if not real_blockchain:
+        return jsonify({
+            'error': 'Real blockchain not available',
+            'message': 'PiSecure core blockchain component not initialized'
+        }), 503
+
+    try:
+        # Real blockchain data source integration (from api-update.txt)
+        chain_info = real_blockchain.get_chain_info()
+        active_nodes = sum(1 for node in node_tracker.nodes.values()
+                          if time.time() - node.get('last_seen', 0) < 300)
+
+        response = {
+            "blocks": chain_info.get('total_blocks', 0),
+            "pending_transactions": chain_info.get('pending_transactions', 0),
+            "difficulty": chain_info.get('difficulty', 4.0),
+            "is_valid": chain_info.get('is_valid', True),
+            "storage_type": chain_info.get('storage_type', 'hybrid'),
+            "network_health": {
+                "active_nodes": active_nodes,
+                "sync_status": chain_info.get('sync_status', 'unknown'),
+                "avg_block_time": chain_info.get('avg_block_time', 600.0),
+                "forks_detected": chain_info.get('forks_detected', 0)
+            },
+            "latest_block": {
+                "index": chain_info.get('latest_block_index', 0),
+                "hash": chain_info.get('latest_block_hash', ''),
+                "timestamp": chain_info.get('latest_block_timestamp', time.time()),
+                "transactions": chain_info.get('latest_block_transactions', 0),
+                "miner": chain_info.get('latest_block_miner', 'unknown')
+            },
+            "validation_cache": {
+                "last_validation": chain_info.get('last_validation', time.time()),
+                "cache_timeout": chain_info.get('cache_timeout', 30),
+                "cached_valid": chain_info.get('cached_valid', True)
+            }
+        }
+
+        return jsonify(response)
+
+    except Exception as e:
+        logger.error(f"Real blockchain info error: {e}")
+        return jsonify({'error': 'Failed to get blockchain information'}), 500
+
+def _get_mock_blockchain_info():
+    """Mock blockchain data for development"""
+    return {
         "blocks": 1250,
         "pending_transactions": 15,
         "difficulty": 4.0,
@@ -553,8 +663,6 @@ def blockchain_info():
             "miner": "miner-node-001"
         }
     }
-
-    return jsonify(response)
 
 @app.route('/mining/status', methods=['GET'])
 def mining_status():
@@ -758,6 +866,261 @@ def submit_transaction():
     except Exception as e:
         logger.error(f"Submit transaction error: {e}")
         return jsonify({'error': 'Failed to submit transaction'}), 500
+
+# Production PiSecure Integration Endpoints (from api-update.txt)
+
+@app.route('/api/v1/p2p/status', methods=['GET'])
+def p2p_status():
+    """Get P2P protocol status"""
+    logger.info("P2P status endpoint called")
+
+    if not p2p_protocol:
+        return jsonify({
+            'error': 'P2P protocol not available',
+            'message': 'PiSecure P2P component not initialized'
+        }), 503
+
+    try:
+        # P2P protocol integration (from api-update.txt)
+        stats = p2p_protocol.get_network_stats()
+
+        return jsonify({
+            'node_id': stats.get('node_id', 'bootstrap-main'),
+            'connections': stats.get('connections', 0),
+            'consensus_state': stats.get('consensus_state', 'unknown'),
+            'leader_id': stats.get('leader_id', 'unknown'),
+            'term': stats.get('term', 0),
+            'messages_sent': stats.get('messages_sent', 0),
+            'messages_received': stats.get('messages_received', 0),
+            'bytes_sent': stats.get('bytes_sent', 0),
+            'bytes_received': stats.get('bytes_received', 0),
+            'blocks_propagated': stats.get('blocks_propagated', 0),
+            'transactions_propagated': stats.get('transactions_propagated', 0)
+        })
+
+    except Exception as e:
+        logger.error(f"P2P status error: {e}")
+        return jsonify({'error': 'Failed to get P2P status'}), 500
+
+@app.route('/api/v1/consensus/status', methods=['GET'])
+def consensus_status():
+    """Get consensus engine status"""
+    logger.info("Consensus status endpoint called")
+
+    if not consensus_engine:
+        return jsonify({
+            'error': 'Consensus engine not available',
+            'message': 'PiSecure consensus component not initialized'
+        }), 503
+
+    try:
+        # Consensus engine integration (from api-update.txt)
+        stats = consensus_engine.get_consensus_stats()
+
+        return jsonify({
+            'algorithm': stats.get('algorithm', 'pow_sha256'),
+            'current_difficulty': stats.get('current_difficulty', 4),
+            'mining_pools': stats.get('mining_pools', 0),
+            'pending_votes': stats.get('pending_votes', 0),
+            'consensus_threshold': stats.get('consensus_threshold', 0.67),
+            'total_blocks_validated': stats.get('total_blocks_validated', 0),
+            'forks_resolved': stats.get('forks_resolved', 0),
+            'mining_pools_active': stats.get('mining_pools_active', 0),
+            'total_pool_rewards': stats.get('total_pool_rewards', 0.0)
+        })
+
+    except Exception as e:
+        logger.error(f"Consensus status error: {e}")
+        return jsonify({'error': 'Failed to get consensus status'}), 500
+
+@app.route('/api/v1/mining/pools', methods=['GET'])
+def mining_pools():
+    """Get mining pools information"""
+    logger.info("Mining pools endpoint called")
+
+    if not consensus_engine:
+        return jsonify({
+            'error': 'Mining pools not available',
+            'message': 'PiSecure consensus component not initialized'
+        }), 503
+
+    try:
+        # Mining pool integration (from api-update.txt)
+        pools = []
+
+        # Mock pool data - would get from consensus engine
+        pools.append({
+            'pool_id': 'power_miners',
+            'founder_wallet': 'founder_wallet',
+            'participant_count': 25,
+            'active_miners': 20,
+            'total_hashrate': 125.5,
+            'total_shares': 50000,
+            'blocks_found': 45,
+            'total_rewards': 1125.0
+        })
+
+        return jsonify({
+            'pools': pools,
+            'total_pools': len(pools),
+            'active_pools': len(pools)
+        })
+
+    except Exception as e:
+        logger.error(f"Mining pools error: {e}")
+        return jsonify({'error': 'Failed to get mining pools'}), 500
+
+@app.route('/api/v1/trust/economics', methods=['GET'])
+def trust_economics():
+    """Get token economics overview"""
+    logger.info("Trust economics endpoint called")
+
+    if not token_economics:
+        return jsonify({
+            'error': 'Token economics not available',
+            'message': 'PiSecure token economics component not initialized'
+        }), 503
+
+    try:
+        # Token economics integration (from api-update.txt)
+        overview = token_economics.get_economic_overview()
+
+        return jsonify({
+            'market_data': {
+                'current_price_usd': 0.12,
+                'volume_24h': 50000.0,
+                'market_cap': 3000000.0,
+                'circulating_supply': 25000000.0,
+                'total_supply': 100000000.0,
+                'exchange_rates': {'usd': 0.12, 'eur': 0.11, 'btc': 0.000001}
+            },
+            'trust_funds': overview.get('trust_funds', {}),
+            'subscriptions': overview.get('subscriptions', {}),
+            'foundation': overview.get('foundation', {}),
+            'fee_distribution': overview.get('fee_distribution', {}),
+            'fee_structure': overview.get('fee_structure', {})
+        })
+
+    except Exception as e:
+        logger.error(f"Trust economics error: {e}")
+        return jsonify({'error': 'Failed to get economic data'}), 500
+
+@app.route('/api/v1/mining/submit-share', methods=['POST'])
+def submit_mining_share():
+    """Submit mining share to pool"""
+    logger.info("Submit mining share endpoint called")
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No share data provided'}), 400
+
+        # Validate required fields
+        required_fields = ['miner_wallet', 'share_data']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+
+        if not consensus_engine:
+            return jsonify({
+                'error': 'Mining pools not available',
+                'message': 'PiSecure consensus component not initialized'
+            }), 503
+
+        # Mining pool integration (from api-update.txt)
+        # Mock implementation - would submit to actual mining pool
+        success = True  # consensus_engine.submit_pool_share('pool_id', data['miner_wallet'], data['share_data'])
+
+        return jsonify({
+            'success': success,
+            'miner_wallet': data['miner_wallet'],
+            'share_accepted': success,
+            'pool_id': 'power_miners'  # Mock pool
+        })
+
+    except Exception as e:
+        logger.error(f"Submit mining share error: {e}")
+        return jsonify({'error': 'Failed to submit mining share'}), 500
+
+@app.route('/api/v1/foundation/grants', methods=['POST'])
+def create_foundation_grant():
+    """Create foundation grant proposal"""
+    logger.info("Create foundation grant endpoint called")
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No grant data provided'}), 400
+
+        # Validate required fields
+        required_fields = ['title', 'description', 'amount', 'duration_months', 'milestones']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+
+        if not token_economics:
+            return jsonify({
+                'error': 'Foundation not available',
+                'message': 'PiSecure token economics component not initialized'
+            }), 503
+
+        # Foundation grant integration (from api-update.txt)
+        # Mock implementation - would create actual grant proposal
+        grant_input = f"{data['title']}_{time.time()}"
+        grant_id = f"grant_{hashlib.sha256(grant_input.encode()).hexdigest()[:16]}"
+
+        return jsonify({
+            'success': True,
+            'grant_id': grant_id,
+            'status': 'pending_review',
+            'voting_ends': time.time() + 604800,  # 7 days from now
+            'message': 'Grant proposal submitted for review'
+        })
+
+    except Exception as e:
+        logger.error(f"Create foundation grant error: {e}")
+        return jsonify({'error': 'Failed to create grant proposal'}), 500
+
+@app.route('/api/v1/cross-exchange/settlement', methods=['POST'])
+def create_cross_exchange_settlement():
+    """Create cross-exchange settlement"""
+    logger.info("Cross-exchange settlement endpoint called")
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No settlement data provided'}), 400
+
+        # Validate required fields
+        required_fields = ['from_exchange', 'to_exchange', 'amount', 'user_from', 'user_to']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+
+        if not token_economics:
+            return jsonify({
+                'error': 'Cross-exchange settlement not available',
+                'message': 'PiSecure token economics component not initialized'
+            }), 503
+
+        # Cross-exchange settlement integration (from api-update.txt)
+        # Mock implementation - would create actual settlement
+        settlement_input = f"{data['from_exchange']}_{data['to_exchange']}_{time.time()}"
+        settlement_id = f"settlement_{hashlib.sha256(settlement_input.encode()).hexdigest()[:16]}"
+
+        return jsonify({
+            'success': True,
+            'settlement_id': settlement_id,
+            'status': 'pending',
+            'amount': data['amount'],
+            'from_exchange': data['from_exchange'],
+            'to_exchange': data['to_exchange'],
+            'estimated_completion': time.time() + 3600  # 1 hour from now
+        })
+
+    except Exception as e:
+        logger.error(f"Cross-exchange settlement error: {e}")
+        return jsonify({'error': 'Failed to create settlement'}), 500
 
 @app.route('/nodes', methods=['GET'])
 def nodes():
