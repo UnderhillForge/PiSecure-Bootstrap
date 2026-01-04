@@ -1,87 +1,83 @@
 # PiSecure Bootstrap Node
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/UnderhillForge/PiSecure-Bootstrap)
+A lightweight Flask-based bootstrap node for the PiSecure P2P network, deployed on Railway.
 
-A lightweight bootstrap node for the PiSecure decentralized blockchain network. Provides essential P2P discovery services for new nodes joining the network.
+## 🚀 Current Status
 
-## 🚀 Quick Deploy
-
-### Railway (Recommended)
-1. Click the "Deploy on Railway" button above
-2. Connect your GitHub account
-3. Deploy automatically
-4. Add custom domain (optional)
-
-### Docker
-```bash
-docker run -p 3142:3142 ghcr.io/underhillforge/pisecure-bootstrap:latest
-```
-
-### Manual
-```bash
-git clone https://github.com/UnderhillForge/PiSecure-Bootstrap.git
-cd PiSecure-Bootstrap
-pip install -r requirements.txt
-python bootstrap/server.py
-```
+**✅ Successfully Deployed on Railway**
+- Domain: `bootstrap.pisecure.org`
+- Railway Service: Active and running
+- Builder: Metal (optimized for performance)
 
 ## 📋 Features
 
-- **Peer Discovery**: Serve initial peer lists for new nodes
-- **Network Statistics**: Public network health and metrics
-- **Node Registration**: Allow nodes to register for enhanced discovery
-- **Heartbeat Monitoring**: Track active network participants
-- **API Documentation**: Auto-generated OpenAPI documentation
+- **Peer Discovery**: Provides initial peer lists for new nodes joining the network
+- **Node Registration**: Allows nodes to register themselves for enhanced discovery
+- **Network Statistics**: Public dashboard showing network health and metrics
+- **Health Monitoring**: Multiple health check endpoints for Railway monitoring
+- **DNS Testing**: Hello World page to verify domain routing
 
-## 🌐 API Endpoints
+## 🔗 API Endpoints
 
-### Bootstrap
-- `GET /api/v1/bootstrap/peers` - Get initial peer list
-- `GET /api/v1/network/stats` - Network statistics and health
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Root health check (Railway monitoring) |
+| `/health` | GET | Health check endpoint |
+| `/api/v1/health` | GET | API health check with details |
+| `/api/v1/bootstrap/peers` | GET | Get initial peer list |
+| `/api/v1/network/stats` | GET | Network statistics and health |
+| `/api/v1/nodes/register` | POST | Register a new node |
+| `/api/v1/nodes/heartbeat` | POST | Send node heartbeat |
+| `/hello` | GET | Hello World page for DNS testing |
+| `/api/v1/docs` | GET | API documentation |
 
-### Node Management
-- `POST /api/v1/nodes/register` - Register node for discovery
-- `POST /api/v1/nodes/heartbeat` - Send node heartbeat
+## 🛠️ Development
 
-### System
-- `GET /api/v1/health` - Health check
-- `GET /api/v1/docs` - API documentation
+### Prerequisites
+- Python 3.11+
+- Flask
+- Railway account (for deployment)
 
-## ⚙️ Configuration
+### Local Development
+```bash
+# Install dependencies
+pip install -r requirements.txt
 
-Environment variables:
-- `BOOTSTRAP_PEERS` - Comma-separated list of known bootstrap nodes
-- `RATE_LIMIT` - API rate limit (default: "100 per minute")
-- `FLASK_ENV` - Flask environment (production/development)
-
-## 🏗️ Architecture
-
+# Run locally
+python bootstrap/server.py
 ```
-PiSecure-Bootstrap/
-├── bootstrap/          # Core bootstrap code
-│   ├── server.py      # Flask API server
-│   ├── config.py      # Configuration management
-│   └── utils.py       # Helper utilities
-├── tests/             # Test suite
-├── Dockerfile         # Container definition
-├── railway.json       # Railway deployment config
-├── requirements.txt   # Python dependencies
-└── README.md          # This file
-```
+
+### Railway Deployment
+- Uses Railway Metal builder for optimal performance
+- Automatically binds to port 8080 (Railway Metal requirement)
+- Health checks configured for `/health` endpoint
+- Domain configured: `bootstrap.pisecure.org`
+
+## 🔧 Configuration
+
+### Environment Variables
+- `FLASK_ENV`: Set to `production` on Railway
+- `RATE_LIMIT`: API rate limiting (default: 100/minute)
+- `BOOTSTRAP_PEERS`: Initial peer list configuration
+
+### Railway Configuration
+- **Builder**: Metal (for performance)
+- **Start Command**: `python bootstrap/server.py`
+- **Health Check**: `/health`
+- **Port**: 8080 (automatic)
+
+## 📊 Monitoring
+
+The bootstrap node provides comprehensive monitoring:
+- Railway health checks every 30 seconds
+- Real-time network statistics
+- Node registration tracking
+- Peer discovery metrics
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Submit a pull request
+This bootstrap node serves as the entry point for the PiSecure network. New nodes connect here first to discover other peers in the network.
 
 ## 📄 License
 
-MIT License - see [PiSecure main repository](https://github.com/UnderhillForge/PiSecure) for details.
-
-## 🔗 Links
-
-- [PiSecure Main Repository](https://github.com/UnderhillForge/PiSecure)
-- [Documentation](https://docs.pisecure.net)
-- [Community](https://discord.gg/pisecure)
+[License information here]
