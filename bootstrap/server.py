@@ -407,45 +407,6 @@ def run_server():
     server.run(debug=args.debug)
 
 
-# Create WSGI application for Gunicorn
-def create_app():
-    """Create and configure the Flask application for WSGI servers."""
-    # For Gunicorn/workers, create a single Flask app without BootstrapNode instances
-    # Read port from environment (Railway sets PORT)
-    port = int(os.environ.get('PORT', '3142'))
-
-    # Initialize Flask app directly
-    app = Flask(__name__)
-    CORS(app)
-
-    # Rate limiting (temporary - in production should use Redis)
-    rate_limit = os.getenv('RATE_LIMIT', '100 per minute')
-    limiter = Limiter(
-        get_remote_address,
-        app=app,
-        default_limits=[rate_limit]
-    )
-
-    # Bootstrap configuration
-    api_version = "v1"
-    start_time = time.time()
-
-    # Node registry (in production, use a database)
-    registered_nodes = {}
-
-    # Known bootstrap peers (configurable)
-    bootstrap_peers_env = os.getenv('BOOTSTRAP_PEERS', '')
-    bootstrap_peers = _parse_bootstrap_peers_static(bootstrap_peers_env)
-
-    # Setup routes
-    _setup_routes_static(app, api_version, start_time, registered_nodes, bootstrap_peers, port, limiter)
-
-    logger.info(f"PiSecure Bootstrap Node Flask app created for port {port}")
-    return app
-
-# Global WSGI application object (created once)
-app = create_app()
-
 def _parse_bootstrap_peers_static(peers_str: str) -> List[Dict[str, Any]]:
     """Static version of bootstrap peer parsing."""
     if not peers_str:
@@ -739,6 +700,45 @@ def _count_active_nodes_static(registered_nodes):
         1 for node in registered_nodes.values()
         if current_time - node.get('last_seen', 0) < 3600
     )
+
+# Create WSGI application for Gunicorn
+def create_app():
+    """Create and configure the Flask application for WSGI servers."""
+    # For Gunicorn/workers, create a single Flask app without BootstrapNode instances
+    # Read port from environment (Railway sets PORT)
+    port = int(os.environ.get('PORT', '3142'))
+
+    # Initialize Flask app directly
+    app = Flask(__name__)
+    CORS(app)
+
+    # Rate limiting (temporary - in production should use Redis)
+    rate_limit = os.getenv('RATE_LIMIT', '100 per minute')
+    limiter = Limiter(
+        get_remote_address,
+        app=app,
+        default_limits=[rate_limit]
+    )
+
+    # Bootstrap configuration
+    api_version = "v1"
+    start_time = time.time()
+
+    # Node registry (in production, use a database)
+    registered_nodes = {}
+
+    # Known bootstrap peers (configurable)
+    bootstrap_peers_env = os.getenv('BOOTSTRAP_PEERS', '')
+    bootstrap_peers = _parse_bootstrap_peers_static(bootstrap_peers_env)
+
+    # Setup routes
+    _setup_routes_static(app, api_version, start_time, registered_nodes, bootstrap_peers, port, limiter)
+
+    logger.info(f"PiSecure Bootstrap Node Flask app created for port {port}")
+    return app
+
+# Global WSGI application object (created once)
+app = create_app()
 
 if __name__ == '__main__':
     run_server()
