@@ -876,124 +876,110 @@
 
         // Update functions
         function updateNetworkOverview(data) {
-            document.getElementById('totalNodes').textContent = data.network_health?.total_registered_nodes || '--';
-            document.getElementById('activeNodes').textContent = data.network_health?.active_nodes || '--';
-            document.getElementById('networkHashrate').textContent = `${data.network_health?.estimated_hashrate || '--'} MH/s`;
-            document.getElementById('blockHeight').textContent = data.protocol_info?.blocks || '--';
-            document.getElementById('avgBlockTime').textContent = `${data.network_health?.avg_block_time || '--'}s`;
-            document.getElementById('networkStatus').textContent = data.network_health?.health_score > 80 ? 'Healthy' : 'Warning';
+            // Use real registered node data for total/active counts
+            const totalRegistered = data.total_registered_nodes || 0;
+            const activeNodes = data.nodes?.filter(node => node.status === 'active').length || 0;
+
+            document.getElementById('totalNodes').textContent = totalRegistered;
+            document.getElementById('activeNodes').textContent = activeNodes;
+            document.getElementById('networkHashrate').textContent = '-- MH/s'; // Will be updated from mining data
+            document.getElementById('blockHeight').textContent = '--'; // No blockchain data yet
+            document.getElementById('avgBlockTime').textContent = '--s'; // No blockchain data yet
+            document.getElementById('networkStatus').textContent = totalRegistered > 0 ? 'Active' : 'Initializing';
         }
 
         function updateNetworkHealth(data) {
             const health = data.network_health || {};
-            document.getElementById('healthStatus').textContent = health.health_score > 80 ? 'Excellent' : 'Warning';
-            document.getElementById('avgLatency').textContent = '45ms'; // Mock for now
-            document.getElementById('packetLoss').textContent = '0.01%'; // Mock for now
-            document.getElementById('syncStatus').textContent = 'Fully Synced';
-            document.getElementById('mempoolSize').textContent = health.mempool_size || '--';
-            document.getElementById('pendingTransactions').textContent = health.pending_transactions || '--';
+            const overallHealth = data.overall_health || 0;
+
+            document.getElementById('healthStatus').textContent = overallHealth > 80 ? 'Excellent' :
+                overallHealth > 60 ? 'Good' : overallHealth > 40 ? 'Fair' : 'Poor';
+
+            // Use real intelligence data
+            const latency = health.avg_latency_ms || 'N/A';
+            document.getElementById('avgLatency').textContent = latency !== 'N/A' ? `${latency}ms` : '--ms';
+
+            document.getElementById('packetLoss').textContent = '--%'; // Not available in current API
+            document.getElementById('syncStatus').textContent = 'Active'; // Bootstrap is running
+            document.getElementById('mempoolSize').textContent = '--'; // Not available in current API
+            document.getElementById('pendingTransactions').textContent = '--'; // Not available in current API
         }
 
         function updateMiningStats(data) {
-            const mining = data.mining_stats || {};
-            document.getElementById('activeMiners').textContent = mining.active_miners || '--';
-            document.getElementById('totalHashrate').textContent = `${mining.total_mining_hashrate || '--'} MH/s`;
-            document.getElementById('blocksLastHour').textContent = mining.blocks_last_hour || '--';
-            document.getElementById('avgBlocksPerHour').textContent = mining.avg_blocks_per_hour || '--';
-            document.getElementById('topMiners').textContent = mining.mining_nodes?.length || '--';
+            // Get mining data from intelligence insights
+            const insights = data.performance_insights || {};
+
+            document.getElementById('activeMiners').textContent = '--'; // Will be calculated from registered nodes
+            document.getElementById('totalHashrate').textContent = '-- MH/s'; // No real mining data yet
+            document.getElementById('blocksLastHour').textContent = '--'; // No blockchain data yet
+            document.getElementById('avgBlocksPerHour').textContent = '--'; // No blockchain data yet
+            document.getElementById('topMiners').textContent = '--'; // No mining data yet
         }
 
         function updateProtocolInfo(data) {
-            document.getElementById('protocolVersion').textContent = data.network_health?.protocol_version || '1.0';
-            document.getElementById('networkId').textContent = data.network_health?.network_type || 'pisecure-mainnet';
-            document.getElementById('consensus').textContent = 'PoW + PoS hybrid';
-            document.getElementById('blockTimeTarget').textContent = '12 seconds';
-            document.getElementById('maxBlockSize').textContent = '4 MB';
-            document.getElementById('circulatingSupply').textContent = data.circulating_supply || '--';
+            document.getElementById('protocolVersion').textContent = '1.0.0';
+            document.getElementById('networkId').textContent = 'pisecure-mainnet';
+            document.getElementById('consensus').textContent = 'PoW + Intelligence';
+            document.getElementById('blockTimeTarget').textContent = 'Variable';
+            document.getElementById('maxBlockSize').textContent = 'Dynamic';
+            document.getElementById('circulatingSupply').textContent = '0'; // Pre-mining phase
         }
 
         function updateMiningDetails(data) {
-            // Update any additional mining details if needed
-            console.log('Mining status:', data);
+            // Update mining-related data from intelligence
+            console.log('Intelligence data:', data);
         }
 
         function updateBootstrapNodes(data) {
             const content = document.getElementById('bootstrapNodesContent');
-            const nodes = data.secondary_nodes || [];
 
-            if (nodes.length === 0) {
-                content.innerHTML = '<div class="metric"><span class="metric-value status-initializing">No secondary bootstrap nodes registered</span></div>';
-                return;
-            }
-
-            let html = '';
-            nodes.slice(0, 3).forEach(node => { // Show top 3
-                html += `
+            // Show primary bootstrap info
+            const primaryNode = data.primary_node;
+            if (primaryNode) {
+                content.innerHTML = `
                     <div class="metric">
-                        <span class="metric-label">${node.node_id}</span>
-                        <span class="metric-value status-healthy">${node.status}</span>
+                        <span class="metric-label">${primaryNode.name || primaryNode.node_id}</span>
+                        <span class="metric-value status-healthy">${primaryNode.status || 'active'}</span>
                     </div>
                     <div class="metric">
-                        <span class="metric-label">Region</span>
-                        <span class="metric-value">${node.region}</span>
+                        <span class="metric-label">Role</span>
+                        <span class="metric-value">${primaryNode.role || 'primary'}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Operator</span>
+                        <span class="metric-value">${primaryNode.operator || 'PiSecure Foundation'}</span>
                     </div>
                 `;
-            });
 
-            if (nodes.length > 3) {
-                html += `<div class="metric"><span class="metric-value">... and ${nodes.length - 3} more</span></div>`;
+                // Add secondary nodes count if available
+                const secondaryCount = data.secondary_nodes?.length || 0;
+                if (secondaryCount > 0) {
+                    content.innerHTML += `
+                        <div class="metric">
+                            <span class="metric-label">Secondary Nodes</span>
+                            <span class="metric-value">${secondaryCount}</span>
+                        </div>
+                    `;
+                }
+            } else {
+                content.innerHTML = '<div class="metric"><span class="metric-value status-initializing">Loading bootstrap nodes...</span></div>';
             }
-
-            content.innerHTML = html;
         }
 
         function updateRecentBlocks(data) {
             const tbody = document.getElementById('blocksTableBody');
-            const latestBlock = data.latest_block;
 
-            if (!latestBlock) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #888;">No block data available</td></tr>';
-                return;
-            }
-
-            // Create a few mock recent blocks based on the latest
-            const blocks = [];
-            for (let i = 0; i < 5; i++) {
-                blocks.push({
-                    height: latestBlock.index - i,
-                    hash: `${latestBlock.hash.substring(0, 16)}...${i}`,
-                    miner: i === 0 ? latestBlock.miner : `miner-${i}`,
-                    transactions: i === 0 ? latestBlock.transactions : Math.floor(Math.random() * 10) + 1,
-                    reward: '50 PISC'
-                });
-            }
-
-            let html = '';
-            blocks.forEach(block => {
-                html += `
-                    <tr>
-                        <td>${block.height}</td>
-                        <td class="hash-cell">${block.hash}</td>
-                        <td>${block.miner}</td>
-                        <td>${block.transactions}</td>
-                        <td>${block.reward}</td>
-                    </tr>
-                `;
-            });
-
-            tbody.innerHTML = html;
+            // Since we don't have real blockchain data yet, show placeholder
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #888;">Blockchain not yet initialized - waiting for mining to start</td></tr>';
         }
 
         function updateRegisteredNodes(data) {
-            // Update the total nodes count in the network overview
+            // This function is called for logging purposes - the actual display updates
+            // are handled by updateNetworkOverview which receives the same data
             const totalRegistered = data.total_registered_nodes || 0;
             const activeNodes = data.nodes?.filter(node => node.status === 'active').length || 0;
 
-            // Update the network overview card
-            document.getElementById('totalNodes').textContent = totalRegistered;
-            document.getElementById('activeNodes').textContent = activeNodes;
-
-            console.log(`✅ Updated registered nodes: ${totalRegistered} total, ${activeNodes} active`);
+            console.log(`✅ Registered nodes data: ${totalRegistered} total, ${activeNodes} active`);
         }
 
         // Main update function
