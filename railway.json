@@ -1,0 +1,27 @@
+{
+  "build": {
+    "builder": "python",
+    "buildCommand": "pip install -r requirements.txt"
+  },
+  "deploy": {
+    "startCommand": "python bootstrap/server.py",
+    "healthcheckPath": "/api/v1/health",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  },
+  "environments": {
+    "production": {
+      "variables": {
+        "FLASK_ENV": "production",
+        "RATE_LIMIT": "1000 per minute",
+        "BOOTSTRAP_PEERS": "bootstrap.pisecure.net:3142"
+      }
+    },
+    "development": {
+      "variables": {
+        "FLASK_ENV": "development",
+        "RATE_LIMIT": "100 per minute"
+      }
+    }
+  }
+}
