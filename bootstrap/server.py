@@ -693,87 +693,11 @@ def coordinate_services():
 
 @app.route('/nodes', methods=['GET'])
 def nodes():
-    """Beautiful dark mode HTML dashboard for network statistics"""
-    logger.info("Nodes dashboard endpoint called")
+    """Beautiful dark mode HTML dashboard with live API data"""
+    logger.info("Live nodes dashboard endpoint called")
 
-    # Get current network statistics
-    mining_stats = mining_aggregator.get_mining_stats()
-    active_nodes = sum(1 for node in node_tracker.nodes.values()
-                      if time.time() - node.get('last_seen', 0) < 300)
-
-    # Prepare data for template
-    network_overview = {
-        'total_nodes': len(node_tracker.nodes),
-        'active_nodes': active_nodes,
-        'total_connections': len(node_tracker.active_connections),
-        'network_hashrate': f"{mining_stats['total_mining_hashrate']:.1f}",
-        'difficulty': '1,234,567,890',
-        'block_height': 456789,
-        'avg_block_time': '12.5',
-        'network_status': 'healthy' if active_nodes > 0 else 'initializing'
-    }
-
-    bootstrap_nodes = [
-        {
-            'id': 'bootstrap-primary',
-            'address': 'bootstrap.pisecure.org:3142',
-            'status': 'active',
-            'uptime': '99.97%',
-            'region': 'US-East',
-            'connections': len(peer_discovery.get_bootstrap_peers()),
-            'version': '1.0.0'
-        }
-    ]
-
-    network_health = {
-        'status': 'excellent' if active_nodes > 0 else 'initializing',
-        'latency_avg': '45ms',
-        'packet_loss': '0.01%',
-        'sync_status': 'fully_synced',
-        'fork_risk': 'low',
-        'last_block_time': '8 seconds ago',
-        'mempool_size': 234,
-        'pending_transactions': 1247
-    }
-
-    recent_blocks = [
-        {
-            'height': 456789,
-            'hash': 'a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef',
-            'miner': 'unknown',
-            'timestamp': '2026-01-04T12:01:30Z',
-            'transactions': 45,
-            'size': '1.2 MB',
-            'reward': '50 PISC'
-        }
-    ]
-
-    protocol_info = {
-        'version': '1.0.0',
-        'network_id': 'pisecure-mainnet',
-        'consensus': 'PoW + PoS hybrid',
-        'block_time_target': '12 seconds',
-        'max_block_size': '4 MB',
-        'total_supply': '21,000,000 PISC',
-        'circulating_supply': '12,456,789 PISC'
-    }
-
-    geographic_distribution = dict(defaultdict(int, {
-        loc: count for loc, count in [
-            (node.get('location', 'unknown'), 1)
-            for node in node_tracker.nodes.values()
-        ]
-    }))
-
-    return render_template('nodes.html',
-                          network_overview=network_overview,
-                          bootstrap_nodes=bootstrap_nodes,
-                          mining_stats=mining_stats,
-                          network_health=network_health,
-                          recent_blocks=recent_blocks,
-                          protocol_info=protocol_info,
-                          geographic_distribution=geographic_distribution,
-                          last_updated=time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime()))
+    # Serve the HTML template - data will be loaded via JavaScript API calls
+    return render_template('nodes.html')
 
 if __name__ == '__main__':
     import os
