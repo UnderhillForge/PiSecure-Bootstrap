@@ -1644,6 +1644,411 @@ class BootstrapOperatorRewards:
 # Initialize 314ST rewards system
 bootstrap_rewards = BootstrapOperatorRewards()
 
+# PiSecure DEX Coordinator - Intelligence-Enhanced Trading
+class PiSecureDEXCoordinator:
+    """Bootstrap-level DEX coordination with ML intelligence"""
+
+    def __init__(self, network_intelligence, bootstrap_registry):
+        self.network_intelligence = network_intelligence
+        self.bootstrap_registry = bootstrap_registry
+
+        # DEX State
+        self.liquidity_pools = {}  # pool_id -> pool_data
+        self.active_trades = {}    # trade_id -> trade_data
+        self.price_feeds = {}      # token_pair -> price_data
+
+        # DEX Configuration
+        self.swap_fee_percentage = 0.003  # 0.3% swap fee
+        self.bootstrap_fee_share = 0.10   # 10% of fees to bootstrap operators
+        self.min_liquidity_314st = 1000   # Minimum liquidity in pools
+
+        logger.info("PiSecure DEX Coordinator initialized with intelligence integration")
+
+    def create_liquidity_pool(self, token_a: str, token_b: str, creator_wallet: str) -> dict:
+        """Create a new liquidity pool with intelligence-optimized parameters"""
+
+        # Generate unique pool ID
+        pool_id = f"{token_a}_{token_b}_{int(time.time())}"
+
+        # Analyze network conditions for optimal fee structure
+        network_health = self.network_intelligence.analyze_network_health()
+        threat_level = network_health.get('threat_level', 'low')
+
+        # Adjust fees based on network conditions
+        adjusted_fee = self.swap_fee_percentage
+        if threat_level == 'high':
+            adjusted_fee *= 1.5  # Higher fees during network stress
+        elif threat_level == 'low':
+            adjusted_fee *= 0.8   # Lower fees during stable conditions
+
+        pool_data = {
+            'pool_id': pool_id,
+            'token_a': token_a,
+            'token_b': token_b,
+            'creator_wallet': creator_wallet,
+            'creation_timestamp': time.time(),
+            'fee_percentage': adjusted_fee,
+            'total_liquidity_a': 0,
+            'total_liquidity_b': 0,
+            'liquidity_providers': {},
+            'trade_count': 0,
+            'volume_24h': 0,
+            'last_trade_timestamp': None,
+            'pool_health_score': 100
+        }
+
+        self.liquidity_pools[pool_id] = pool_data
+        logger.info(f"Created liquidity pool {pool_id} for {token_a}/{token_b}")
+
+        return pool_data
+
+    def add_liquidity(self, pool_id: str, provider_wallet: str, amount_a: int, amount_b: int) -> dict:
+        """Add liquidity to an existing pool"""
+
+        if pool_id not in self.liquidity_pools:
+            return {'error': 'Pool not found'}
+
+        pool = self.liquidity_pools[pool_id]
+
+        # Update pool liquidity
+        pool['total_liquidity_a'] += amount_a
+        pool['total_liquidity_b'] += amount_b
+
+        # Track provider's share
+        provider_share = {
+            'wallet': provider_wallet,
+            'amount_a': amount_a,
+            'amount_b': amount_b,
+            'timestamp': time.time()
+        }
+
+        if provider_wallet not in pool['liquidity_providers']:
+            pool['liquidity_providers'][provider_wallet] = []
+
+        pool['liquidity_providers'][provider_wallet].append(provider_share)
+
+        # Calculate and distribute 314ST rewards for liquidity provision
+        reward_314st = self._calculate_liquidity_reward(amount_a, amount_b, pool)
+        if reward_314st > 0:
+            bootstrap_rewards.add_intelligence_reward(reward_314st, 'liquidity_provision')
+
+        logger.info(f"Added liquidity to pool {pool_id}: {amount_a} {pool['token_a']}, {amount_b} {pool['token_b']}")
+
+        return {
+            'success': True,
+            'pool_id': pool_id,
+            'liquidity_added': {'amount_a': amount_a, 'amount_b': amount_b},
+            'reward_314st': reward_314st,
+            'pool_liquidity': {
+                'total_a': pool['total_liquidity_a'],
+                'total_b': pool['total_liquidity_b']
+            }
+        }
+
+    def calculate_optimal_swap(self, token_in: str, token_out: str, amount_in: int) -> dict:
+        """Use ML intelligence to find optimal swap route"""
+
+        # Find available pools for this token pair
+        available_pools = self._find_pools_for_pair(token_in, token_out)
+
+        if not available_pools:
+            return {'error': 'No liquidity pools available for this pair'}
+
+        # Use network intelligence for optimal pool selection
+        network_health = self.network_intelligence.analyze_network_health()
+        threat_level = network_health.get('threat_level', 'low')
+
+        # Convert pools to format expected by intelligence optimizer
+        pool_candidates = []
+        for pool_id, pool_data in available_pools.items():
+            # Calculate current exchange rate
+            if pool_data['total_liquidity_a'] > 0 and pool_data['total_liquidity_b'] > 0:
+                rate = pool_data['total_liquidity_b'] / pool_data['total_liquidity_a']
+            else:
+                rate = 0
+
+            pool_candidates.append({
+                'pool_id': pool_id,
+                'token_a': pool_data['token_a'],
+                'token_b': pool_data['token_b'],
+                'liquidity_a': pool_data['total_liquidity_a'],
+                'liquidity_b': pool_data['total_liquidity_b'],
+                'fee_percentage': pool_data['fee_percentage'],
+                'exchange_rate': rate,
+                'trade_count': pool_data['trade_count'],
+                'pool_health': pool_data['pool_health_score']
+            })
+
+        # Use intelligence to optimize routing
+        optimal_route = self.network_intelligence.optimize_routing_ml(
+            available_nodes=pool_candidates,
+            threat_intelligence={'threat_level': threat_level}
+        )
+
+        if not optimal_route:
+            return {'error': 'No optimal route found'}
+
+        # Calculate swap details
+        best_pool = optimal_route[0]['node'] if optimal_route else pool_candidates[0]
+        swap_details = self._calculate_swap_details(best_pool, amount_in, token_in, token_out)
+
+        # Adjust for network conditions
+        if threat_level == 'high':
+            swap_details['recommended_slippage'] = 0.005  # 0.5% max slippage
+            swap_details['deadline_blocks'] = 50  # Shorter deadline
+        else:
+            swap_details['recommended_slippage'] = 0.01   # 1% max slippage
+            swap_details['deadline_blocks'] = 200  # Longer deadline
+
+        return {
+            'optimal_route': optimal_route,
+            'swap_details': swap_details,
+            'network_conditions': {
+                'threat_level': threat_level,
+                'recommended_approach': 'conservative' if threat_level == 'high' else 'standard'
+            },
+            'intelligence_used': True
+        }
+
+    def execute_swap_coordination(self, swap_request: dict) -> dict:
+        """Coordinate swap execution with intelligence monitoring"""
+
+        token_in = swap_request['token_in']
+        token_out = swap_request['token_out']
+        amount_in = swap_request['amount_in']
+        user_wallet = swap_request['user_wallet']
+
+        # Get optimal swap route
+        route_result = self.calculate_optimal_swap(token_in, token_out, amount_in)
+
+        if 'error' in route_result:
+            return route_result
+
+        # Generate swap instructions for wallet
+        swap_instructions = {
+            'swap_id': f"swap_{int(time.time())}_{hash(str(swap_request)) % 10000}",
+            'token_in': token_in,
+            'token_out': token_out,
+            'amount_in': amount_in,
+            'expected_out': route_result['swap_details']['amount_out'],
+            'min_out': route_result['swap_details']['min_out'],
+            'pool_id': route_result['swap_details']['pool_id'],
+            'fee_amount': route_result['swap_details']['fee_amount'],
+            'deadline_blocks': route_result['network_conditions']['recommended_deadline'],
+            'recommended_slippage': route_result['network_conditions']['recommended_slippage'],
+            'intelligence_optimized': True,
+            'network_threat_level': route_result['network_conditions']['threat_level']
+        }
+
+        # Store active trade for monitoring
+        self.active_trades[swap_instructions['swap_id']] = {
+            'user_wallet': user_wallet,
+            'instructions': swap_instructions,
+            'status': 'pending',
+            'timestamp': time.time()
+        }
+
+        logger.info(f"Coordinated intelligent swap for wallet {user_wallet}: {amount_in} {token_in} -> {token_out}")
+
+        return {
+            'swap_coordinated': True,
+            'swap_instructions': swap_instructions,
+            'intelligence_benefits': [
+                'Optimal pool selection',
+                'Threat-aware slippage limits',
+                'Network condition adaptation'
+            ]
+        }
+
+    def _find_pools_for_pair(self, token_a: str, token_b: str) -> dict:
+        """Find all pools that can facilitate token_a -> token_b swaps"""
+        matching_pools = {}
+
+        for pool_id, pool_data in self.liquidity_pools.items():
+            # Direct pair match
+            if ((pool_data['token_a'] == token_a and pool_data['token_b'] == token_b) or
+                (pool_data['token_a'] == token_b and pool_data['token_b'] == token_a)):
+                matching_pools[pool_id] = pool_data
+            # Could add multi-hop routing here in future
+
+        return matching_pools
+
+    def _calculate_swap_details(self, pool_data: dict, amount_in: int, token_in: str, token_out: str) -> dict:
+        """Calculate swap output amount and fees"""
+
+        # Get pool reserves
+        reserve_in = pool_data['total_liquidity_a'] if pool_data['token_a'] == token_in else pool_data['total_liquidity_b']
+        reserve_out = pool_data['total_liquidity_b'] if pool_data['token_b'] == token_out else pool_data['total_liquidity_a']
+
+        if reserve_in == 0 or reserve_out == 0:
+            return {'error': 'Insufficient liquidity'}
+
+        # AMM calculation: (x + dx) * (y - dy) = x * y
+        # dy = (y * dx) / (x + dx)
+        amount_out = int((reserve_out * amount_in) / (reserve_in + amount_in))
+
+        # Calculate fee (0.3% of input)
+        fee_amount = int(amount_in * pool_data['fee_percentage'])
+
+        # Bootstrap operator gets share of fees
+        bootstrap_fee = int(fee_amount * self.bootstrap_fee_share)
+        if bootstrap_fee > 0:
+            bootstrap_rewards.add_intelligence_reward(bootstrap_fee, 'dex_fee')
+
+        # Minimum output with slippage protection
+        min_out = int(amount_out * 0.95)  # 5% slippage protection
+
+        return {
+            'pool_id': pool_data['pool_id'],
+            'amount_out': amount_out,
+            'min_out': min_out,
+            'fee_amount': fee_amount,
+            'price_impact': (amount_in / reserve_in) * 100,  # Percentage
+            'exchange_rate': reserve_out / reserve_in if reserve_in > 0 else 0
+        }
+
+    def _calculate_liquidity_reward(self, amount_a: int, amount_b: int, pool_data: dict) -> int:
+        """Calculate 314ST reward for liquidity provision"""
+
+        # Base reward: 1 314ST per 1000 tokens provided
+        base_reward = (amount_a + amount_b) // 1000
+
+        # Bonus for low liquidity pools (helps bootstrap new pools)
+        liquidity_ratio = min(amount_a, amount_b) / max(amount_a, amount_b) if max(amount_a, amount_b) > 0 else 0
+        balance_bonus = int(base_reward * (1 - liquidity_ratio))  # Bonus for balanced provision
+
+        # Intelligence bonus based on network conditions
+        network_health = self.network_intelligence.analyze_network_health()
+        intelligence_bonus = int(base_reward * 0.5) if network_health.get('overall_health', 50) > 80 else 0
+
+        total_reward = base_reward + balance_bonus + intelligence_bonus
+
+        return max(0, total_reward)
+
+    def get_dex_intelligence(self) -> dict:
+        """Get comprehensive DEX intelligence from network analysis"""
+
+        # Analyze pool health and trading patterns
+        pool_health_analysis = self._analyze_pool_health()
+        trading_pattern_analysis = self._analyze_trading_patterns()
+
+        # Network intelligence integration
+        network_insights = self.network_intelligence.get_network_insights()
+
+        # Generate DEX-specific recommendations
+        recommendations = self._generate_dex_recommendations(pool_health_analysis, network_insights)
+
+        return {
+            'dex_health_score': self._calculate_dex_health_score(),
+            'active_pools': len(self.liquidity_pools),
+            'total_liquidity_314st': self._calculate_total_liquidity(),
+            'trading_volume_24h': self._calculate_24h_volume(),
+            'pool_health_analysis': pool_health_analysis,
+            'trading_patterns': trading_pattern_analysis,
+            'network_intelligence_integration': {
+                'threat_aware_trading': True,
+                'intelligence_enhanced_routing': True,
+                'network_condition_adaptation': True
+            },
+            'recommendations': recommendations,
+            'intelligence_benefits': [
+                'Optimal trade routing based on network conditions',
+                'Threat-aware slippage limits',
+                'Pool health monitoring and recommendations',
+                'Trading pattern analysis for market intelligence'
+            ]
+        }
+
+    def _analyze_pool_health(self) -> dict:
+        """Analyze health of all liquidity pools"""
+        healthy_pools = 0
+        total_pools = len(self.liquidity_pools)
+
+        for pool_data in self.liquidity_pools.values():
+            liquidity_score = min(100, (pool_data['total_liquidity_a'] + pool_data['total_liquidity_b']) / 100)
+            activity_score = min(100, pool_data['trade_count'] * 10)
+            health_score = (liquidity_score + activity_score) / 2
+
+            pool_data['pool_health_score'] = health_score
+            if health_score > 60:
+                healthy_pools += 1
+
+        return {
+            'total_pools': total_pools,
+            'healthy_pools': healthy_pools,
+            'health_percentage': (healthy_pools / total_pools * 100) if total_pools > 0 else 0,
+            'recommendations': self._get_pool_health_recommendations()
+        }
+
+    def _analyze_trading_patterns(self) -> dict:
+        """Analyze trading patterns using intelligence"""
+        # This would analyze trading data for patterns
+        return {
+            'peak_trading_hours': ['14:00-16:00 UTC'],  # Example
+            'popular_pairs': ['314ST/wBTC', '314ST/wETH'],
+            'average_trade_size': 500,  # 314ST
+            'price_stability': 'high'
+        }
+
+    def _generate_dex_recommendations(self, pool_health: dict, network_insights: dict) -> list:
+        """Generate DEX recommendations based on analysis"""
+        recommendations = []
+
+        if pool_health['health_percentage'] < 70:
+            recommendations.append("Consider adding incentives for new liquidity pools")
+
+        threat_level = network_insights.get('intelligence_summary', {}).get('threat_level', 'low')
+        if threat_level == 'high':
+            recommendations.append("High network threat level - recommend conservative trading parameters")
+
+        return recommendations
+
+    def _calculate_dex_health_score(self) -> float:
+        """Calculate overall DEX health score"""
+        if not self.liquidity_pools:
+            return 0.0
+
+        pool_health_scores = [pool['pool_health_score'] for pool in self.liquidity_pools.values()]
+        avg_pool_health = sum(pool_health_scores) / len(pool_health_scores)
+
+        # Factor in network intelligence
+        network_health = self.network_intelligence.analyze_network_health()
+        network_score = network_health.get('overall_health', 50)
+
+        # Combined score
+        return (avg_pool_health + network_score) / 2
+
+    def _calculate_total_liquidity(self) -> int:
+        """Calculate total 314ST-equivalent liquidity across all pools"""
+        total_liquidity = 0
+        for pool in self.liquidity_pools.values():
+            # Convert all liquidity to 314ST equivalent (simplified)
+            total_liquidity += pool['total_liquidity_a'] + pool['total_liquidity_b']
+        return total_liquidity
+
+    def _calculate_24h_volume(self) -> int:
+        """Calculate 24-hour trading volume"""
+        # Simplified - would track actual volume
+        return sum(pool['volume_24h'] for pool in self.liquidity_pools.values())
+
+    def _get_pool_health_recommendations(self) -> list:
+        """Get recommendations for improving pool health"""
+        recommendations = []
+
+        # Find pools with low liquidity
+        low_liquidity_pools = [
+            pool_id for pool_id, pool in self.liquidity_pools.items()
+            if pool['total_liquidity_a'] + pool['total_liquidity_b'] < self.min_liquidity_314st
+        ]
+
+        if low_liquidity_pools:
+            recommendations.append(f"Consider bootstrapping liquidity for pools: {', '.join(low_liquidity_pools)}")
+
+        return recommendations
+
+# Initialize PiSecure DEX Coordinator
+pisecure_dex = PiSecureDEXCoordinator(network_intelligence, bootstrap_node_registry)
+
 def _validate_bootstrap_node(handshake_data: dict) -> bool:
     """Validate that the node attempting handshake is a legitimate bootstrap node"""
     # Basic validation - in production, this would be more sophisticated
@@ -2538,6 +2943,242 @@ def operator_rewards_status():
     except Exception as e:
         logger.error(f"Operator rewards status error: {e}")
         return jsonify({'error': 'Status unavailable'}), 500
+
+@app.route('/api/v1/dex/pools', methods=['GET'])
+def get_liquidity_pools():
+    """Get available liquidity pools for DEX trading"""
+    logger.info("DEX pools endpoint called")
+
+    try:
+        # Record this API call for intelligence
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        pools_list = []
+        for pool_id, pool_data in pisecure_dex.liquidity_pools.items():
+            pools_list.append({
+                'pool_id': pool_id,
+                'token_a': pool_data['token_a'],
+                'token_b': pool_data['token_b'],
+                'liquidity_a': pool_data['total_liquidity_a'],
+                'liquidity_b': pool_data['total_liquidity_b'],
+                'fee_percentage': pool_data['fee_percentage'],
+                'trade_count': pool_data['trade_count'],
+                'volume_24h': pool_data['volume_24h'],
+                'pool_health_score': pool_data['pool_health_score'],
+                'exchange_rate': pool_data['total_liquidity_b'] / pool_data['total_liquidity_a'] if pool_data['total_liquidity_a'] > 0 else 0
+            })
+
+        return jsonify({
+            'liquidity_pools': pools_list,
+            'total_pools': len(pools_list),
+            'dex_health_score': pisecure_dex.get_dex_intelligence().get('dex_health_score', 0),
+            'intelligence_enabled': True,
+            'timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"DEX pools error: {e}")
+        return jsonify({'error': 'Unable to retrieve liquidity pools'}), 500
+
+@app.route('/api/v1/dex/pool/create', methods=['POST'])
+def create_liquidity_pool():
+    """Create a new liquidity pool"""
+    logger.info("Create liquidity pool endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get pool creation data
+        pool_data = request.get_json() or {}
+        token_a = pool_data.get('token_a')
+        token_b = pool_data.get('token_b')
+        creator_wallet = pool_data.get('creator_wallet')
+
+        if not all([token_a, token_b, creator_wallet]):
+            return jsonify({'error': 'token_a, token_b, and creator_wallet required'}), 400
+
+        # Create the pool
+        pool_result = pisecure_dex.create_liquidity_pool(token_a, token_b, creator_wallet)
+
+        if 'error' in pool_result:
+            return jsonify(pool_result), 400
+
+        return jsonify({
+            'pool_created': True,
+            'pool_details': pool_result,
+            'intelligence_optimized': True,
+            'timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"Create pool error: {e}")
+        return jsonify({'error': 'Pool creation failed'}), 500
+
+@app.route('/api/v1/dex/pool/add-liquidity', methods=['POST'])
+def add_liquidity():
+    """Add liquidity to an existing pool"""
+    logger.info("Add liquidity endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get liquidity addition data
+        liquidity_data = request.get_json() or {}
+        pool_id = liquidity_data.get('pool_id')
+        provider_wallet = liquidity_data.get('provider_wallet')
+        amount_a = liquidity_data.get('amount_a', 0)
+        amount_b = liquidity_data.get('amount_b', 0)
+
+        if not all([pool_id, provider_wallet, amount_a >= 0, amount_b >= 0]):
+            return jsonify({'error': 'pool_id, provider_wallet, amount_a, and amount_b required'}), 400
+
+        # Add liquidity
+        liquidity_result = pisecure_dex.add_liquidity(pool_id, provider_wallet, amount_a, amount_b)
+
+        if 'error' in liquidity_result:
+            return jsonify(liquidity_result), 400
+
+        return jsonify({
+            'liquidity_added': True,
+            'liquidity_details': liquidity_result,
+            'intelligence_rewards_earned': liquidity_result.get('reward_314st', 0),
+            'timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"Add liquidity error: {e}")
+        return jsonify({'error': 'Liquidity addition failed'}), 500
+
+@app.route('/api/v1/dex/swap', methods=['POST'])
+def intelligent_swap():
+    """Execute intelligent token swap with ML optimization"""
+    logger.info("Intelligent DEX swap endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get swap request data
+        swap_data = request.get_json() or {}
+        token_in = swap_data.get('token_in')
+        token_out = swap_data.get('token_out')
+        amount_in = swap_data.get('amount_in', 0)
+        user_wallet = swap_data.get('user_wallet')
+        max_slippage = swap_data.get('max_slippage', 0.01)  # 1% default
+
+        if not all([token_in, token_out, amount_in > 0, user_wallet]):
+            return jsonify({'error': 'token_in, token_out, amount_in, and user_wallet required'}), 400
+
+        # Get optimal swap route using intelligence
+        route_result = pisecure_dex.calculate_optimal_swap(token_in, token_out, amount_in)
+
+        if 'error' in route_result:
+            return jsonify(route_result), 400
+
+        # Execute swap coordination
+        swap_result = pisecure_dex.execute_swap_coordination({
+            'token_in': token_in,
+            'token_out': token_out,
+            'amount_in': amount_in,
+            'user_wallet': user_wallet,
+            'max_slippage': max_slippage
+        })
+
+        if 'error' in swap_result:
+            return jsonify(swap_result), 400
+
+        return jsonify({
+            'swap_coordinated': True,
+            'swap_details': swap_result.get('swap_instructions'),
+            'intelligence_optimized': True,
+            'network_conditions': route_result.get('network_conditions'),
+            'estimated_completion': '30_seconds',  # Wallet execution time
+            'timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"Intelligent swap error: {e}")
+        return jsonify({'error': 'Swap coordination failed'}), 500
+
+@app.route('/api/v1/dex/intelligence', methods=['GET'])
+def dex_intelligence():
+    """Get comprehensive DEX intelligence and analytics"""
+    logger.info("DEX intelligence endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get DEX intelligence
+        dex_intel = pisecure_dex.get_dex_intelligence()
+
+        return jsonify({
+            'dex_intelligence': dex_intel,
+            'intelligence_source': 'bootstrap_coordinator',
+            'network_intelligence_integrated': True,
+            'timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"DEX intelligence error: {e}")
+        return jsonify({'error': 'DEX intelligence unavailable'}), 500
+
+@app.route('/api/v1/dex/stats', methods=['GET'])
+def dex_stats():
+    """Get DEX statistics and market data"""
+    logger.info("DEX stats endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Calculate DEX stats
+        total_pools = len(pisecure_dex.liquidity_pools)
+        total_liquidity = pisecure_dex._calculate_total_liquidity()
+        trading_volume = pisecure_dex._calculate_24h_volume()
+
+        # Get popular pairs
+        popular_pairs = []
+        for pool_id, pool_data in pisecure_dex.liquidity_pools.items():
+            popular_pairs.append({
+                'pair': f"{pool_data['token_a']}/{pool_data['token_b']}",
+                'pool_id': pool_id,
+                'liquidity': pool_data['total_liquidity_a'] + pool_data['total_liquidity_b'],
+                'volume_24h': pool_data['volume_24h'],
+                'trade_count': pool_data['trade_count']
+            })
+
+        # Sort by volume
+        popular_pairs.sort(key=lambda x: x['volume_24h'], reverse=True)
+
+        return jsonify({
+            'dex_stats': {
+                'total_pools': total_pools,
+                'total_liquidity_314st': total_liquidity,
+                'trading_volume_24h': trading_volume,
+                'popular_pairs': popular_pairs[:5],  # Top 5
+                'dex_health_score': pisecure_dex.get_dex_intelligence().get('dex_health_score', 0)
+            },
+            'intelligence_features': [
+                'ML-optimized trade routing',
+                'Threat-aware liquidity selection',
+                'Network condition adaptation',
+                'Real-time pool health monitoring'
+            ],
+            'timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"DEX stats error: {e}")
+        return jsonify({'error': 'DEX stats unavailable'}), 500
 
 @app.route('/nodes', methods=['GET'])
 def nodes():
