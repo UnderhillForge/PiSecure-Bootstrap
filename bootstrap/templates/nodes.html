@@ -175,6 +175,8 @@
             }
         }
 
+        /* Pulse animation removed per user request */
+        /*
         .pulse {
             animation: pulse 2s infinite;
         }
@@ -184,6 +186,7 @@
             50% { opacity: 0.5; }
             100% { opacity: 1; }
         }
+        */
 
         /* Operator Value Estimation Section */
         .operator-value-section {
@@ -1156,13 +1159,6 @@
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            // Add visual effects
-            const cards = document.querySelectorAll('.card');
-            cards.forEach((card, index) => {
-                card.style.animationDelay = `${index * 0.1}s`;
-                card.classList.add('pulse');
-            });
-
             // Initial data load
             updateAllData();
             fetchOperatorValue();
