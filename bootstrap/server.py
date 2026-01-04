@@ -7,6 +7,7 @@ import logging
 import time
 import hashlib
 import ipaddress
+import json
 from collections import deque, defaultdict
 from flask import Flask, jsonify, request
 from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, Text, DateTime
@@ -27,23 +28,53 @@ SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bi
 # Create minimal Flask app
 app = Flask(__name__)
 
-# Database Models
+# Database Models (matching API specification)
 class Node(Base):
-    __tablename__ = "nodes"
+    __tablename__ = 'nodes'
 
-    node_id = Column(String, primary_key=True, index=True)
-    address = Column(String, nullable=False)
+    id = Column(Integer, primary_key=True)
+    node_id = Column(String(64), unique=True, nullable=False, index=True)
+    address = Column(String(45), nullable=False)
     port = Column(Integer, nullable=False)
-    capabilities = Column(Text)  # JSON array
-    hashrate = Column(Float, default=0)
-    location = Column(String)
+    capabilities = Column(Text, default='[]')
+    hashrate = Column(Float, default=0.0)
+    location = Column(String(50), default='unknown')
+    country_code = Column(String(2))
+    region = Column(String(50))
+    city = Column(String(50))
+    latitude = Column(Float)
+    longitude = Column(Float)
     is_mining = Column(Boolean, default=False)
-    registered_at = Column(Float)
-    last_seen = Column(Float)
-    first_seen = Column(Float)
-    version = Column(String)
+    registered_at = Column(Float, default=lambda: time.time())
+    last_seen = Column(Float, default=lambda: time.time())
+    first_seen = Column(Float, default=lambda: time.time())
+    version = Column(String(20), default='unknown')
     blocks_mined = Column(Integer, default=0)
-    uptime_percentage = Column(Float, default=0)
+    uptime_percentage = Column(Float, default=0.0)
+    total_connections = Column(Integer, default=0)
+
+    def to_dict(self):
+        return {
+            'node_id': self.node_id,
+            'address': self.address,
+            'port': self.port,
+            'capabilities': json.loads(self.capabilities) if self.capabilities else [],
+            'hashrate': self.hashrate,
+            'location': self.location,
+            'country_code': self.country_code,
+            'region': self.region,
+            'city': self.city,
+            'latitude': self.latitude,
+            'longitude': self.longitude,
+            'is_mining': self.is_mining,
+            'registered_at': self.registered_at,
+            'last_seen': self.last_seen,
+            'first_seen': self.first_seen,
+            'version': self.version,
+            'blocks_mined': self.blocks_mined,
+            'uptime_percentage': self.uptime_percentage,
+            'total_connections': self.total_connections
+        }
 
 class GeoCache(Base):
     __tablename__ = "geo_cache"
@@ -97,7 +128,9 @@ class NodeTracker:
         # Save to database
         db = SessionLocal()
         try:
-            db_node = Node(**self.nodes[node_id])
+            node_data = self.nodes[node_id].copy()
+            node_data['capabilities'] = json.dumps(node_data['capabilities'])  # Convert list to JSON string
+            db_node = Node(**node_data)
             db.merge(db_node)
             db.commit()
         except Exception as e:
@@ -323,7 +356,13 @@ def root_health():
 @app.route('/health', methods=['GET'])
 def health():
     logger.info("Health check called")
-    return jsonify({'status': 'healthy', 'service': 'bootstrap'})
+    return jsonify({
+        "status": "healthy",
+        "timestamp": time.time(),
+        "uptime": int(time.time() - time.time()),  # Would track actual server start time
+        "version": "1.0.0",
+        "service": "bootstrap"
+    })
 
 @app.route('/api/v1/health', methods=['GET'])
 def api_health():
@@ -411,10 +450,15 @@ def register_node():
         # Register the node
         node_tracker.register_node(node_data)
 
+        # Get bootstrap peers count
+        bootstrap_peers_count = len(peer_discovery.get_bootstrap_peers())
+
         return jsonify({
-            'status': 'registered',
+            'success': True,
             'node_id': node_data['node_id'],
-            'message': 'Node registered successfully'
+            'registered_at': time.time(),
+            'location': node_data.get('location', 'unknown'),
+            'bootstrap_peers': bootstrap_peers_count
         })
 
     except Exception as e:
@@ -454,11 +498,31 @@ def bootstrap_peers():
 
     try:
         peers = peer_discovery.get_bootstrap_peers()
-        return jsonify({
-            'peers': peers,
-            'count': len(peers),
-            'timestamp': time.time()
-        })
+        current_time = time.time()
+
+        # Count active nodes
+        active_nodes = sum(1 for node in node_tracker.nodes.values()
+                          if time.time() - node.get('last_seen', 0) < 300)
+
+        response = {
+            "peers": peers,
+            "bootstrap_node": {
+                "host": "bootstrap.pisecure.org",
+                "port": 3142,
+                "node_id": "bootstrap_xyz",
+                "capabilities": ["bootstrap", "api", "p2p_sync"]
+            },
+            "network_info": {
+                "total_nodes": len(node_tracker.nodes),
+                "active_nodes": active_nodes,
+                "protocol_version": "1.0",
+                "features": ["p2p_sync", "mining_teams", "hardware_verification"]
+            },
+            "last_updated": current_time,
+            "ttl": 300
+        }
+
+        return jsonify(response)
 
     except Exception as e:
         logger.error(f"Bootstrap peers error: {e}")
