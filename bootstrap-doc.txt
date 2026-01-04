@@ -482,6 +482,204 @@ BOOTSTRAP_DAILY_BUDGET=1000
 - Quality-based intelligence contribution bonuses
 - Geographic diversity bonus rewards
 
+### 10. PiSecure DEX (Decentralized Exchange)
+**Bootstrap-level DEX coordination with ML intelligence for optimal trading**
+
+#### DEX Coordination APIs
+
+##### `GET /api/v1/dex/pools`
+**Get available liquidity pools for DEX trading**
+
+**Response:**
+```json
+{
+  "liquidity_pools": [
+    {
+      "pool_id": "314ST_wBTC_1704379200",
+      "token_a": "314ST",
+      "token_b": "wBTC",
+      "liquidity_a": 50000,
+      "liquidity_b": 25,
+      "fee_percentage": 0.003,
+      "trade_count": 150,
+      "volume_24h": 5000,
+      "pool_health_score": 85,
+      "exchange_rate": 0.0005
+    }
+  ],
+  "total_pools": 3,
+  "dex_health_score": 87,
+  "intelligence_enabled": true,
+  "timestamp": 1704379200.0
+}
+```
+
+##### `POST /api/v1/dex/pool/create`
+**Create a new liquidity pool**
+
+**Request:**
+```json
+{
+  "token_a": "314ST",
+  "token_b": "wBTC",
+  "creator_wallet": "pisecure_wallet_creator"
+}
+```
+
+**Response:**
+```json
+{
+  "pool_created": true,
+  "pool_details": {
+    "pool_id": "314ST_wBTC_1704379200",
+    "token_a": "314ST",
+    "token_b": "wBTC",
+    "fee_percentage": 0.003
+  },
+  "intelligence_optimized": true,
+  "timestamp": 1704379200.0
+}
+```
+
+##### `POST /api/v1/dex/pool/add-liquidity`
+**Add liquidity to an existing pool**
+
+**Request:**
+```json
+{
+  "pool_id": "314ST_wBTC_1704379200",
+  "provider_wallet": "pisecure_wallet_provider",
+  "amount_a": 10000,
+  "amount_b": 5
+}
+```
+
+**Response:**
+```json
+{
+  "liquidity_added": true,
+  "liquidity_details": {
+    "pool_id": "314ST_wBTC_1704379200",
+    "liquidity_added": {"amount_a": 10000, "amount_b": 5},
+    "reward_314st": 25
+  },
+  "intelligence_rewards_earned": 25,
+  "timestamp": 1704379200.0
+}
+```
+
+##### `POST /api/v1/dex/swap`
+**Execute intelligent token swap with ML optimization**
+
+**Request:**
+```json
+{
+  "token_in": "314ST",
+  "token_out": "wBTC",
+  "amount_in": 1000,
+  "user_wallet": "pisecure_wallet_user",
+  "max_slippage": 0.01
+}
+```
+
+**Response:**
+```json
+{
+  "swap_coordinated": true,
+  "swap_details": {
+    "swap_id": "swap_1704379200_12345",
+    "expected_out": 0.5,
+    "min_out": 0.495,
+    "pool_id": "314ST_wBTC_1704379200",
+    "fee_amount": 3,
+    "recommended_slippage": 0.01,
+    "intelligence_optimized": true
+  },
+  "network_conditions": {
+    "threat_level": "low",
+    "recommended_approach": "standard"
+  },
+  "estimated_completion": "30_seconds",
+  "timestamp": 1704379200.0
+}
+```
+
+##### `GET /api/v1/dex/intelligence`
+**Get comprehensive DEX intelligence and analytics**
+
+**Response:**
+```json
+{
+  "dex_intelligence": {
+    "dex_health_score": 87,
+    "active_pools": 3,
+    "total_liquidity_314st": 150000,
+    "trading_volume_24h": 25000,
+    "pool_health_analysis": {
+      "total_pools": 3,
+      "healthy_pools": 3,
+      "health_percentage": 100
+    },
+    "trading_patterns": {
+      "peak_trading_hours": ["14:00-16:00 UTC"],
+      "popular_pairs": ["314ST/wBTC", "314ST/wETH"],
+      "average_trade_size": 500
+    },
+    "recommendations": [
+      "Consider adding incentives for new liquidity pools"
+    ],
+    "intelligence_benefits": [
+      "Optimal trade routing based on network conditions",
+      "Threat-aware slippage limits",
+      "Pool health monitoring and recommendations"
+    ]
+  },
+  "intelligence_source": "bootstrap_coordinator",
+  "network_intelligence_integrated": true,
+  "timestamp": 1704379200.0
+}
+```
+
+##### `GET /api/v1/dex/stats`
+**Get DEX statistics and market data**
+
+**Response:**
+```json
+{
+  "dex_stats": {
+    "total_pools": 3,
+    "total_liquidity_314st": 150000,
+    "trading_volume_24h": 25000,
+    "popular_pairs": [
+      {
+        "pair": "314ST/wBTC",
+        "pool_id": "314ST_wBTC_1704379200",
+        "liquidity": 100000,
+        "volume_24h": 15000,
+        "trade_count": 200
+      }
+    ],
+    "dex_health_score": 87
+  },
+  "intelligence_features": [
+    "ML-optimized trade routing",
+    "Threat-aware liquidity selection",
+    "Network condition adaptation",
+    "Real-time pool health monitoring"
+  ],
+  "timestamp": 1704379200.0
+}
+```
+
+**Unique Features:**
+- **Bootstrap-level coordination** with ML intelligence for optimal trading
+- **Threat-aware routing** that adapts swap parameters based on network conditions
+- **314ST rewards integration** for liquidity providers and DEX users
+- **AMM (Automated Market Maker)** mechanics with dynamic fee adjustment
+- **Intelligence-enhanced execution** using network health and threat analysis
+- **Real-time pool health monitoring** with automated recommendations
+- **Federated DEX coordination** across bootstrap nodes for unified liquidity
+
 ## Technical Architecture
 
 ### ML Models Used
