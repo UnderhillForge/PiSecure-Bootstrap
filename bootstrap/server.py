@@ -367,6 +367,126 @@ token_economics = None  # Will be TokenEconomicsEngine() instance
 # P2P sync manager (from api-update.txt)
 p2p_sync_manager = None  # Will be P2PSyncManager() instance
 
+# Bootstrap Node Registry (Global state for secondary bootstrap nodes)
+bootstrap_node_registry = {}
+
+def _validate_bootstrap_node(handshake_data: dict) -> bool:
+    """Validate that the node attempting handshake is a legitimate bootstrap node"""
+    # Basic validation - in production, this would be more sophisticated
+    # Check for required capabilities, valid address format, etc.
+
+    node_id = handshake_data.get('node_id', '')
+    address = handshake_data.get('address', '')
+    services = handshake_data.get('services', [])
+    capabilities = handshake_data.get('capabilities', [])
+
+    # Must have bootstrap-related capabilities
+    bootstrap_capabilities = ['bootstrap_coordination', 'peer_discovery', 'network_health']
+    has_bootstrap_capability = any(cap in capabilities for cap in bootstrap_capabilities)
+
+    # Must offer basic bootstrap services
+    required_services = ['peer_discovery']
+    has_required_services = all(service in services for service in required_services)
+
+    # Basic address validation
+    try:
+        ipaddress.ip_address(address)
+        valid_address = True
+    except ValueError:
+        valid_address = False
+
+    # Node ID should be unique and not already registered as primary
+    valid_node_id = (node_id and
+                    node_id != 'bootstrap-primary' and
+                    len(node_id) >= 10)
+
+    return (has_bootstrap_capability and
+            has_required_services and
+            valid_address and
+            valid_node_id)
+
+def _register_bootstrap_node(bootstrap_node: dict):
+    """Register or update a secondary bootstrap node"""
+    node_id = bootstrap_node['node_id']
+    bootstrap_node_registry[node_id] = bootstrap_node
+    logger.info(f"Registered bootstrap node: {node_id}")
+
+def _update_bootstrap_services(node_id: str, service_update: dict):
+    """Update service advertisement for a bootstrap node"""
+    if node_id in bootstrap_node_registry:
+        bootstrap_node_registry[node_id].update(service_update)
+        logger.info(f"Updated services for bootstrap node: {node_id}")
+
+def _is_bootstrap_node_registered(node_id: str) -> bool:
+    """Check if a bootstrap node is registered"""
+    return node_id in bootstrap_node_registry
+
+def _get_registered_bootstrap_nodes() -> list:
+    """Get all registered secondary bootstrap nodes"""
+    current_time = time.time()
+    active_nodes = []
+
+    for node_id, node_data in bootstrap_node_registry.items():
+        # Check if node is still active (last seen within 10 minutes)
+        if current_time - node_data.get('last_seen', 0) < 600:
+            active_nodes.append({
+                'node_id': node_data['node_id'],
+                'address': node_data['address'],
+                'port': node_data['port'],
+                'services': node_data['services'],
+                'capabilities': node_data['capabilities'],
+                'region': node_data.get('region', 'unknown'),
+                'status': node_data.get('status', 'active'),
+                'load_factor': node_data.get('load_factor', 0.0),
+                'last_seen': node_data.get('last_seen', current_time)
+            })
+
+    return active_nodes
+
+def _get_active_services() -> list:
+    """Get all currently active services across bootstrap nodes"""
+    all_services = set()
+    current_time = time.time()
+
+    # Primary node services
+    all_services.update(['coordination', 'peer_discovery', 'health_monitoring'])
+
+    # Secondary node services
+    for node_data in bootstrap_node_registry.values():
+        if current_time - node_data.get('last_seen', 0) < 600:  # Active within 10 minutes
+            services = node_data.get('services', [])
+            all_services.update(services)
+
+    return sorted(list(all_services))
+
+def _find_optimal_bootstrap_node(service: str, requesting_node: str) -> dict:
+    """Find the best bootstrap node for a specific service"""
+    current_time = time.time()
+    candidates = []
+
+    for node_id, node_data in bootstrap_node_registry.items():
+        # Skip requesting node itself
+        if node_id == requesting_node:
+            continue
+
+        # Check if node is active and offers the service
+        if (current_time - node_data.get('last_seen', 0) < 600 and
+            service in node_data.get('services', [])):
+
+            # Calculate suitability score (lower load_factor is better)
+            load_factor = node_data.get('load_factor', 0.0)
+            reliability = node_data.get('reliability_score', 1.0)
+            suitability_score = reliability * (1.0 - load_factor)
+
+            candidates.append((suitability_score, node_data))
+
+    if candidates:
+        # Return the best candidate (highest suitability score)
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        return candidates[0][1]
+
+    return None
+
 @app.route('/', methods=['GET'])
 def root_health():
     logger.info("Root health check called")
@@ -391,6 +511,185 @@ def api_health():
         'service': 'bootstrap',
         'version': '1.0.0'
     })
+
+@app.route('/api/v1/bootstrap/handshake', methods=['POST'])
+def bootstrap_handshake():
+    """Handshake endpoint for secondary bootstrap nodes to register with primary"""
+    logger.info("Bootstrap handshake endpoint called")
+
+    try:
+        handshake_data = request.get_json()
+        if not handshake_data:
+            return jsonify({'error': 'No handshake data provided'}), 400
+
+        # Validate required fields
+        required_fields = ['node_id', 'address', 'port', 'services', 'capabilities']
+        for field in required_fields:
+            if field not in handshake_data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+
+        node_id = handshake_data['node_id']
+        current_time = time.time()
+
+        # Check if this is a legitimate bootstrap node (basic validation)
+        if not _validate_bootstrap_node(handshake_data):
+            logger.warning(f"Invalid bootstrap node handshake attempt from {node_id}")
+            return jsonify({'error': 'Invalid bootstrap node credentials'}), 403
+
+        # Register/update the bootstrap node
+        bootstrap_node = {
+            'node_id': node_id,
+            'address': handshake_data['address'],
+            'port': handshake_data['port'],
+            'services': handshake_data['services'],  # List of services offered
+            'capabilities': handshake_data['capabilities'],  # Technical capabilities
+            'region': handshake_data.get('region', 'unknown'),
+            'version': handshake_data.get('version', 'unknown'),
+            'registered_at': current_time,
+            'last_seen': current_time,
+            'status': 'active',
+            'reliability_score': handshake_data.get('reliability_score', 1.0),
+            'load_factor': handshake_data.get('load_factor', 0.0),  # 0.0 to 1.0
+            'supported_protocols': handshake_data.get('supported_protocols', ['p2p_sync'])
+        }
+
+        # Store in bootstrap registry
+        _register_bootstrap_node(bootstrap_node)
+
+        # Return handshake confirmation with network info
+        response = {
+            'handshake_accepted': True,
+            'primary_node': 'bootstrap.pisecure.org',
+            'node_id': node_id,
+            'registration_time': current_time,
+            'network_info': {
+                'total_bootstrap_nodes': len(_get_registered_bootstrap_nodes()),
+                'active_services': _get_active_services(),
+                'protocol_version': '1.0',
+                'coordination_enabled': True
+            },
+            'peer_discovery_endpoints': [
+                '/api/v1/bootstrap/peers',
+                '/api/v1/network/status'
+            ]
+        }
+
+        logger.info(f"Successful bootstrap handshake from {node_id} at {handshake_data['address']}:{handshake_data['port']}")
+        return jsonify(response)
+
+    except Exception as e:
+        logger.error(f"Bootstrap handshake error: {e}")
+        return jsonify({'error': 'Handshake failed'}), 500
+
+@app.route('/api/v1/bootstrap/advertise', methods=['POST'])
+def advertise_services():
+    """Endpoint for bootstrap nodes to advertise their current services and status"""
+    logger.info("Service advertisement endpoint called")
+
+    try:
+        advert_data = request.get_json()
+        if not advert_data or 'node_id' not in advert_data:
+            return jsonify({'error': 'Node ID required'}), 400
+
+        node_id = advert_data['node_id']
+
+        # Verify this node is registered
+        if not _is_bootstrap_node_registered(node_id):
+            return jsonify({'error': 'Unregistered bootstrap node'}), 403
+
+        # Update service advertisement
+        current_time = time.time()
+        service_update = {
+            'services': advert_data.get('services', []),
+            'status': advert_data.get('status', 'active'),
+            'load_factor': advert_data.get('load_factor', 0.0),
+            'current_connections': advert_data.get('current_connections', 0),
+            'last_advertisement': current_time,
+            'health_metrics': advert_data.get('health_metrics', {}),
+            'service_endpoints': advert_data.get('service_endpoints', {})
+        }
+
+        _update_bootstrap_services(node_id, service_update)
+
+        return jsonify({
+            'advertisement_accepted': True,
+            'node_id': node_id,
+            'timestamp': current_time,
+            'services_acknowledged': service_update['services']
+        })
+
+    except Exception as e:
+        logger.error(f"Service advertisement error: {e}")
+        return jsonify({'error': 'Advertisement failed'}), 500
+
+@app.route('/api/v1/bootstrap/registry', methods=['GET'])
+def bootstrap_registry():
+    """Get the current bootstrap node registry (for coordination)"""
+    logger.info("Bootstrap registry endpoint called")
+
+    try:
+        # Only allow access from registered bootstrap nodes or with auth
+        # For now, allow public access but could add authentication later
+
+        registry = {
+            'primary_node': {
+                'node_id': 'bootstrap-primary',
+                'address': 'bootstrap.pisecure.org',
+                'port': 3142,
+                'status': 'active',
+                'services': ['coordination', 'peer_discovery', 'health_monitoring']
+            },
+            'secondary_nodes': _get_registered_bootstrap_nodes(),
+            'total_nodes': len(_get_registered_bootstrap_nodes()) + 1,
+            'last_updated': time.time(),
+            'coordination_status': 'active'
+        }
+
+        return jsonify(registry)
+
+    except Exception as e:
+        logger.error(f"Bootstrap registry error: {e}")
+        return jsonify({'error': 'Registry access failed'}), 500
+
+@app.route('/api/v1/bootstrap/coordinate', methods=['POST'])
+def coordinate_services():
+    """Coordinate service distribution among bootstrap nodes"""
+    logger.info("Service coordination endpoint called")
+
+    try:
+        coord_data = request.get_json()
+        if not coord_data or 'requesting_node' not in coord_data:
+            return jsonify({'error': 'Requesting node ID required'}), 400
+
+        requesting_node = coord_data['requesting_node']
+        requested_service = coord_data.get('service', 'peer_discovery')
+
+        # Find best bootstrap node for this service
+        best_node = _find_optimal_bootstrap_node(requested_service, requesting_node)
+
+        if best_node:
+            response = {
+                'coordination_success': True,
+                'service': requested_service,
+                'assigned_node': best_node['node_id'],
+                'endpoint': f"http://{best_node['address']}:{best_node['port']}",
+                'capabilities': best_node.get('capabilities', []),
+                'load_factor': best_node.get('load_factor', 0.0)
+            }
+        else:
+            response = {
+                'coordination_success': False,
+                'service': requested_service,
+                'fallback_node': 'bootstrap-primary',
+                'endpoint': 'http://bootstrap.pisecure.org:3142',
+                'reason': 'No suitable secondary node available'
+            }
+
+        return jsonify(response)
+
+    except Exception as e:
+        logger.error(f"Service coordination error: {e}")
+        return jsonify({'error': 'Coordination failed'}), 500
 
 @app.route('/nodes', methods=['GET'])
 def nodes():
