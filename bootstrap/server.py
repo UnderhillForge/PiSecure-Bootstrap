@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 # Create minimal Flask app
 app = Flask(__name__)
 
+# Ensure app is accessible at module level for Gunicorn
+if __name__ != '__main__':
+    logger.info("Flask app initialized for Gunicorn import")
+
 @app.route('/', methods=['GET'])
 def root_health():
     logger.info("Root health check called")
@@ -99,8 +103,18 @@ def hello():
     </html>
     '''
 
+# Add debug logging for Railway deployment troubleshooting
 if __name__ == '__main__':
     import os
     port = int(os.environ.get('PORT', 8080))
     debug = os.environ.get('FLASK_ENV') == 'development'
-    app.run(host='0.0.0.0', port=port, debug=debug)
+
+    logger.info(f"Starting Flask app on host=0.0.0.0, port={port}, debug={debug}")
+    logger.info(f"PORT environment variable: {os.environ.get('PORT', 'NOT SET')}")
+    logger.info(f"FLASK_ENV environment variable: {os.environ.get('FLASK_ENV', 'NOT SET')}")
+
+    try:
+        app.run(host='0.0.0.0', port=port, debug=debug)
+    except Exception as e:
+        logger.error(f"Failed to start Flask app: {e}")
+        raise
