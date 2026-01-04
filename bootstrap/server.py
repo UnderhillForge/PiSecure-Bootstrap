@@ -440,13 +440,15 @@ def _parse_bootstrap_peers_static(peers_str: str) -> List[Dict[str, Any]]:
 def _setup_routes_static(app, api_version, start_time, registered_nodes, bootstrap_peers, port, limiter):
     """Static version of route setup for WSGI compatibility."""
 
-    # Root health check (for Railway)
+    # Root health check (for Railway) - exempt from rate limiting
     @app.route('/', methods=['GET'])
+    @limiter.exempt
     def root_health():
         return jsonify({'status': 'healthy'})
 
-    # Health check
+    # Health check - exempt from rate limiting
     @app.route(f'/api/{api_version}/health', methods=['GET'])
+    @limiter.exempt
     def health():
         return jsonify({
             'status': 'healthy',
