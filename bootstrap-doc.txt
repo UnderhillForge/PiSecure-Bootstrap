@@ -373,6 +373,115 @@ PiSecure Bootstrap Nodes are intelligent, ML-powered network coordinators that p
 - Load factor reporting for coordination
 - Service endpoint discovery
 
+### 9. 314ST Operator Rewards System
+**Purpose:** Native PiSecure token rewards for bootstrap node operators.
+
+#### Environment Variables (Railway Configuration)
+```bash
+BOOTSTRAP_OPERATOR_WALLET=pisecure_wallet_address
+BOOTSTRAP_REWARD_PERCENTAGE=0.05
+BOOTSTRAP_MINIMUM_PAYOUT=10
+BOOTSTRAP_DAILY_BUDGET=1000
+```
+
+#### API Endpoints for 314ST Rewards
+
+##### `POST /api/v1/operator/configure-wallet`
+**Configure operator reward wallet**
+
+**Request:**
+```json
+{
+  "wallet_address": "pisecure_wallet_operator_abc123"
+}
+```
+
+**Response:**
+```json
+{
+  "configuration_success": true,
+  "wallet_address": "pisecure_wallet_operator_abc123",
+  "reward_percentage": 0.05,
+  "minimum_payout_314st": 10,
+  "timestamp": 1704379200.0
+}
+```
+
+##### `GET /api/v1/operator/314st-analytics`
+**Get comprehensive 314ST reward analytics**
+
+**Response:**
+```json
+{
+  "operator_analytics": {
+    "operator_wallet": "pisecure_wallet_operator_abc123",
+    "pending_rewards_314st": 25,
+    "total_distributed_314st": 150,
+    "recent_distributions": [...],
+    "performance_score": 87.5,
+    "daily_average_earnings": 8.5,
+    "reward_configuration": {
+      "percentage": 0.05,
+      "minimum_payout": 10,
+      "daily_budget": 1000
+    }
+  },
+  "network_reward_info": {
+    "daily_budget_314st": 1000,
+    "intelligence_fee_percentage": 0.05,
+    "active_bootstrap_nodes": 4,
+    "reward_token": "314ST"
+  }
+}
+```
+
+##### `POST /api/v1/operator/314st-payout`
+**Trigger manual 314ST payout**
+
+**Response:**
+```json
+{
+  "payout_success": true,
+  "distributed_amount_314st": 25,
+  "operator_wallet": "pisecure_wallet_operator_abc123",
+  "distribution_timestamp": 1704379200.0
+}
+```
+
+##### `GET /api/v1/operator/rewards-status`
+**Get operator rewards status**
+
+**Response:**
+```json
+{
+  "operator_wallet_configured": true,
+  "operator_wallet": "pisecure_wallet_operator_abc123",
+  "reward_configuration": {
+    "percentage": 0.05,
+    "minimum_payout_314st": 10,
+    "daily_budget_314st": 1000,
+    "reward_token": "314ST"
+  },
+  "pending_rewards_314st": 25,
+  "total_distributed_314st": 150,
+  "last_payout_timestamp": 1704378200.0,
+  "reward_eligibility": {
+    "has_pending_rewards": true,
+    "uptime_bonus_eligible": true,
+    "federation_bonus_eligible": true
+  }
+}
+```
+
+**Unique Features:**
+- Native 314ST token rewards (no external cryptocurrencies)
+- Environment variable configuration for Railway deployment
+- Performance-based reward bonuses (uptime, federation participation)
+- Automatic batch payouts when thresholds reached
+- Real-time reward analytics and tracking
+- Quality-based intelligence contribution bonuses
+- Geographic diversity bonus rewards
+
 ## Technical Architecture
 
 ### ML Models Used

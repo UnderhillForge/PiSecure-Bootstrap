@@ -1433,6 +1433,216 @@ bootstrap_node_registry = {}
 # Initialize intelligence federation
 intelligence_federation = IntelligenceFederation(network_intelligence, bootstrap_node_registry)
 
+# 314ST Bootstrap Operator Rewards System
+class BootstrapOperatorRewards:
+    """314ST token rewards for bootstrap operators"""
+
+    def __init__(self):
+        # Configuration from environment
+        self.operator_wallet = os.getenv('BOOTSTRAP_OPERATOR_WALLET', '')
+        self.reward_percentage = float(os.getenv('BOOTSTRAP_REWARD_PERCENTAGE', '0.05'))
+        self.minimum_payout_314st = int(os.getenv('BOOTSTRAP_MINIMUM_PAYOUT', '10'))
+        self.daily_budget_314st = int(os.getenv('BOOTSTRAP_DAILY_BUDGET', '1000'))
+
+        # Reward tracking
+        self.pending_rewards = defaultdict(int)  # wallet -> 314ST amount
+        self.reward_history = []
+        self.reward_pool_address = 'bootstrap-reward-pool'
+
+        # Performance tracking
+        self.operator_performance = {}
+        self.last_payout_times = {}
+
+        logger.info(f"314ST Bootstrap rewards initialized for wallet: {self.operator_wallet}")
+
+    def configure_operator_wallet(self, wallet_address: str) -> bool:
+        """Configure operator's PiSecure wallet for 314ST rewards"""
+        if not wallet_address or not self._validate_pisecure_wallet(wallet_address):
+            return False
+
+        self.operator_wallet = wallet_address
+        os.environ['BOOTSTRAP_OPERATOR_WALLET'] = wallet_address
+
+        logger.info(f"Operator wallet configured: {wallet_address}")
+        return True
+
+    def _validate_pisecure_wallet(self, wallet_address: str) -> bool:
+        """Validate PiSecure wallet format and accessibility"""
+        # Basic validation - in production would check with PiSecure network
+        if not wallet_address or len(wallet_address) < 10:
+            return False
+
+        # Check if wallet exists (mock validation)
+        # In production: query PiSecure network for wallet validity
+        return wallet_address.startswith(('pisecure_', 'wallet_'))
+
+    def add_intelligence_reward(self, intelligence_value: float, contributor_type: str) -> bool:
+        """Add 314ST reward for intelligence contribution"""
+        if not self.operator_wallet:
+            return False
+
+        # Calculate 314ST value from intelligence
+        intelligence_314st_value = self._convert_intelligence_to_314st(intelligence_value)
+
+        # Apply quality bonuses
+        quality_multiplier = self._calculate_quality_bonus(contributor_type)
+        final_reward_314st = int(intelligence_314st_value * quality_multiplier)
+
+        if final_reward_314st >= self.minimum_payout_314st:
+            self.pending_rewards[self.operator_wallet] += final_reward_314st
+
+            # Auto-distribute if threshold reached
+            if self.pending_rewards[self.operator_wallet] >= (self.minimum_payout_314st * 5):
+                return self.distribute_pending_rewards()
+
+        return True
+
+    def _convert_intelligence_to_314st(self, intelligence_value: float) -> float:
+        """Convert intelligence value to 314ST amount"""
+        # Intelligence value is abstract (0-1), convert to 314ST
+        # Higher intelligence value = more 314ST
+        base_314st = intelligence_value * 100  # 0-100 314ST per intelligence point
+
+        # Apply operator reward percentage
+        return base_314st * self.reward_percentage
+
+    def _calculate_quality_bonus(self, contributor_type: str) -> float:
+        """Calculate quality bonus multiplier"""
+        bonuses = {
+            'miner': 1.2,      # Mining intelligence is valuable
+            'wallet': 1.1,     # Wallet patterns are useful
+            'bootstrap': 1.3,  # Bootstrap federation is most valuable
+            'high_quality': 1.5  # Exceptional intelligence
+        }
+        return bonuses.get(contributor_type, 1.0)
+
+    def distribute_pending_rewards(self, specific_wallet: str = None) -> bool:
+        """Distribute accumulated 314ST rewards"""
+        wallet_to_process = specific_wallet or self.operator_wallet
+
+        if not wallet_to_process or self.pending_rewards[wallet_to_process] < self.minimum_payout_314st:
+            return False
+
+        amount_to_distribute = self.pending_rewards[wallet_to_process]
+
+        # Distribute 314ST via PiSecure network
+        success = self._distribute_314st_to_wallet(wallet_to_process, amount_to_distribute)
+
+        if success:
+            # Record the distribution
+            self.reward_history.append({
+                'timestamp': time.time(),
+                'wallet': wallet_to_process,
+                'amount_314st': amount_to_distribute,
+                'type': 'intelligence_rewards',
+                'tx_hash': f'mock_tx_{int(time.time())}'  # In production: real tx hash
+            })
+
+            # Reset pending rewards
+            self.pending_rewards[wallet_to_process] = 0
+            self.last_payout_times[wallet_to_process] = time.time()
+
+            logger.info(f"Distributed {amount_to_distribute} 314ST to operator {wallet_to_process}")
+            return True
+
+        return False
+
+    def _distribute_314st_to_wallet(self, wallet_address: str, amount_314st: int) -> bool:
+        """Distribute 314ST tokens to operator wallet"""
+        try:
+            # In production: Submit 314ST transfer to PiSecure network
+            # For now: Mock successful distribution
+            logger.info(f"Mock 314ST distribution: {amount_314st} to {wallet_address}")
+            return True
+
+        except Exception as e:
+            logger.error(f"314ST distribution failed: {e}")
+            return False
+
+    def get_reward_analytics(self, wallet_address: str = None) -> dict:
+        """Get comprehensive 314ST reward analytics"""
+        wallet = wallet_address or self.operator_wallet
+
+        if not wallet:
+            return {'error': 'No operator wallet configured'}
+
+        # Calculate earnings
+        total_distributed = sum(r['amount_314st'] for r in self.reward_history
+                              if r['wallet'] == wallet)
+
+        recent_distributions = [r for r in self.reward_history[-10:]
+                              if r['wallet'] == wallet]
+
+        # Performance metrics
+        performance_score = self._calculate_performance_score(wallet)
+
+        return {
+            'operator_wallet': wallet,
+            'pending_rewards_314st': self.pending_rewards.get(wallet, 0),
+            'total_distributed_314st': total_distributed,
+            'recent_distributions': recent_distributions,
+            'performance_score': performance_score,
+            'daily_average_earnings': self._calculate_daily_average(wallet),
+            'reward_configuration': {
+                'percentage': self.reward_percentage,
+                'minimum_payout': self.minimum_payout_314st,
+                'daily_budget': self.daily_budget_314st
+            },
+            'last_payout': self.last_payout_times.get(wallet, 0),
+            'timestamp': time.time()
+        }
+
+    def _calculate_performance_score(self, wallet: str) -> float:
+        """Calculate operator performance score (0-100)"""
+        if wallet not in self.operator_performance:
+            return 75.0  # Default good score
+
+        perf = self.operator_performance[wallet]
+        score = 0
+
+        # Uptime component (30%)
+        score += (perf.get('uptime_percentage', 95) / 100) * 30
+
+        # Intelligence quality (40%)
+        score += (perf.get('intelligence_quality', 0.8) * 100) * 0.4
+
+        # Federation participation (30%)
+        score += (perf.get('federation_participation', 0.7) * 100) * 0.3
+
+        return min(100.0, max(0.0, score))
+
+    def _calculate_daily_average(self, wallet: str) -> float:
+        """Calculate average daily 314ST earnings"""
+        wallet_distributions = [r for r in self.reward_history if r['wallet'] == wallet]
+
+        if not wallet_distributions:
+            return 0.0
+
+        total_earnings = sum(r['amount_314st'] for r in wallet_distributions)
+        days_active = max(1, (time.time() - wallet_distributions[0]['timestamp']) / 86400)
+
+        return total_earnings / days_active
+
+    def add_uptime_bonus(self, uptime_percentage: float):
+        """Add 314ST bonus for high uptime"""
+        if not self.operator_wallet or uptime_percentage < 95:
+            return
+
+        bonus_314st = int((uptime_percentage - 95) * 2)  # 2 314ST per percentage above 95%
+        if bonus_314st > 0:
+            self.pending_rewards[self.operator_wallet] += bonus_314st
+
+    def add_geographic_bonus(self, location: str):
+        """Add bonus for intelligence from underrepresented regions"""
+        # Simplified: bonus for non-US locations
+        if location and not location.lower().startswith('us'):
+            bonus_314st = 5  # 5 314ST for global coverage
+            if self.operator_wallet:
+                self.pending_rewards[self.operator_wallet] += bonus_314st
+
+# Initialize 314ST rewards system
+bootstrap_rewards = BootstrapOperatorRewards()
+
 def _validate_bootstrap_node(handshake_data: dict) -> bool:
     """Validate that the node attempting handshake is a legitimate bootstrap node"""
     # Basic validation - in production, this would be more sophisticated
@@ -2193,6 +2403,140 @@ def sync_intelligence():
     except Exception as e:
         logger.error(f"Intelligence sync error: {e}")
         return jsonify({'error': 'Intelligence sync failed'}), 500
+
+@app.route('/api/v1/operator/configure-wallet', methods=['POST'])
+def configure_operator_wallet():
+    """Configure operator's PiSecure wallet for 314ST rewards"""
+    logger.info("Operator wallet configuration endpoint called")
+
+    try:
+        # Get configuration data
+        config_data = request.get_json() or {}
+        wallet_address = config_data.get('wallet_address')
+
+        if not wallet_address:
+            return jsonify({'error': 'Wallet address required'}), 400
+
+        # Configure wallet for rewards
+        if bootstrap_rewards.configure_operator_wallet(wallet_address):
+            return jsonify({
+                'configuration_success': True,
+                'wallet_address': wallet_address,
+                'reward_percentage': bootstrap_rewards.reward_percentage,
+                'minimum_payout_314st': bootstrap_rewards.minimum_payout_314st,
+                'timestamp': time.time()
+            })
+
+        return jsonify({'error': 'Invalid wallet address'}), 400
+
+    except Exception as e:
+        logger.error(f"Operator wallet configuration error: {e}")
+        return jsonify({'error': 'Configuration failed'}), 500
+
+@app.route('/api/v1/operator/314st-analytics', methods=['GET'])
+def operator_314st_analytics():
+    """Get comprehensive 314ST reward analytics for operators"""
+    logger.info("314ST operator analytics endpoint called")
+
+    try:
+        # Get analytics for configured wallet
+        analytics = bootstrap_rewards.get_reward_analytics()
+
+        if 'error' in analytics:
+            return jsonify(analytics), 400
+
+        return jsonify({
+            'operator_analytics': analytics,
+            'network_reward_info': {
+                'daily_budget_314st': bootstrap_rewards.daily_budget_314st,
+                'intelligence_fee_percentage': bootstrap_rewards.reward_percentage,
+                'active_bootstrap_nodes': len(_get_registered_bootstrap_nodes()) + 1,
+                'reward_token': '314ST'
+            },
+            'timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"314ST analytics error: {e}")
+        return jsonify({'error': 'Analytics unavailable'}), 500
+
+@app.route('/api/v1/operator/314st-payout', methods=['POST'])
+def trigger_314st_payout():
+    """Manually trigger 314ST payout for accumulated rewards"""
+    logger.info("Manual 314ST payout endpoint called")
+
+    try:
+        # Get payout request
+        payout_data = request.get_json() or {}
+        force_payout = payout_data.get('force_payout', False)
+
+        # Check if operator wallet is configured
+        if not bootstrap_rewards.operator_wallet:
+            return jsonify({'error': 'Operator wallet not configured'}), 400
+
+        # Get current pending rewards
+        pending_rewards = bootstrap_rewards.pending_rewards.get(bootstrap_rewards.operator_wallet, 0)
+
+        if pending_rewards < bootstrap_rewards.minimum_payout_314st and not force_payout:
+            return jsonify({
+                'payout_denied': True,
+                'reason': f'Pending rewards ({pending_rewards} 314ST) below minimum payout threshold ({bootstrap_rewards.minimum_payout_314st} 314ST)',
+                'pending_rewards': pending_rewards,
+                'minimum_threshold': bootstrap_rewards.minimum_payout_314st
+            }), 400
+
+        # Attempt to distribute rewards
+        if bootstrap_rewards.distribute_pending_rewards(bootstrap_rewards.operator_wallet):
+            return jsonify({
+                'payout_success': True,
+                'distributed_amount_314st': pending_rewards,
+                'operator_wallet': bootstrap_rewards.operator_wallet,
+                'distribution_timestamp': time.time()
+            })
+
+        return jsonify({'error': 'Payout distribution failed'}), 500
+
+    except Exception as e:
+        logger.error(f"314ST payout error: {e}")
+        return jsonify({'error': 'Payout failed'}), 500
+
+@app.route('/api/v1/operator/rewards-status', methods=['GET'])
+def operator_rewards_status():
+    """Get current operator rewards status and configuration"""
+    logger.info("Operator rewards status endpoint called")
+
+    try:
+        status = {
+            'operator_wallet_configured': bool(bootstrap_rewards.operator_wallet),
+            'operator_wallet': bootstrap_rewards.operator_wallet,
+            'reward_configuration': {
+                'percentage': bootstrap_rewards.reward_percentage,
+                'minimum_payout_314st': bootstrap_rewards.minimum_payout_314st,
+                'daily_budget_314st': bootstrap_rewards.daily_budget_314st,
+                'reward_token': '314ST'
+            },
+            'pending_rewards_314st': bootstrap_rewards.pending_rewards.get(bootstrap_rewards.operator_wallet, 0) if bootstrap_rewards.operator_wallet else 0,
+            'total_distributed_314st': sum(r['amount_314st'] for r in bootstrap_rewards.reward_history
+                                         if r['wallet'] == bootstrap_rewards.operator_wallet) if bootstrap_rewards.operator_wallet else 0,
+            'last_payout_timestamp': bootstrap_rewards.last_payout_times.get(bootstrap_rewards.operator_wallet, 0) if bootstrap_rewards.operator_wallet else 0,
+            'reward_eligibility': {
+                'has_pending_rewards': bootstrap_rewards.pending_rewards.get(bootstrap_rewards.operator_wallet, 0) >= bootstrap_rewards.minimum_payout_314st if bootstrap_rewards.operator_wallet else False,
+                'uptime_bonus_eligible': False,  # Would check uptime metrics
+                'federation_bonus_eligible': len(_get_registered_bootstrap_nodes()) > 0
+            },
+            'network_participation': {
+                'bootstrap_nodes_coordinated': len(_get_registered_bootstrap_nodes()),
+                'intelligence_contributions_processed': len(network_intelligence.connection_history),
+                'threat_zones_managed': len(network_intelligence.threat_zones)
+            },
+            'timestamp': time.time()
+        }
+
+        return jsonify(status)
+
+    except Exception as e:
+        logger.error(f"Operator rewards status error: {e}")
+        return jsonify({'error': 'Status unavailable'}), 500
 
 @app.route('/nodes', methods=['GET'])
 def nodes():
