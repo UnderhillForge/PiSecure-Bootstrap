@@ -528,6 +528,237 @@ def bootstrap_peers():
         logger.error(f"Bootstrap peers error: {e}")
         return jsonify({'error': 'Failed to retrieve peers'}), 500
 
+@app.route('/blockchain/info', methods=['GET'])
+def blockchain_info():
+    """Get comprehensive blockchain information"""
+    logger.info("Blockchain info endpoint called")
+
+    # Mock blockchain data - would connect to actual blockchain
+    response = {
+        "blocks": 1250,
+        "pending_transactions": 15,
+        "difficulty": 4.0,
+        "is_valid": True,
+        "network_health": {
+            "active_nodes": len(node_tracker.nodes),
+            "sync_status": "healthy",
+            "avg_block_time": 600.0,
+            "forks_detected": 0
+        },
+        "latest_block": {
+            "index": 1249,
+            "hash": "abc123def45678901234567890abcdef1234567890abcdef1234567890abcdef",
+            "timestamp": time.time() - 120,
+            "transactions": 3,
+            "miner": "miner-node-001"
+        }
+    }
+
+    return jsonify(response)
+
+@app.route('/mining/status', methods=['GET'])
+def mining_status():
+    """Get current mining status"""
+    logger.info("Mining status endpoint called")
+
+    mining_stats = mining_aggregator.get_mining_stats()
+
+    response = {
+        "is_mining": mining_stats['active_miners'] > 0,
+        "blocks_mined": sum(node.get('blocks_mined', 0) for node in node_tracker.nodes.values()),
+        "current_difficulty": 4.0,
+        "network_hashrate": mining_stats['total_mining_hashrate'],
+        "miner_hashrate": mining_stats['total_mining_hashrate'] / max(mining_stats['active_miners'], 1),
+        "shares_submitted": 1250,  # Mock data
+        "efficiency": 0.85,  # Mock data
+        "temperature": 45.2,  # Mock data
+        "power_consumption": 15.5,  # Mock data
+        "uptime": int(time.time() - time.time()),  # Mock data
+        "last_block_time": time.time() - 600,  # Mock data
+        "next_block_estimate": 600
+    }
+
+    return jsonify(response)
+
+@app.route('/network/status', methods=['GET'])
+def network_status():
+    """Get network status"""
+    logger.info("Network status endpoint called")
+
+    active_nodes = sum(1 for node in node_tracker.nodes.values()
+                      if time.time() - node.get('last_seen', 0) < 300)
+
+    response = {
+        "connected_peers": active_nodes,
+        "known_peers": len(node_tracker.nodes),
+        "node_id": "bootstrap-main",
+        "listening_port": 3142,
+        "network_type": "mainnet",
+        "sync_status": "synced",
+        "last_sync_time": time.time()
+    }
+
+    return jsonify(response)
+
+@app.route('/trust', methods=['POST'])
+def create_trust():
+    """Create developer trust fund"""
+    logger.info("Create trust endpoint called")
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        # Validate required fields
+        required_fields = ['developer_address', 'trust_type']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+
+        # Mock trust creation - would integrate with actual trust system
+        trust_input = f"{data['developer_address']}_{time.time()}"
+        trust_id = f"trust_{hashlib.sha256(trust_input.encode()).hexdigest()[:16]}"
+
+        response = {
+            'success': True,
+            'trust_id': trust_id,
+            'status': {
+                'balance': data.get('initial_funding', 0.0),
+                'trust_type': data['trust_type'],
+                'subscribers': 0,
+                'monthly_revenue': 0.0
+            }
+        }
+
+        return jsonify(response)
+
+    except Exception as e:
+        logger.error(f"Create trust error: {e}")
+        return jsonify({'error': 'Failed to create trust'}), 500
+
+@app.route('/trust/<trust_id>', methods=['GET'])
+def get_trust(trust_id):
+    """Get trust fund status"""
+    logger.info(f"Get trust endpoint called for {trust_id}")
+
+    # Mock trust data - would query actual trust system
+    response = {
+        'trust_id': trust_id,
+        'developer_address': 'mock_developer_wallet',
+        'trust_type': 'public',
+        'balance': 150.0,
+        'total_funding': 250.0,
+        'subscribers': 15,
+        'monthly_revenue': 45.0,
+        'plans': [
+            {
+                'plan_id': 'basic_plan',
+                'name': 'Basic Access',
+                'price': 5.0,
+                'subscribers': 10
+            }
+        ],
+        'created_at': time.time() - 86400  # 1 day ago
+    }
+
+    return jsonify(response)
+
+@app.route('/names/check/<name>', methods=['GET'])
+def check_name(name):
+    """Check if PiNS name is available"""
+    logger.info(f"Check name endpoint called for {name}")
+
+    # Mock name availability check - would query actual PiNS system
+    response = {
+        'name': name,
+        'available': True,  # Mock: assume available
+        'registration_fee': 5.0,
+        'estimated_confirmation': 600
+    }
+
+    return jsonify(response)
+
+@app.route('/names/<name>', methods=['GET'])
+def resolve_name(name):
+    """Resolve PiNS name to address"""
+    logger.info(f"Resolve name endpoint called for {name}")
+
+    # Mock name resolution - would query actual PiNS system
+    response = {
+        'name': name,
+        'address': 'mock_pisecure_wallet_address',
+        'registered_at': time.time() - 86400,
+        'block_index': 1200,
+        'tx_hash': 'tx123def45678901234567890abcdef1234567890abcdef1234567890abcdef',
+        'expires_at': time.time() + 31536000  # 1 year from now
+    }
+
+    return jsonify(response)
+
+@app.route('/names/register', methods=['POST'])
+def register_name():
+    """Register new PiNS name"""
+    logger.info("Register name endpoint called")
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        # Validate required fields
+        required_fields = ['name', 'wallet_address']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+
+        # Mock name registration - would submit to actual PiNS system
+        tx_input = f"{data['name']}_{data['wallet_address']}_{time.time()}"
+        tx_hash = f"tx_{hashlib.sha256(tx_input.encode()).hexdigest()}"
+
+        response = {
+            'success': True,
+            'name': data['name'],
+            'address': data['wallet_address'],
+            'transaction_hash': tx_hash,
+            'fee_deducted': 5.0,
+            'expires_at': time.time() + (data.get('years', 1) * 31536000),
+            'status': 'pending_mining'
+        }
+
+        return jsonify(response)
+
+    except Exception as e:
+        logger.error(f"Register name error: {e}")
+        return jsonify({'error': 'Failed to register name'}), 500
+
+@app.route('/transaction', methods=['POST'])
+def submit_transaction():
+    """Submit new transaction to network"""
+    logger.info("Submit transaction endpoint called")
+
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No transaction data provided'}), 400
+
+        # Mock transaction submission - would validate and broadcast to network
+        tx_input = f"{data.get('type', 'transfer')}_{time.time()}"
+        tx_hash = f"tx_{hashlib.sha256(tx_input.encode()).hexdigest()}"
+
+        response = {
+            'success': True,
+            'transaction_hash': tx_hash,
+            'status': 'submitted',
+            'estimated_confirmation': 600
+        }
+
+        return jsonify(response)
+
+    except Exception as e:
+        logger.error(f"Submit transaction error: {e}")
+        return jsonify({'error': 'Failed to submit transaction'}), 500
+
 @app.route('/nodes', methods=['GET'])
 def nodes():
     """Legacy /nodes endpoint - now returns formatted network stats"""
