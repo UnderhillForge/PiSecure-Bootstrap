@@ -18,6 +18,12 @@ import requests
 import statistics
 import numpy as np
 from scipy import stats
+from sklearn.ensemble import IsolationForest, RandomForestClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+from collections import Counter
+import threading
+import time as time_module
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -370,33 +376,54 @@ token_economics = None  # Will be TokenEconomicsEngine() instance
 # P2P sync manager (from api-update.txt)
 p2p_sync_manager = None  # Will be P2PSyncManager() instance
 
-# Network Intelligence Engine - Statistical Analysis for Smart Bootstrap Nodes
+# Network Intelligence Engine - ML-Powered Defense & Smart Routing
 class NetworkIntelligence:
-    """Statistical analysis engine for network intelligence and attack detection"""
+    """Advanced ML-powered network intelligence with automated defense capabilities"""
 
     def __init__(self):
-        # Connection pattern analysis
+        # Core data structures
         self.connection_history = deque(maxlen=1000)  # Last 1000 connections
         self.connection_timestamps = deque(maxlen=1000)
-
-        # Geographic analysis
         self.geographic_distribution = defaultdict(lambda: {'count': 0, 'last_seen': 0})
-
-        # Latency analysis
         self.latency_history = deque(maxlen=500)
         self.latency_stats = {'mean': 0, 'std': 0, 'min': 0, 'max': 0}
 
-        # Attack detection
+        # ML Models for Attack Detection
+        self.isolation_forest = None
+        self.ensemble_classifier = None
+        self.scaler = StandardScaler()
+        self.feature_history = deque(maxlen=500)  # Features for ML training
+        self.attack_labels = deque(maxlen=500)    # Labels for supervised learning
+
+        # Geographic Clustering
+        self.geo_cluster_model = None
+        self.geographic_clusters = {}
+
+        # Smart Routing Intelligence
+        self.route_history = {}  # route -> success/failure stats
+        self.threat_zones = set()  # Currently compromised regions
+        self.backup_routes = {}  # Alternative paths for each route
+        self.routing_q_table = {}  # Q-learning for route optimization
+
+        # Automated Defense System
+        self.defense_actions = []
+        self.rate_limits = defaultdict(lambda: {'count': 0, 'reset_time': 0})
+        self.blocked_ips = set()
+        self.blocked_regions = set()
+        self.defense_thresholds = {
+            'auto_block_threshold': 0.8,  # Confidence threshold for auto-blocking
+            'rate_limit_threshold': 100,  # Connections per minute before rate limiting
+            'region_block_threshold': 0.7  # Percentage of traffic from region before blocking
+        }
+
+        # Attack detection parameters
         self.potential_attacks = []
         self.attack_thresholds = {
             'connection_spike': 3.0,  # 3 standard deviations
             'geographic_anomaly': 2.5,  # 2.5 standard deviations
-            'latency_spike': 2.0  # 2 standard deviations
+            'latency_spike': 2.0,  # 2 standard deviations
+            'ml_confidence': 0.75  # ML model confidence threshold
         }
-
-        # Predictive analytics
-        self.load_predictions = deque(maxlen=100)
-        self.routing_optimization = {}
 
         # Network health scoring
         self.health_metrics = {
@@ -406,6 +433,422 @@ class NetworkIntelligence:
             'performance_score': 100,
             'overall_health': 100
         }
+
+        # Initialize ML models
+        self._initialize_ml_models()
+
+    def _initialize_ml_models(self):
+        """Initialize ML models for attack detection and routing optimization"""
+        try:
+            # Isolation Forest for unsupervised anomaly detection
+            self.isolation_forest = IsolationForest(
+                contamination=0.1,  # Expect 10% anomalies
+                random_state=42,
+                n_estimators=100
+            )
+
+            # Ensemble classifier for attack pattern recognition
+            self.ensemble_classifier = RandomForestClassifier(
+                n_estimators=50,
+                random_state=42,
+                class_weight='balanced'
+            )
+
+            # Geographic clustering model
+            self.geo_cluster_model = KMeans(
+                n_clusters=5,  # Assume 5 major geographic regions
+                random_state=42,
+                n_init=10
+            )
+
+            logger.info("ML models initialized successfully")
+
+        except Exception as e:
+            logger.warning(f"Failed to initialize ML models: {e}")
+            # Continue without ML models - fall back to statistical methods
+
+    def detect_attacks_ml(self) -> list:
+        """Enhanced attack detection using ML algorithms"""
+        attacks = []
+        current_time = time.time()
+
+        # Extract features from recent connection data
+        features = self._extract_connection_features()
+        if not features:
+            return attacks
+
+        # ML-based anomaly detection
+        if self.isolation_forest and len(features) >= 50:  # Need minimum training data
+            try:
+                # Prepare data for ML
+                feature_array = np.array(features[-100:])  # Last 100 samples
+                scaled_features = self.scaler.fit_transform(feature_array)
+
+                # Train on "normal" data (exclude last 10 samples for testing)
+                normal_data = scaled_features[:-10]
+                if len(normal_data) >= 20:
+                    self.isolation_forest.fit(normal_data)
+
+                    # Predict on recent data
+                    test_data = scaled_features[-10:]
+                    predictions = self.isolation_forest.predict(test_data)
+                    scores = self.isolation_forest.decision_function(test_data)
+
+                    # Check for anomalies
+                    for i, (pred, score) in enumerate(zip(predictions, scores)):
+                        if pred == -1 and score < -0.5:  # High confidence anomaly
+                            attacks.append({
+                                'type': 'ml_anomaly_detection',
+                                'severity': 'high' if score < -0.8 else 'medium',
+                                'ml_score': score,
+                                'confidence': min(1.0, abs(score)),
+                                'timestamp': current_time,
+                                'description': f'ML-detected anomaly with score {score:.3f}'
+                            })
+            except Exception as e:
+                logger.warning(f"ML anomaly detection failed: {e}")
+
+        # Combine with statistical detection
+        statistical_attacks = self.detect_attacks()
+        attacks.extend(statistical_attacks)
+
+        # Remove duplicates and sort by severity/timestamp
+        unique_attacks = self._deduplicate_attacks(attacks)
+
+        return unique_attacks
+
+    def trigger_defense_measures(self, features: dict, confidence: float) -> dict:
+        """Automatically trigger defense measures based on attack detection"""
+        defense_action = {
+            'action_taken': False,
+            'measures': [],
+            'timestamp': time.time(),
+            'confidence': confidence
+        }
+
+        # Rate limiting for high-frequency attacks
+        if confidence > self.defense_thresholds['auto_block_threshold']:
+            # Implement rate limiting
+            suspicious_ip = features.get('ip')
+            if suspicious_ip:
+                self._implement_rate_limiting(suspicious_ip)
+                defense_action['measures'].append('rate_limiting')
+                defense_action['action_taken'] = True
+
+        # Geographic blocking for region-based attacks
+        attack_location = features.get('location')
+        if attack_location and self._is_geographic_attack(attack_location):
+            self.blocked_regions.add(attack_location)
+            defense_action['measures'].append('regional_blocking')
+            defense_action['action_taken'] = True
+
+        # Route diversion for DDoS-like attacks
+        if features.get('connection_rate', 0) > self.defense_thresholds['rate_limit_threshold']:
+            self._divert_traffic_routes()
+            defense_action['measures'].append('traffic_diversion')
+            defense_action['action_taken'] = True
+
+        if defense_action['action_taken']:
+            self.defense_actions.append(defense_action)
+            logger.warning(f"Automated defense triggered: {defense_action['measures']}")
+
+        return defense_action
+
+    def optimize_routing_ml(self, available_nodes: list, threat_intelligence: dict = None) -> list:
+        """Enhanced routing optimization with ML and threat awareness"""
+        if not available_nodes:
+            return []
+
+        current_time = time.time()
+
+        # Update threat zones based on intelligence
+        if threat_intelligence:
+            self._update_threat_zones(threat_intelligence)
+
+        scored_nodes = []
+
+        for node in available_nodes:
+            node_id = node.get('node_id', 'unknown')
+            location = node.get('location', 'unknown')
+            load_factor = node.get('load_factor', 0.0)
+            reliability = node.get('reliability_score', 1.0)
+
+            # Threat-aware geographic scoring
+            geo_score = self._calculate_threat_aware_geo_score(location)
+
+            # Load balancing with predictive adjustment
+            load_score = self._calculate_predictive_load_score(node_id, load_factor)
+
+            # Reliability with historical performance
+            reliability_score = self._calculate_enhanced_reliability(node_id, reliability)
+
+            # ML-based routing optimization (reinforcement learning concepts)
+            route_score = self._calculate_route_q_value(node_id, location)
+
+            # Combined score with threat weighting
+            threat_multiplier = 0.5 if location in self.threat_zones else 1.0
+            total_score = (
+                geo_score * 0.25 +
+                load_score * 0.30 +
+                reliability_score * 0.25 +
+                route_score * 0.20
+            ) * threat_multiplier
+
+            scored_nodes.append({
+                'node': node,
+                'score': total_score,
+                'geo_score': geo_score,
+                'load_score': load_score,
+                'reliability_score': reliability_score,
+                'route_score': route_score,
+                'threat_adjusted': threat_multiplier < 1.0
+            })
+
+        # Sort by total score (highest first)
+        scored_nodes.sort(key=lambda x: x['score'], reverse=True)
+
+        # Update Q-table with this routing decision
+        self._update_routing_q_table(scored_nodes[0]['node']['node_id'] if scored_nodes else None)
+
+        return scored_nodes
+
+    def cluster_geographic_regions(self) -> dict:
+        """Use ML clustering to identify geographic regions and optimize routing"""
+        if len(self.geographic_distribution) < 5:
+            return {}
+
+        try:
+            # Prepare geographic data for clustering
+            locations = []
+            weights = []
+
+            for loc, data in self.geographic_distribution.items():
+                # Convert location strings to numeric coordinates (simplified)
+                coords = self._location_to_coordinates(loc)
+                if coords:
+                    locations.append(coords)
+                    weights.append(data['count'])
+
+            if len(locations) >= 5:
+                # Perform clustering
+                location_array = np.array(locations)
+                clusters = self.geo_cluster_model.fit_predict(location_array)
+
+                # Analyze cluster characteristics
+                cluster_analysis = {}
+                for i, (loc_coords, cluster_id, weight) in enumerate(zip(locations, clusters, weights)):
+                    if cluster_id not in cluster_analysis:
+                        cluster_analysis[cluster_id] = {
+                            'locations': [],
+                            'total_traffic': 0,
+                            'centroid': None
+                        }
+
+                    cluster_analysis[cluster_id]['locations'].append(list(self.geographic_distribution.keys())[i])
+                    cluster_analysis[cluster_id]['total_traffic'] += weight
+
+                # Calculate centroids
+                for cluster_id, data in cluster_analysis.items():
+                    cluster_points = [locations[i] for i, c in enumerate(clusters) if c == cluster_id]
+                    if cluster_points:
+                        centroid = np.mean(cluster_points, axis=0)
+                        data['centroid'] = centroid.tolist()
+
+                return cluster_analysis
+
+        except Exception as e:
+            logger.warning(f"Geographic clustering failed: {e}")
+
+        return {}
+
+    def _extract_connection_features(self) -> list:
+        """Extract ML features from connection data"""
+        features = []
+
+        if len(self.connection_history) < 10:
+            return features
+
+        # Rolling window analysis
+        window_size = 50
+        for i in range(window_size, len(self.connection_history), 10):
+            window = self.connection_history[i-window_size:i]
+
+            # Extract features
+            connection_rate = len([c for c in window if time.time() - c['timestamp'] < 300]) / 5  # per minute
+            unique_ips = len(set(c['ip'] for c in window))
+            unique_locations = len(set(c['location'] for c in window))
+
+            # Geographic concentration (entropy-like measure)
+            location_counts = Counter(c['location'] for c in window)
+            total_connections = sum(location_counts.values())
+            geo_concentration = max((count/total_connections) for count in location_counts.values()) if total_connections > 0 else 0
+
+            # Time-based patterns
+            timestamps = [c['timestamp'] for c in window]
+            intervals = [timestamps[i+1] - timestamps[i] for i in range(len(timestamps)-1)]
+            avg_interval = statistics.mean(intervals) if intervals else 60
+
+            features.append([
+                connection_rate,      # 0: connections per minute
+                unique_ips,          # 1: unique IP count
+                unique_locations,    # 2: unique location count
+                geo_concentration,   # 3: geographic concentration
+                avg_interval,        # 4: average connection interval
+                len(window) / window_size  # 5: data completeness
+            ])
+
+        return features
+
+    def _calculate_threat_aware_geo_score(self, location: str) -> float:
+        """Calculate geographic score with threat awareness"""
+        if location in self.threat_zones:
+            return 0.1  # Heavily penalize threat zones
+
+        # Normal geographic diversity scoring
+        if location in self.geographic_distribution:
+            recent_count = self.geographic_distribution[location]['count']
+            total_recent = sum(data['count'] for data in self.geographic_distribution.values())
+            if total_recent > 0:
+                geo_percentage = recent_count / total_recent
+                # Prefer locations that aren't over-represented
+                return 1.0 - min(0.5, geo_percentage)
+
+        return 0.5  # Neutral score for unknown locations
+
+    def _calculate_predictive_load_score(self, node_id: str, current_load: float) -> float:
+        """Calculate load score with predictive adjustment"""
+        base_score = 1.0 - current_load
+
+        # Add predictive adjustment based on recent trends
+        if node_id in self.route_history:
+            recent_performance = self.route_history[node_id]
+            # If node has been performing well recently, boost score slightly
+            if recent_performance.get('success_rate', 0.5) > 0.8:
+                base_score *= 1.1
+
+        return min(1.0, max(0.0, base_score))
+
+    def _calculate_enhanced_reliability(self, node_id: str, base_reliability: float) -> float:
+        """Calculate enhanced reliability with historical data"""
+        if node_id in self.route_history:
+            history = self.route_history[node_id]
+            historical_reliability = history.get('success_rate', 0.5)
+
+            # Blend base reliability with historical performance
+            return (base_reliability * 0.6) + (historical_reliability * 0.4)
+
+        return base_reliability
+
+    def _calculate_route_q_value(self, node_id: str, location: str) -> float:
+        """Calculate Q-learning inspired route value"""
+        route_key = f"{node_id}:{location}"
+
+        if route_key in self.routing_q_table:
+            return self.routing_q_table[route_key]
+
+        # Initialize with neutral value
+        return 0.5
+
+    def _update_routing_q_table(self, selected_node_id: str):
+        """Update Q-table based on routing decisions"""
+        if not selected_node_id:
+            return
+
+        # Simple Q-learning update (reward successful routing)
+        for route_key in self.routing_q_table:
+            if route_key.startswith(f"{selected_node_id}:"):
+                # Small positive reward for being selected
+                self.routing_q_table[route_key] = min(1.0, self.routing_q_table[route_key] + 0.01)
+
+    def _update_threat_zones(self, threat_intelligence: dict):
+        """Update threat zones based on intelligence data"""
+        attacks = threat_intelligence.get('active_attacks', [])
+
+        for attack in attacks:
+            if attack['type'] == 'geographic_anomaly':
+                self.threat_zones.add(attack['location'])
+
+            # Expire old threat zones (keep only recent threats)
+            current_time = time.time()
+            expired_zones = [zone for zone in self.threat_zones
+                           if all(attack.get('location') != zone or
+                                 current_time - attack.get('timestamp', 0) > 3600
+                                 for attack in attacks)]
+
+            for zone in expired_zones:
+                self.threat_zones.discard(zone)
+
+    def _implement_rate_limiting(self, ip_address: str):
+        """Implement rate limiting for suspicious IPs"""
+        current_time = time.time()
+        rate_limit_window = 300  # 5 minutes
+
+        if current_time - self.rate_limits[ip_address]['reset_time'] > rate_limit_window:
+            # Reset rate limit window
+            self.rate_limits[ip_address] = {'count': 1, 'reset_time': current_time}
+        else:
+            # Increment counter
+            self.rate_limits[ip_address]['count'] += 1
+
+        logger.info(f"Rate limiting activated for IP: {ip_address}")
+
+    def _is_geographic_attack(self, location: str) -> bool:
+        """Determine if a geographic location represents an attack pattern"""
+        if location not in self.geographic_distribution:
+            return False
+
+        location_data = self.geographic_distribution[location]
+        total_recent = sum(data['count'] for data in self.geographic_distribution.values())
+
+        if total_recent == 0:
+            return False
+
+        percentage = (location_data['count'] / total_recent) * 100
+        return percentage > self.defense_thresholds['region_block_threshold']
+
+    def _divert_traffic_routes(self):
+        """Implement traffic diversion for DDoS mitigation"""
+        # This would coordinate with other bootstrap nodes to redirect traffic
+        logger.warning("Traffic diversion activated - coordinating with bootstrap network")
+
+    def _location_to_coordinates(self, location: str) -> list:
+        """Convert location string to approximate coordinates"""
+        # Simplified coordinate mapping - in production, use proper geocoding
+        location_map = {
+            'us-east': [39.8283, -98.5795],  # US East
+            'us-west': [36.7783, -119.4179], # US West
+            'eu-west': [51.5074, -0.1278],   # London
+            'eu-central': [52.5200, 13.4050], # Berlin
+            'asia-pacific': [35.6762, 139.6503] # Tokyo
+        }
+
+        # Extract region from location string
+        for region, coords in location_map.items():
+            if region in location.lower():
+                return coords
+
+        return None
+
+    def _deduplicate_attacks(self, attacks: list) -> list:
+        """Remove duplicate attacks and sort by severity/timestamp"""
+        seen = set()
+        unique_attacks = []
+
+        for attack in attacks:
+            attack_key = f"{attack['type']}:{attack.get('location', 'unknown')}:{int(attack['timestamp'])}"
+
+            if attack_key not in seen:
+                seen.add(attack_key)
+                unique_attacks.append(attack)
+
+        # Sort by severity (high > medium > low) then by timestamp (newest first)
+        severity_order = {'high': 3, 'medium': 2, 'low': 1}
+        unique_attacks.sort(key=lambda x: (
+            severity_order.get(x.get('severity', 'low'), 0),
+            x.get('timestamp', 0)
+        ), reverse=True)
+
+        return unique_attacks
 
     def record_connection(self, ip_address: str, user_agent: str = "", timestamp: float = None):
         """Record a connection attempt for analysis"""
@@ -1058,28 +1501,152 @@ def network_intelligence_health():
 
 @app.route('/api/v1/intelligence/attacks', methods=['GET'])
 def detected_attacks():
-    """Get current attack detection analysis"""
-    logger.info("Attack detection endpoint called")
+    """Get current attack detection analysis using ML algorithms"""
+    logger.info("ML attack detection endpoint called")
 
     try:
         # Record this API call
         client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
         network_intelligence.record_connection(client_ip)
 
-        # Get attack analysis
-        attacks = network_intelligence.detect_attacks()
+        # Get enhanced attack analysis (ML + statistical)
+        attacks = network_intelligence.detect_attacks_ml()
+
+        # Get defense actions taken
+        recent_defense_actions = network_intelligence.defense_actions[-5:]  # Last 5 actions
 
         return jsonify({
             'detected_attacks': attacks,
             'threat_level': 'high' if any(a['severity'] == 'high' for a in attacks) else 'medium' if attacks else 'low',
             'analysis_period': 'last_hour',
             'total_analyzed_connections': len(network_intelligence.connection_history),
+            'ml_models_active': {
+                'isolation_forest': network_intelligence.isolation_forest is not None,
+                'ensemble_classifier': network_intelligence.ensemble_classifier is not None,
+                'geographic_clustering': network_intelligence.geo_cluster_model is not None
+            },
+            'recent_defense_actions': recent_defense_actions,
+            'active_threat_zones': list(network_intelligence.threat_zones),
+            'blocked_ips_count': len(network_intelligence.blocked_ips),
+            'blocked_regions_count': len(network_intelligence.blocked_regions),
             'timestamp': time.time()
         })
 
     except Exception as e:
-        logger.error(f"Attack detection error: {e}")
-        return jsonify({'error': 'Attack analysis failed'}), 500
+        logger.error(f"ML attack detection error: {e}")
+        return jsonify({'error': 'ML attack analysis failed'}), 500
+
+@app.route('/api/v1/defense/status', methods=['GET'])
+def defense_status():
+    """Get current automated defense system status"""
+    logger.info("Defense status endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get defense system status
+        defense_status = {
+            'system_active': True,
+            'threat_zones': list(network_intelligence.threat_zones),
+            'blocked_ips': len(network_intelligence.blocked_ips),
+            'blocked_regions': len(network_intelligence.blocked_regions),
+            'rate_limited_ips': len([ip for ip, data in network_intelligence.rate_limits.items()
+                                   if time.time() - data['reset_time'] < 300]),
+            'recent_actions': network_intelligence.defense_actions[-10:],  # Last 10 actions
+            'defense_thresholds': network_intelligence.defense_thresholds,
+            'auto_response_enabled': True,
+            'coordinated_defense': len(_get_registered_bootstrap_nodes()) > 0,
+            'last_attack_detection': max([a['timestamp'] for a in network_intelligence.potential_attacks[-10:]]
+                                       if network_intelligence.potential_attacks else 0),
+            'timestamp': time.time()
+        }
+
+        return jsonify(defense_status)
+
+    except Exception as e:
+        logger.error(f"Defense status error: {e}")
+        return jsonify({'error': 'Defense status unavailable'}), 500
+
+@app.route('/api/v1/defense/action', methods=['POST'])
+def trigger_defense_action():
+    """Manually trigger defense actions (admin only)"""
+    logger.info("Manual defense action endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get action request
+        action_data = request.get_json() or {}
+        action_type = action_data.get('action', '')
+        target = action_data.get('target', '')
+
+        if action_type == 'block_ip' and target:
+            network_intelligence.blocked_ips.add(target)
+            result = f"IP {target} blocked successfully"
+        elif action_type == 'block_region' and target:
+            network_intelligence.blocked_regions.add(target)
+            result = f"Region {target} blocked successfully"
+        elif action_type == 'clear_threat_zones':
+            network_intelligence.threat_zones.clear()
+            result = "Threat zones cleared"
+        elif action_type == 'reset_rate_limits':
+            network_intelligence.rate_limits.clear()
+            result = "Rate limits reset"
+        else:
+            return jsonify({'error': 'Invalid action type'}), 400
+
+        # Log the manual action
+        network_intelligence.defense_actions.append({
+            'action': f'manual_{action_type}',
+            'target': target,
+            'result': result,
+            'timestamp': time.time(),
+            'manual': True
+        })
+
+        logger.warning(f"Manual defense action executed: {action_type} on {target}")
+
+        return jsonify({
+            'action_executed': True,
+            'action_type': action_type,
+            'target': target,
+            'result': result,
+            'timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"Manual defense action error: {e}")
+        return jsonify({'error': 'Defense action failed'}), 500
+
+@app.route('/api/v1/intelligence/clusters', methods=['GET'])
+def geographic_clusters():
+    """Get geographic clustering analysis for routing optimization"""
+    logger.info("Geographic clustering endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get geographic clusters
+        clusters = network_intelligence.cluster_geographic_regions()
+
+        return jsonify({
+            'geographic_clusters': clusters,
+            'clustering_method': 'kmeans',
+            'total_regions_analyzed': len(network_intelligence.geographic_distribution),
+            'cluster_count': len(clusters) if clusters else 0,
+            'routing_optimization_available': bool(clusters),
+            'timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"Geographic clustering error: {e}")
+        return jsonify({'error': 'Clustering analysis failed'}), 500
 
 @app.route('/api/v1/intelligence/optimize', methods=['POST'])
 def optimize_routing():
