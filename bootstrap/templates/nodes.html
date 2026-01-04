@@ -812,34 +812,43 @@
         // API fetch functions
         async function fetchNetworkStats() {
             try {
-                const response = await fetch('/api/v1/network/stats');
+                const response = await fetch('/api/v1/intelligence/health');
                 const data = await response.json();
                 updateNetworkOverview(data);
                 updateNetworkHealth(data);
                 updateMiningStats(data);
             } catch (error) {
                 console.error('Failed to fetch network stats:', error);
+                // Set default values
+                updateNetworkOverview({});
+                updateNetworkHealth({});
+                updateMiningStats({});
             }
         }
 
         async function fetchBlockchainInfo() {
             try {
-                const response = await fetch('/blockchain/info');
+                // Use intelligence health for now since blockchain/info doesn't exist
+                const response = await fetch('/api/v1/intelligence/health');
                 const data = await response.json();
                 updateProtocolInfo(data);
                 updateRecentBlocks(data);
             } catch (error) {
                 console.error('Failed to fetch blockchain info:', error);
+                updateProtocolInfo({});
+                updateRecentBlocks({});
             }
         }
 
         async function fetchMiningStatus() {
             try {
-                const response = await fetch('/mining/status');
+                // Get mining data from intelligence
+                const response = await fetch('/api/v1/intelligence/health');
                 const data = await response.json();
                 updateMiningDetails(data);
             } catch (error) {
                 console.error('Failed to fetch mining status:', error);
+                updateMiningDetails({});
             }
         }
 
@@ -850,6 +859,18 @@
                 updateBootstrapNodes(data);
             } catch (error) {
                 console.error('Failed to fetch bootstrap registry:', error);
+                updateBootstrapNodes({});
+            }
+        }
+
+        async function fetchRegisteredNodes() {
+            try {
+                const response = await fetch('/api/v1/nodes/list');
+                const data = await response.json();
+                updateRegisteredNodes(data);
+            } catch (error) {
+                console.error('Failed to fetch registered nodes:', error);
+                updateRegisteredNodes({});
             }
         }
 
@@ -961,6 +982,18 @@
             });
 
             tbody.innerHTML = html;
+        }
+
+        function updateRegisteredNodes(data) {
+            // Update the total nodes count in the network overview
+            const totalRegistered = data.total_registered_nodes || 0;
+            const activeNodes = data.nodes?.filter(node => node.status === 'active').length || 0;
+
+            // Update the network overview card
+            document.getElementById('totalNodes').textContent = totalRegistered;
+            document.getElementById('activeNodes').textContent = activeNodes;
+
+            console.log(`✅ Updated registered nodes: ${totalRegistered} total, ${activeNodes} active`);
         }
 
         // Main update function
@@ -1163,6 +1196,7 @@
             updateAllData();
             fetchOperatorValue();
             fetchTokenValuation();
+            fetchRegisteredNodes();
 
             // Set up auto-refresh every 30 seconds
             setInterval(updateAllData, 30000);
@@ -1170,6 +1204,8 @@
             setInterval(fetchOperatorValue, 300000);
             // Update token valuation every 2 minutes
             setInterval(fetchTokenValuation, 120000);
+            // Update registered nodes every 2 minutes
+            setInterval(fetchRegisteredNodes, 120000);
         });
     </script>
 </body>
