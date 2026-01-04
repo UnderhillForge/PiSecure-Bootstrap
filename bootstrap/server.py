@@ -15,6 +15,9 @@ from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, T
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 import requests
+import statistics
+import numpy as np
+from scipy import stats
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -367,6 +370,344 @@ token_economics = None  # Will be TokenEconomicsEngine() instance
 # P2P sync manager (from api-update.txt)
 p2p_sync_manager = None  # Will be P2PSyncManager() instance
 
+# Network Intelligence Engine - Statistical Analysis for Smart Bootstrap Nodes
+class NetworkIntelligence:
+    """Statistical analysis engine for network intelligence and attack detection"""
+
+    def __init__(self):
+        # Connection pattern analysis
+        self.connection_history = deque(maxlen=1000)  # Last 1000 connections
+        self.connection_timestamps = deque(maxlen=1000)
+
+        # Geographic analysis
+        self.geographic_distribution = defaultdict(lambda: {'count': 0, 'last_seen': 0})
+
+        # Latency analysis
+        self.latency_history = deque(maxlen=500)
+        self.latency_stats = {'mean': 0, 'std': 0, 'min': 0, 'max': 0}
+
+        # Attack detection
+        self.potential_attacks = []
+        self.attack_thresholds = {
+            'connection_spike': 3.0,  # 3 standard deviations
+            'geographic_anomaly': 2.5,  # 2.5 standard deviations
+            'latency_spike': 2.0  # 2 standard deviations
+        }
+
+        # Predictive analytics
+        self.load_predictions = deque(maxlen=100)
+        self.routing_optimization = {}
+
+        # Network health scoring
+        self.health_metrics = {
+            'connectivity_score': 100,
+            'geographic_diversity': 100,
+            'attack_resistance': 100,
+            'performance_score': 100,
+            'overall_health': 100
+        }
+
+    def record_connection(self, ip_address: str, user_agent: str = "", timestamp: float = None):
+        """Record a connection attempt for analysis"""
+        if timestamp is None:
+            timestamp = time.time()
+
+        # Record connection
+        self.connection_history.append({
+            'ip': ip_address,
+            'user_agent': user_agent,
+            'timestamp': timestamp,
+            'location': geo_locator.geolocate_ip(ip_address) if geo_locator else 'unknown'
+        })
+        self.connection_timestamps.append(timestamp)
+
+        # Update geographic distribution
+        location = self.connection_history[-1]['location']
+        self.geographic_distribution[location]['count'] += 1
+        self.geographic_distribution[location]['last_seen'] = timestamp
+
+        # Analyze for potential attacks
+        self._analyze_connection_patterns()
+
+    def record_latency(self, latency_ms: float, endpoint: str = ""):
+        """Record latency measurement for performance analysis"""
+        self.latency_history.append({
+            'latency': latency_ms,
+            'endpoint': endpoint,
+            'timestamp': time.time()
+        })
+
+        # Update latency statistics
+        if len(self.latency_history) >= 10:  # Need minimum samples
+            latencies = [entry['latency'] for entry in self.latency_history]
+            self.latency_stats = {
+                'mean': statistics.mean(latencies),
+                'std': statistics.stdev(latencies) if len(latencies) > 1 else 0,
+                'min': min(latencies),
+                'max': max(latencies)
+            }
+
+    def analyze_network_health(self) -> dict:
+        """Analyze overall network health using statistical methods"""
+        current_time = time.time()
+
+        # Connectivity score (based on recent connections)
+        recent_connections = sum(1 for ts in self.connection_timestamps
+                                if current_time - ts < 3600)  # Last hour
+        connectivity_score = min(100, (recent_connections / 50) * 100)  # Expect ~50 connections/hour
+
+        # Geographic diversity score
+        active_locations = sum(1 for loc_data in self.geographic_distribution.values()
+                              if current_time - loc_data['last_seen'] < 3600)
+        geographic_score = min(100, active_locations * 20)  # 5 locations = 100 score
+
+        # Attack resistance score (inverse of detected anomalies)
+        recent_attacks = sum(1 for attack in self.potential_attacks
+                           if current_time - attack['timestamp'] < 3600)
+        attack_score = max(0, 100 - (recent_attacks * 10))  # Each attack reduces score by 10
+
+        # Performance score (based on latency)
+        performance_score = 100
+        if self.latency_stats['mean'] > 0:
+            # Penalize high latency (good: <100ms, poor: >500ms)
+            latency_penalty = max(0, (self.latency_stats['mean'] - 100) / 4)
+            performance_score = max(0, 100 - latency_penalty)
+
+        # Overall health (weighted average)
+        overall_health = (
+            connectivity_score * 0.3 +
+            geographic_score * 0.2 +
+            attack_score * 0.3 +
+            performance_score * 0.2
+        )
+
+        self.health_metrics.update({
+            'connectivity_score': connectivity_score,
+            'geographic_diversity': geographic_score,
+            'attack_resistance': attack_score,
+            'performance_score': performance_score,
+            'overall_health': overall_health,
+            'last_updated': current_time
+        })
+
+        return self.health_metrics.copy()
+
+    def detect_attacks(self) -> list:
+        """Detect potential attacks using statistical analysis"""
+        attacks = []
+        current_time = time.time()
+
+        # Connection spike detection (DDoS-like)
+        if len(self.connection_timestamps) >= 50:
+            # Analyze connection rate over last 5 minutes
+            recent_connections = [ts for ts in self.connection_timestamps
+                                if current_time - ts < 300]  # Last 5 minutes
+
+            if len(recent_connections) >= 20:  # Minimum sample size
+                # Calculate connection rate (connections per minute)
+                time_span = 5  # minutes
+                connection_rate = len(recent_connections) / time_span
+
+                # Compare to historical average
+                historical_rates = []
+                for i in range(0, len(self.connection_timestamps) - 20, 10):
+                    window = self.connection_timestamps[i:i+20]
+                    if len(window) >= 10:
+                        window_rate = len(window) / (5 * 60) * 60  # per minute
+                        historical_rates.append(window_rate)
+
+                if historical_rates:
+                    avg_rate = statistics.mean(historical_rates)
+                    std_rate = statistics.stdev(historical_rates) if len(historical_rates) > 1 else avg_rate * 0.1
+
+                    if std_rate > 0:
+                        z_score = (connection_rate - avg_rate) / std_rate
+                        if z_score > self.attack_thresholds['connection_spike']:
+                            attacks.append({
+                                'type': 'connection_spike',
+                                'severity': 'high' if z_score > 4 else 'medium',
+                                'z_score': z_score,
+                                'connections_per_minute': connection_rate,
+                                'timestamp': current_time,
+                                'description': f'Unusual connection rate: {connection_rate:.1f} conn/min'
+                            })
+
+        # Geographic anomaly detection
+        if len(self.geographic_distribution) >= 3:
+            recent_locations = {}
+            for loc, data in self.geographic_distribution.items():
+                if current_time - data['last_seen'] < 3600:  # Last hour
+                    recent_locations[loc] = data['count']
+
+            if recent_locations:
+                # Check for unusual concentration from single location
+                total_recent = sum(recent_locations.values())
+                if total_recent >= 20:  # Minimum sample size
+                    for loc, count in recent_locations.items():
+                        percentage = (count / total_recent) * 100
+                        expected_percentage = 100 / len(recent_locations)  # Even distribution
+
+                        if percentage > expected_percentage * 2:  # More than 2x expected
+                            attacks.append({
+                                'type': 'geographic_anomaly',
+                                'severity': 'medium',
+                                'location': loc,
+                                'percentage': percentage,
+                                'timestamp': current_time,
+                                'description': f'Unusual concentration from {loc}: {percentage:.1f}% of connections'
+                            })
+
+        # Store detected attacks
+        self.potential_attacks.extend(attacks)
+        self.potential_attacks = self.potential_attacks[-100:]  # Keep last 100
+
+        return attacks
+
+    def optimize_routing(self, available_nodes: list) -> list:
+        """Optimize peer routing using predictive analytics"""
+        if not available_nodes:
+            return []
+
+        current_time = time.time()
+        scored_nodes = []
+
+        for node in available_nodes:
+            node_id = node.get('node_id', 'unknown')
+            location = node.get('location', 'unknown')
+            load_factor = node.get('load_factor', 0.0)
+            reliability = node.get('reliability_score', 1.0)
+
+            # Geographic scoring (prefer diverse locations)
+            geo_score = 1.0
+            if location in self.geographic_distribution:
+                recent_count = self.geographic_distribution[location]['count']
+                total_recent = sum(data['count'] for data in self.geographic_distribution.values())
+                if total_recent > 0:
+                    geo_percentage = recent_count / total_recent
+                    # Prefer locations that aren't over-represented
+                    geo_score = 1.0 - min(0.5, geo_percentage)
+
+            # Load balancing score (prefer less loaded nodes)
+            load_score = 1.0 - load_factor
+
+            # Reliability score
+            reliability_score = reliability
+
+            # Combined score (weighted)
+            total_score = (
+                geo_score * 0.3 +
+                load_score * 0.4 +
+                reliability_score * 0.3
+            )
+
+            scored_nodes.append({
+                'node': node,
+                'score': total_score,
+                'geo_score': geo_score,
+                'load_score': load_score,
+                'reliability_score': reliability_score
+            })
+
+        # Sort by total score (highest first)
+        scored_nodes.sort(key=lambda x: x['score'], reverse=True)
+
+        return scored_nodes
+
+    def predict_network_load(self, hours_ahead: int = 1) -> dict:
+        """Predict network load using time series analysis"""
+        if len(self.connection_timestamps) < 20:
+            return {'prediction': 'insufficient_data'}
+
+        # Simple moving average prediction
+        recent_timestamps = list(self.connection_timestamps)[-50:]  # Last 50 connections
+        intervals = []
+
+        for i in range(1, len(recent_timestamps)):
+            intervals.append(recent_timestamps[i] - recent_timestamps[i-1])
+
+        if intervals:
+            avg_interval = statistics.mean(intervals)
+            predicted_connections = (hours_ahead * 3600) / avg_interval  # Hours * seconds/hour / avg interval
+
+            return {
+                'predicted_connections': predicted_connections,
+                'confidence': 'medium',  # Simple prediction, medium confidence
+                'timeframe_hours': hours_ahead,
+                'method': 'moving_average'
+            }
+
+        return {'prediction': 'no_data'}
+
+    def get_network_insights(self) -> dict:
+        """Get comprehensive network intelligence insights"""
+        current_time = time.time()
+
+        # Analyze current state
+        health = self.analyze_network_health()
+        attacks = self.detect_attacks()
+
+        # Geographic insights
+        top_locations = sorted(
+            [(loc, data['count']) for loc, data in self.geographic_distribution.items()],
+            key=lambda x: x[1],
+            reverse=True
+        )[:5]
+
+        # Connection patterns
+        hourly_connections = sum(1 for ts in self.connection_timestamps
+                                if current_time - ts < 3600)
+
+        # Performance insights
+        latency_trend = "stable"
+        if len(self.latency_history) >= 10:
+            recent_latencies = [entry['latency'] for entry in list(self.latency_history)[-10:]]
+            old_latencies = [entry['latency'] for entry in list(self.latency_history)[-20:-10]]
+
+            if recent_latencies and old_latencies:
+                recent_avg = statistics.mean(recent_latencies)
+                old_avg = statistics.mean(old_latencies)
+
+                if recent_avg > old_avg * 1.1:
+                    latency_trend = "increasing"
+                elif recent_avg < old_avg * 0.9:
+                    latency_trend = "decreasing"
+
+        return {
+            'network_health': health,
+            'active_attacks': attacks[-5:],  # Last 5 attacks
+            'geographic_insights': {
+                'top_locations': top_locations,
+                'total_locations': len(self.geographic_distribution),
+                'most_active_location': top_locations[0][0] if top_locations else 'unknown'
+            },
+            'performance_insights': {
+                'hourly_connections': hourly_connections,
+                'latency_trend': latency_trend,
+                'avg_latency_ms': self.latency_stats.get('mean', 0),
+                'latency_std_ms': self.latency_stats.get('std', 0)
+            },
+            'predictions': {
+                'next_hour_load': self.predict_network_load(1),
+                'next_day_load': self.predict_network_load(24)
+            },
+            'intelligence_summary': {
+                'threat_level': 'high' if attacks else 'low',
+                'optimization_opportunities': len([n for n in self.geographic_distribution.keys()
+                                                if current_time - self.geographic_distribution[n]['last_seen'] > 3600]),
+                'data_points_analyzed': len(self.connection_history),
+                'analysis_timestamp': current_time
+            }
+        }
+
+    def _analyze_connection_patterns(self):
+        """Internal method to analyze connection patterns for anomalies"""
+        # This is called automatically when connections are recorded
+        # Additional analysis could be added here
+        pass
+
+# Initialize network intelligence engine
+network_intelligence = NetworkIntelligence()
+
 # Bootstrap Node Registry (Global state for secondary bootstrap nodes)
 bootstrap_node_registry = {}
 
@@ -691,10 +1032,125 @@ def coordinate_services():
         logger.error(f"Service coordination error: {e}")
         return jsonify({'error': 'Coordination failed'}), 500
 
+@app.route('/api/v1/intelligence/health', methods=['GET'])
+def network_intelligence_health():
+    """Get comprehensive network intelligence and health analysis"""
+    logger.info("Network intelligence health endpoint called")
+
+    try:
+        # Record this API call for intelligence analysis
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        user_agent = request.headers.get('User-Agent', '')
+        network_intelligence.record_connection(client_ip, user_agent)
+
+        # Get comprehensive intelligence insights
+        insights = network_intelligence.get_network_insights()
+
+        return jsonify({
+            'intelligence_analysis': insights,
+            'analysis_timestamp': time.time(),
+            'data_quality': 'good' if len(network_intelligence.connection_history) > 100 else 'building'
+        })
+
+    except Exception as e:
+        logger.error(f"Network intelligence health error: {e}")
+        return jsonify({'error': 'Intelligence analysis failed'}), 500
+
+@app.route('/api/v1/intelligence/attacks', methods=['GET'])
+def detected_attacks():
+    """Get current attack detection analysis"""
+    logger.info("Attack detection endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get attack analysis
+        attacks = network_intelligence.detect_attacks()
+
+        return jsonify({
+            'detected_attacks': attacks,
+            'threat_level': 'high' if any(a['severity'] == 'high' for a in attacks) else 'medium' if attacks else 'low',
+            'analysis_period': 'last_hour',
+            'total_analyzed_connections': len(network_intelligence.connection_history),
+            'timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"Attack detection error: {e}")
+        return jsonify({'error': 'Attack analysis failed'}), 500
+
+@app.route('/api/v1/intelligence/optimize', methods=['POST'])
+def optimize_routing():
+    """Get intelligent routing optimization for peer connections"""
+    logger.info("Routing optimization endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get optimization request
+        opt_data = request.get_json() or {}
+        available_nodes = opt_data.get('available_nodes', [])
+        service_type = opt_data.get('service_type', 'general')
+
+        # Get optimized routing
+        optimized_nodes = network_intelligence.optimize_routing(available_nodes)
+
+        return jsonify({
+            'optimization_success': True,
+            'service_type': service_type,
+            'optimized_nodes': optimized_nodes,
+            'total_candidates': len(available_nodes),
+            'optimization_method': 'statistical_scoring',
+            'scoring_weights': {
+                'geographic_diversity': 0.3,
+                'load_balancing': 0.4,
+                'reliability': 0.3
+            },
+            'timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"Routing optimization error: {e}")
+        return jsonify({'error': 'Optimization failed'}), 500
+
+@app.route('/api/v1/intelligence/predict', methods=['GET'])
+def load_predictions():
+    """Get network load predictions"""
+    logger.info("Load prediction endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get predictions
+        predictions = network_intelligence.predict_network_load()
+
+        return jsonify({
+            'predictions': predictions,
+            'confidence_level': predictions.get('confidence', 'unknown'),
+            'prediction_horizon': '1-24_hours',
+            'data_points_used': len(network_intelligence.connection_timestamps),
+            'model_type': 'statistical_time_series',
+            'timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"Load prediction error: {e}")
+        return jsonify({'error': 'Prediction failed'}), 500
+
 @app.route('/nodes', methods=['GET'])
 def nodes():
     """Beautiful dark mode HTML dashboard with live API data"""
     logger.info("Live nodes dashboard endpoint called")
+
+    # Record dashboard access for intelligence
+    client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+    network_intelligence.record_connection(client_ip, request.headers.get('User-Agent', ''))
 
     # Serve the HTML template - data will be loaded via JavaScript API calls
     return render_template('nodes.html')
