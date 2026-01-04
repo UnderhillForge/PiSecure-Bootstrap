@@ -71,7 +71,7 @@ class BootstrapNode:
         # Setup routes
         self._setup_routes()
 
-        logger.info(f"ðŸš€ PiSecure Bootstrap Node initialized on {host}:{port}")
+        logger.info(f"=€ PiSecure Bootstrap Node initialized on {host}:{port}")
 
     def _parse_bootstrap_peers(self, peers_str: str) -> List[Dict[str, Any]]:
         """Parse bootstrap peers from environment variable."""
@@ -212,7 +212,7 @@ class BootstrapNode:
                 # Store in registered nodes
                 self.registered_nodes[node_id] = registered_node
 
-                logger.info(f"âœ… Registered node: {node_id} at {address}:{port}")
+                logger.info(f" Registered node: {node_id} at {address}:{port}")
 
                 return jsonify({
                     'success': True,
@@ -369,8 +369,8 @@ class BootstrapNode:
         Args:
             debug: Enable debug mode
         """
-        logger.info(f"ðŸš€ Starting PiSecure Bootstrap Node on {self.host}:{self.port}")
-        logger.info(f"ðŸ“š API Documentation: http://{self.host}:{self.port}/api/{self.api_version}/docs")
+        logger.info(f"=€ Starting PiSecure Bootstrap Node on {self.host}:{self.port}")
+        logger.info(f"=Ú API Documentation: http://{self.host}:{self.port}/api/{self.api_version}/docs")
 
         try:
             self.app.run(
