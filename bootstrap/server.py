@@ -920,37 +920,37 @@ def consensus_status():
         return jsonify({
             'algorithm': stats.get('algorithm', 'pow_sha256'),
             'current_difficulty': stats.get('current_difficulty', 4),
-            'mining_pools': stats.get('mining_pools', 0),
+            'mining_syndicates': stats.get('mining_syndicates', 0),
             'pending_votes': stats.get('pending_votes', 0),
             'consensus_threshold': stats.get('consensus_threshold', 0.67),
             'total_blocks_validated': stats.get('total_blocks_validated', 0),
             'forks_resolved': stats.get('forks_resolved', 0),
-            'mining_pools_active': stats.get('mining_pools_active', 0),
-            'total_pool_rewards': stats.get('total_pool_rewards', 0.0)
+            'mining_syndicates_active': stats.get('mining_syndicates_active', 0),
+            'total_syndicate_rewards': stats.get('total_syndicate_rewards', 0.0)
         })
 
     except Exception as e:
         logger.error(f"Consensus status error: {e}")
         return jsonify({'error': 'Failed to get consensus status'}), 500
 
-@app.route('/api/v1/mining/pools', methods=['GET'])
-def mining_pools():
-    """Get mining pools information"""
-    logger.info("Mining pools endpoint called")
+@app.route('/api/v1/mining/syndicates', methods=['GET'])
+def mining_syndicates():
+    """Get mining syndicates information"""
+    logger.info("Mining syndicates endpoint called")
 
     if not consensus_engine:
         return jsonify({
-            'error': 'Mining pools not available',
+            'error': 'Mining syndicates not available',
             'message': 'PiSecure consensus component not initialized'
         }), 503
 
     try:
-        # Mining pool integration (from api-update.txt)
-        pools = []
+        # Mining syndicate integration (updated terminology)
+        syndicates = []
 
-        # Mock pool data - would get from consensus engine
-        pools.append({
-            'pool_id': 'power_miners',
+        # Mock syndicate data - would get from consensus engine
+        syndicates.append({
+            'syndicate_id': 'power_miners',
             'founder_wallet': 'founder_wallet',
             'participant_count': 25,
             'active_miners': 20,
@@ -961,14 +961,14 @@ def mining_pools():
         })
 
         return jsonify({
-            'pools': pools,
-            'total_pools': len(pools),
-            'active_pools': len(pools)
+            'syndicates': syndicates,
+            'total_syndicates': len(syndicates),
+            'active_syndicates': len(syndicates)
         })
 
     except Exception as e:
-        logger.error(f"Mining pools error: {e}")
-        return jsonify({'error': 'Failed to get mining pools'}), 500
+        logger.error(f"Mining syndicates error: {e}")
+        return jsonify({'error': 'Failed to get mining syndicates'}), 500
 
 @app.route('/api/v1/trust/economics', methods=['GET'])
 def trust_economics():
@@ -1023,19 +1023,19 @@ def submit_mining_share():
 
         if not consensus_engine:
             return jsonify({
-                'error': 'Mining pools not available',
+                'error': 'Mining syndicates not available',
                 'message': 'PiSecure consensus component not initialized'
             }), 503
 
-        # Mining pool integration (from api-update.txt)
-        # Mock implementation - would submit to actual mining pool
-        success = True  # consensus_engine.submit_pool_share('pool_id', data['miner_wallet'], data['share_data'])
+        # Mining syndicate integration (updated terminology)
+        # Mock implementation - would submit to actual mining syndicate
+        success = True  # consensus_engine.submit_syndicate_share('syndicate_id', data['miner_wallet'], data['share_data'])
 
         return jsonify({
             'success': success,
             'miner_wallet': data['miner_wallet'],
             'share_accepted': success,
-            'pool_id': 'power_miners'  # Mock pool
+            'syndicate_id': 'power_miners'  # Mock syndicate
         })
 
     except Exception as e:
