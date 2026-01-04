@@ -22,11 +22,11 @@ RUN chown -R bootstrap:bootstrap /app
 USER bootstrap
 
 # Expose port (Railway will override with $PORT)
-EXPOSE 3142
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:$PORT/api/v1/health || exit 1
+    CMD curl -f http://localhost:8080/health || exit 1
 
-# Run with Gunicorn (let Railway handle port assignment)
-CMD ["gunicorn", "--bind", "0.0.0.0", "--workers", "2", "--threads", "4", "bootstrap.server:app"]
+# Run with Gunicorn (explicit port binding for Metal builder)
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "2", "bootstrap.server:app"]
