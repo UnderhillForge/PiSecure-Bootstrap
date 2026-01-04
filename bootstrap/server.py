@@ -452,6 +452,18 @@ def _setup_routes_static(app, api_version, start_time, registered_nodes, bootstr
             logger.error(f"Root health check error: {e}")
             return "error", 500
 
+    # Dedicated health check for Metal builder
+    @app.route('/health', methods=['GET'])
+    def metal_health():
+        logger.info("Metal builder health check endpoint called")
+        try:
+            response = jsonify({'status': 'healthy', 'service': 'bootstrap'})
+            logger.info(f"Metal health check response: {response}")
+            return response
+        except Exception as e:
+            logger.error(f"Metal health check error: {e}")
+            return "error", 500
+
     # Health check
     @app.route(f'/api/{api_version}/health', methods=['GET'])
     def health():
