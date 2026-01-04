@@ -731,4 +731,402 @@ BOOTSTRAP_DAILY_BUDGET=1000
 - Load balancing across service instances
 - Database replication for high availability
 
-This documentation covers the unique, advanced capabilities that make PiSecure Bootstrap Nodes significantly more intelligent and capable than traditional blockchain bootstrap services.
+## Additional Advanced Features
+
+### 11. Bootstrap Node Differentiation & Configuration System
+**Purpose:** Hierarchical bootstrap node identification with configurable roles and federation policies.
+
+#### Configuration File: `config.json`
+**Description:** Comprehensive node configuration defining identity, federation policies, and operational parameters.
+
+```json
+{
+  "node": {
+    "identity": {
+      "name": "PiSecure Bootstrap Primary",
+      "node_id": "bootstrap-primary",
+      "role": "primary",
+      "operator": "PiSecure Foundation",
+      "contact_email": "admin@pisecure.org",
+      "description": "Primary bootstrap node for PiSecure network"
+    },
+    "federation": {
+      "enabled": true,
+      "trust_model": "hierarchical",
+      "max_secondary_nodes": 10,
+      "sync_interval_seconds": 300,
+      "intelligence_sharing": true,
+      "trust_levels": {
+        "foundation_verified": {
+          "max_trust_score": 100,
+          "capabilities": ["bootstrap_coordination", "intelligence_sharing"],
+          "sync_privileges": "full"
+        },
+        "community_trusted": {
+          "max_trust_score": 75,
+          "capabilities": ["peer_discovery", "regional_coordination"],
+          "sync_privileges": "limited"
+        }
+      }
+    },
+    "security": {
+      "require_peer_authentication": true,
+      "authentication_method": "capability_based",
+      "allowed_jurisdictions": ["us", "eu", "ca"],
+      "max_failed_auth_attempts": 3
+    }
+  }
+}
+```
+
+**Unique Features:**
+- Hierarchical node roles (primary/secondary/tertiary)
+- Trust-based federation policies
+- Geographic jurisdiction controls
+- Operator identification and contact information
+- Dynamic configuration loading at startup
+
+### 12. PiSecure Node Registry & Status Tracking
+**Purpose:** Comprehensive registration and monitoring system for PiSecure network nodes.
+
+#### API Endpoint: `POST /api/v1/nodes/register`
+**Description:** Register PiSecure nodes with the bootstrap server.
+
+**Request Body:**
+```json
+{
+  "node_id": "pisecure-node-001",
+  "node_type": "miner",
+  "services": ["mining", "p2p_sync"],
+  "capabilities": ["syndicate_mining", "block_validation"],
+  "location": "us-east",
+  "wallet_address": "pisecure_wallet_abc123"
+}
+```
+
+**Response:**
+```json
+{
+  "registration_success": true,
+  "node_id": "pisecure-node-001",
+  "registration_time": 1704379200.0,
+  "network_info": {
+    "bootstrap_coordinator": "bootstrap.pisecure.org",
+    "federation_enabled": true,
+    "intelligence_sharing": true
+  },
+  "capabilities_acknowledged": ["syndicate_mining", "block_validation"],
+  "services_enabled": ["mining", "p2p_sync"]
+}
+```
+
+#### API Endpoint: `POST /api/v1/nodes/status`
+**Description:** Send periodic status updates from registered nodes.
+
+**Request Body:**
+```json
+{
+  "node_id": "pisecure-node-001",
+  "status": "active",
+  "mining_active": true,
+  "blocks_mined": 15,
+  "peers_connected": 3,
+  "syndicate_membership": "test_syndicate"
+}
+```
+
+**Response:**
+```json
+{
+  "status_update_accepted": true,
+  "node_id": "pisecure-node-001",
+  "intelligence_processed": true,
+  "network_recommendations": [
+    "Consider upgrading mining hardware for better network contribution"
+  ],
+  "timestamp": 1704379200.0
+}
+```
+
+#### API Endpoint: `GET /api/v1/nodes/list`
+**Description:** Get list of registered active nodes with filtering.
+
+**Query Parameters:**
+- `type`: Filter by node type (miner, validator, wallet, etc.)
+- `location`: Filter by geographic location
+- `service`: Filter by provided services
+
+**Response:**
+```json
+{
+  "total_registered_nodes": 5,
+  "nodes": [
+    {
+      "node_id": "pisecure-node-001",
+      "node_type": "miner",
+      "services": ["mining", "p2p_sync"],
+      "capabilities": ["syndicate_mining", "block_validation"],
+      "location": "us-east",
+      "status": "active",
+      "last_seen": 1704379200.0,
+      "performance_score": 85.5,
+      "intelligence_insights": {
+        "uptime_percentage": 95.2,
+        "avg_peer_connections": 4.2,
+        "mining_participation_rate": 88.5,
+        "performance_trend": "improving"
+      }
+    }
+  ],
+  "filters_applied": {
+    "type": "miner",
+    "location": null,
+    "service": null
+  },
+  "intelligence_enhanced": true
+}
+```
+
+**Unique Features:**
+- Automatic inactive node cleanup (24-hour timeout)
+- Performance scoring and trend analysis
+- Intelligence-enhanced node insights
+- Geographic and service-based filtering
+- Real-time status tracking with history
+
+### 13. Intelligence Federation Between Bootstrap Nodes
+**Purpose:** Federated intelligence sharing and coordination between bootstrap nodes.
+
+#### API Endpoint: `POST /api/v1/intelligence/share`
+**Description:** Share threat intelligence with peer bootstrap nodes.
+
+#### API Endpoint: `GET /api/v1/intelligence/sync`
+**Description:** Synchronize intelligence from peer bootstrap nodes.
+
+#### API Endpoint: `GET /api/v1/intelligence/federation`
+**Description:** Get intelligence federation status.
+
+**Response:**
+```json
+{
+  "federation_status": {
+    "federation_enabled": true,
+    "active_peers": 3,
+    "peer_list": [
+      {
+        "node_id": "bootstrap-secondary-01",
+        "endpoint": "https://bootstrap-secondary-01.example.com"
+      }
+    ],
+    "last_sync_times": {
+      "bootstrap-secondary-01": 1704379100.0
+    },
+    "shared_intelligence_count": 150
+  },
+  "intelligence_sharing_active": true,
+  "network_intelligence_nodes": 4,
+  "last_federation_sync": 1704379100.0,
+  "intelligence_contributors": {
+    "bootstrap_nodes": 3,
+    "active_miners": 0,
+    "active_wallets": 0,
+    "total_contributors": 3
+  },
+  "timestamp": 1704379200.0
+}
+```
+
+**Unique Features:**
+- Cross-bootstrap threat intelligence sharing
+- Federated attack detection and response
+- Peer authentication and trust validation
+- Intelligence aggregation across network
+- Geographic threat correlation
+
+### 14. Network Immune System
+**Purpose:** Comprehensive automated defense system with ML-powered attack prevention.
+
+**Features:**
+- **Automated Defense Actions**: Rate limiting, traffic diversion, regional blocking
+- **Threat Zone Management**: Geographic attack pattern identification
+- **Defense Effectiveness Tracking**: Success rate monitoring and optimization
+- **Coordinated Response**: Multi-node defense coordination
+- **Attack Prevention Metrics**: Real-time prevention rate calculation
+
+### 15. Raspberry Pi 5 Installation System
+**Purpose:** Automated production deployment on Raspberry Pi 5 hardware.
+
+#### Installation Script: `install.sh`
+**Features:**
+- Complete system security hardening (UFW, fail2ban, SSH hardening)
+- Automatic service management (systemd)
+- Performance optimizations for RPi 5
+- Health monitoring and automated backups
+- Daily security updates and log rotation
+- Python virtual environment setup
+- Database initialization
+
+#### Installation Command:
+```bash
+curl -fsSL https://raw.githubusercontent.com/UnderhillForge/PiSecure-Bootstrap/main/install.sh | bash
+```
+
+#### Post-Installation Configuration:
+```bash
+# Configure operator wallet
+sudo nano /opt/pisecure/bootstrap/.env
+
+# Access dashboard
+# http://<rpi-ip>:8080/nodes
+
+# Monitor logs
+sudo journalctl -u pisecure-bootstrap -f
+```
+
+### 16. Real-Time Network Dashboard
+**Purpose:** Live network statistics and monitoring dashboard.
+
+#### Dashboard URL: `/nodes`
+**Features:**
+- **Real Node Statistics**: Total and active node counts from `/api/v1/nodes/list`
+- **Network Health**: Intelligence-based health scoring from `/api/v1/intelligence/health`
+- **Bootstrap Registry**: Live federation status from `/api/v1/bootstrap/registry`
+- **DEX Analytics**: Trading data and pool health from `/api/v1/dex/stats`
+- **314ST Valuation**: Token economics dashboard with market data
+- **Auto-Refresh**: Real-time data updates every 30-120 seconds
+
+#### Dashboard Sections:
+- **Network Overview**: Total nodes, active nodes, hashrate, block height
+- **Network Health**: Health status, latency, sync status, mempool
+- **Mining Statistics**: Active miners, total hashrate, blocks/hour
+- **Protocol Information**: Version, consensus, network parameters
+- **Bootstrap Nodes**: Federation status and node information
+- **Recent Blocks**: Blockchain activity (when mining starts)
+- **314ST Token Valuation**: Market price, fundamental value, DEX data
+
+### 17. 314ST Token Valuation Dashboard
+**Purpose:** Comprehensive token economics analysis and market data.
+
+#### Features:
+- **Fundamental Analysis**: Mining costs, development value, utility metrics
+- **Market Price Tracking**: DEX trading data and price discovery
+- **Fair Launch Tracking**: Mining progress and token allocation
+- **Premium/Discount Analysis**: Fair value vs. market price comparison
+- **DEX Integration**: Real-time pool data and trading volume
+- **Market Sentiment**: Momentum indicators and trading activity
+- **Supply & Demand**: Circulating supply, market cap, token velocity
+
+#### Valuation Components:
+- **Mining Cost Floor**: $0.50 (energy + hardware costs)
+- **Development Value**: $0.75 (R&D investment)
+- **Security Utility**: $0.25 (attack prevention value)
+- **Network Premium**: $0.25 (ecosystem value)
+- **Fair Launch Bonus**: $0.25 (transparency premium)
+- **Total Fundamental Value**: $2.00 per token
+
+### 18. Enhanced DEX Coordination
+**Purpose:** Bootstrap-level DEX orchestration with intelligence optimization.
+
+#### Additional DEX Features:
+- **Threat-Aware Routing**: Adapts swap parameters based on network conditions
+- **Intelligence-Enhanced Execution**: Uses ML for optimal trade timing
+- **Federated DEX Coordination**: Unified liquidity across bootstrap nodes
+- **Pool Health Monitoring**: Automated recommendations for pool optimization
+- **Trading Pattern Analysis**: ML-based market analysis and predictions
+- **Liquidity Provider Rewards**: 314ST incentives for pool participation
+
+### 19. Operator Value Estimation System
+**Purpose:** Calculate economic value of bootstrap node operations.
+
+#### Value Calculation Components:
+- **Intelligence Processing**: ML analysis and threat detection ($50/hour)
+- **DEX Coordination Fees**: Percentage of trading volume
+- **Network Monitoring**: 24/7 health monitoring ($25/hour)
+- **Bootstrap Coordination**: Peer discovery and federation ($30/hour)
+- **Uptime Bonuses**: Reliability incentives (up to 20%)
+- **Utility Value**: Attack prevention and UX improvements
+- **Operating Costs**: Electricity, hosting, maintenance
+- **Operator Work Value**: Time and expertise investment
+
+#### Estimated Monthly Value: $37,200 ($1,240/day)
+- **Intelligence Revenue**: $21,600 (57.5%)
+- **DEX Fees**: $1,500 (4%)
+- **Network Services**: $21,600 (57.5%)
+- **Utility Value**: $800 (2%)
+- **Operating Costs**: $1,080 (3%)
+- **Operator Value**: $720 (2%)
+
+### 20. Comprehensive Security & Monitoring
+**Purpose:** Enterprise-grade security and operational monitoring.
+
+#### Security Features:
+- **Multi-Layer Defense**: UFW, fail2ban, SSH hardening, application security
+- **Automated Updates**: Daily security patches and system updates
+- **Intrusion Detection**: ML-powered anomaly detection and response
+- **Access Control**: Role-based authentication and authorization
+- **Audit Logging**: Comprehensive activity logging and monitoring
+
+#### Monitoring Features:
+- **Health Checks**: 5-minute automated health monitoring
+- **Performance Tracking**: CPU, memory, network, and service metrics
+- **Backup System**: Daily automated backups with 7-day retention
+- **Log Rotation**: Automatic log management and archival
+- **Alert System**: Automated notifications for critical events
+
+## Complete Feature Set
+
+### Core Bootstrap Services
+1.  Intelligent Bootstrap Handshake System
+2.  ML-Powered Attack Detection System
+3.  Smart Routing Optimization Engine
+4.  Geographic Clustering and Network Analysis
+5.  Network Load Prediction Engine
+6.  Bootstrap Service Coordination
+7.  Bootstrap Node Registry System
+8.  Service Advertisement System
+
+### Advanced Intelligence Features
+9.  314ST Operator Rewards System
+10.  PiSecure DEX (Decentralized Exchange)
+11.  Bootstrap Node Differentiation & Configuration
+12.  PiSecure Node Registry & Status Tracking
+13.  Intelligence Federation Between Bootstrap Nodes
+14.  Network Immune System
+
+### Production & Deployment Features
+15.  Raspberry Pi 5 Installation System
+16.  Real-Time Network Dashboard
+17.  314ST Token Valuation Dashboard
+18.  Enhanced DEX Coordination
+19.  Operator Value Estimation System
+20.  Comprehensive Security & Monitoring
+
+## Technical Implementation
+
+### Configuration Management
+- **Config.json Loading**: Dynamic configuration with fallback defaults
+- **Environment Variables**: Railway and production deployment support
+- **Validation**: Configuration schema validation and error handling
+- **Hot Reloading**: Configuration updates without service restart
+
+### Database Architecture
+- **SQLite Backend**: Lightweight, reliable persistent storage
+- **Schema Management**: Automatic table creation and migration
+- **Performance Optimization**: Indexed queries and connection pooling
+- **Backup Integration**: Automated database backups with service
+
+### API Design Principles
+- **RESTful Endpoints**: Consistent HTTP method usage and URL structure
+- **JSON Schema**: Standardized request/response formats
+- **Error Handling**: Comprehensive error responses with detailed messages
+- **Rate Limiting**: Intelligent API rate limiting and abuse prevention
+- **Authentication**: Capability-based authentication for bootstrap federation
+
+### Monitoring & Observability
+- **Structured Logging**: JSON-formatted logs with correlation IDs
+- **Metrics Collection**: Prometheus-compatible metrics export
+- **Health Endpoints**: Multiple health check endpoints for different components
+- **Performance Monitoring**: Real-time performance tracking and alerting
+- **Audit Trails**: Complete audit logging for security and compliance
+
+This documentation covers the complete, advanced capabilities that make PiSecure Bootstrap Nodes significantly more intelligent, secure, and capable than traditional blockchain bootstrap services. The system provides enterprise-grade bootstrap coordination with ML-powered intelligence, comprehensive security, and production-ready deployment options.
