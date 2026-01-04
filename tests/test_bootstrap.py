@@ -31,9 +31,9 @@ class TestBootstrapNode:
         assert peers == []
 
         # Test single peer
-        peers = self.node._parse_bootstrap_peers("bootstrap.pisecure.net:3142")
+        peers = self.node._parse_bootstrap_peers("bootstrap.pisecure.org:3142")
         assert len(peers) == 1
-        assert peers[0]['address'] == 'bootstrap.pisecure.net'
+        assert peers[0]['address'] == 'bootstrap.pisecure.org'
         assert peers[0]['port'] == 3142
 
         # Test multiple peers

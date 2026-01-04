@@ -280,8 +280,9 @@ class BootstrapNode:
             current_time = time.time()
             for peer in self.bootstrap_peers:
                 if current_time - peer.get('last_seen', 0) < 3600:  # Active within 1 hour
+                    peer_id = f"{peer['address']}:{peer['port']}"
                     verified_peers.append({
-                        'node_id': f"bootstrap_{hashlib.sha256(f\"{peer['address']}:{peer['port']}\".encode()).hexdigest()[:16]}",
+                        'node_id': f"bootstrap_{hashlib.sha256(peer_id.encode()).hexdigest()[:16]}",
                         'address': peer['address'],
                         'port': peer['port'],
                         'capabilities': peer.get('capabilities', []),

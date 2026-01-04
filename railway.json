@@ -14,7 +14,7 @@
       "variables": {
         "FLASK_ENV": "production",
         "RATE_LIMIT": "1000 per minute",
-        "BOOTSTRAP_PEERS": "bootstrap.pisecure.net:3142"
+        "BOOTSTRAP_PEERS": "bootstrap.pisecure.org:3142"
       }
     },
     "development": {
