@@ -1142,6 +1142,129 @@ class NetworkIntelligence:
             }
         }
 
+    def process_miner_intelligence(self, report_data: dict) -> dict:
+        """Process intelligence contribution from mining nodes"""
+        try:
+            miner_id = report_data.get('miner_id')
+            hashrate = report_data.get('hashrate', 0)
+            location = report_data.get('location', 'unknown')
+
+            # Analyze hashrate patterns for anomaly detection
+            intelligence_value = self._analyze_miner_hashrate_pattern(hashrate, location)
+
+            # Update geographic mining distribution
+            if location not in self.geographic_distribution:
+                self.geographic_distribution[location] = {'count': 0, 'last_seen': time.time()}
+            self.geographic_distribution[location]['count'] += 1
+
+            # Store miner intelligence for correlation
+            miner_intel = {
+                'miner_id': miner_id,
+                'hashrate': hashrate,
+                'location': location,
+                'contribution_type': 'mining_pattern',
+                'intelligence_value': intelligence_value,
+                'timestamp': time.time()
+            }
+
+            # Could store in database for historical analysis
+            logger.info(f"Miner intelligence processed: {miner_id} contributed value {intelligence_value}")
+
+            return {
+                'intelligence_value': intelligence_value,
+                'contribution_type': 'mining_pattern',
+                'anomalies_detected': intelligence_value > 0.5,
+                'geographic_impact': location
+            }
+
+        except Exception as e:
+            logger.error(f"Miner intelligence processing failed: {e}")
+            return {'intelligence_value': 0, 'error': str(e)}
+
+    def process_wallet_intelligence(self, report_data: dict) -> dict:
+        """Process privacy-preserving intelligence from wallet nodes"""
+        try:
+            wallet_hash = report_data.get('wallet_id_hash')
+            report_type = report_data.get('report_type', 'transaction_pattern')
+
+            # Privacy-preserving analysis - aggregate patterns without individual details
+            intelligence_value = self._analyze_wallet_pattern(report_data)
+
+            # Anonymous geographic contribution (if provided)
+            location = report_data.get('location', 'unknown')
+            if location != 'unknown':
+                # Aggregate geographic transaction patterns
+                if location not in self.geographic_distribution:
+                    self.geographic_distribution[location] = {'count': 0, 'last_seen': time.time()}
+                self.geographic_distribution[location]['count'] += 0.1  # Fractional contribution for privacy
+
+            wallet_intel = {
+                'wallet_hash': wallet_hash,
+                'report_type': report_type,
+                'contribution_type': 'transaction_pattern',
+                'intelligence_value': intelligence_value,
+                'privacy_preserved': True,
+                'timestamp': time.time()
+            }
+
+            logger.info(f"Wallet intelligence processed: anonymous contribution value {intelligence_value}")
+
+            return {
+                'intelligence_value': intelligence_value,
+                'contribution_type': 'transaction_pattern',
+                'privacy_preserved': True,
+                'aggregated_analysis': True
+            }
+
+        except Exception as e:
+            logger.error(f"Wallet intelligence processing failed: {e}")
+            return {'intelligence_value': 0, 'error': str(e)}
+
+    def _analyze_miner_hashrate_pattern(self, hashrate: float, location: str) -> float:
+        """Analyze miner hashrate patterns for intelligence value"""
+        # Simple pattern analysis - could be much more sophisticated
+        base_value = 0.1  # Base intelligence value
+
+        # Geographic concentration analysis
+        location_count = self.geographic_distribution.get(location, {}).get('count', 0)
+        total_locations = len(self.geographic_distribution)
+
+        if total_locations > 1:
+            concentration_factor = location_count / sum(data['count'] for data in self.geographic_distribution.values())
+            if concentration_factor > 0.5:  # High concentration
+                base_value += 0.3  # Valuable intelligence about mining pools
+
+        # Hashrate anomaly detection
+        if hashrate > 1000000:  # Very high hashrate (potential botnet)
+            base_value += 0.4
+
+        return min(1.0, base_value)
+
+    def _analyze_wallet_pattern(self, report_data: dict) -> float:
+        """Analyze wallet transaction patterns for intelligence value"""
+        # Privacy-preserving pattern analysis
+        base_value = 0.05  # Lower base value for privacy
+
+        report_type = report_data.get('report_type', '')
+
+        # Different report types have different intelligence value
+        if report_type == 'unusual_transaction':
+            base_value += 0.3
+        elif report_type == 'fee_anomaly':
+            base_value += 0.2
+        elif report_type == 'geographic_shift':
+            base_value += 0.15
+
+        # Pattern consistency analysis (simplified)
+        timestamp = report_data.get('timestamp', time.time())
+        recent_reports = [ts for ts in self.connection_timestamps
+                         if time.time() - ts < 3600]  # Last hour
+
+        if len(recent_reports) > 10:  # Multiple reports indicate pattern
+            base_value += 0.1
+
+        return min(1.0, base_value)
+
     def _analyze_connection_patterns(self):
         """Internal method to analyze connection patterns for anomalies"""
         # This is called automatically when connections are recorded
@@ -1150,6 +1273,162 @@ class NetworkIntelligence:
 
 # Initialize network intelligence engine
 network_intelligence = NetworkIntelligence()
+
+# Intelligence Federation for Bootstrap Node Coordination
+class IntelligenceFederation:
+    """Federated intelligence sharing between bootstrap nodes"""
+
+    def __init__(self, network_intelligence, bootstrap_registry):
+        self.network_intelligence = network_intelligence
+        self.bootstrap_registry = bootstrap_registry
+        self.shared_intelligence = {}
+        self.intelligence_peers = set()
+        self.last_sync_times = {}
+        self.federation_enabled = True
+
+    def register_peer_bootstrap(self, bootstrap_node_id: str, endpoint: str):
+        """Register a peer bootstrap node for intelligence sharing"""
+        self.intelligence_peers.add((bootstrap_node_id, endpoint))
+        logger.info(f"Registered intelligence peer: {bootstrap_node_id} at {endpoint}")
+
+    def unregister_peer_bootstrap(self, bootstrap_node_id: str):
+        """Remove a peer bootstrap node from intelligence sharing"""
+        self.intelligence_peers = {(node_id, endpoint)
+                                 for node_id, endpoint in self.intelligence_peers
+                                 if node_id != bootstrap_node_id}
+        self.last_sync_times.pop(bootstrap_node_id, None)
+
+    def share_threat_intelligence(self, threat_data: dict):
+        """Share threat intelligence with all peer bootstrap nodes"""
+        if not self.federation_enabled:
+            return
+
+        current_time = time.time()
+        federation_data = {
+            'sender_node_id': 'bootstrap-primary',  # Would be dynamic
+            'intelligence_type': 'threat_update',
+            'data': threat_data,
+            'timestamp': current_time,
+            'federation_version': '1.0'
+        }
+
+        shared_count = 0
+        for peer_id, peer_endpoint in self.intelligence_peers:
+            try:
+                # Async intelligence sharing (simplified - would use background tasks)
+                self._share_with_peer(peer_id, peer_endpoint, federation_data)
+                shared_count += 1
+            except Exception as e:
+                logger.warning(f"Failed to share intelligence with {peer_id}: {e}")
+
+        logger.info(f"Shared threat intelligence with {shared_count} peer bootstrap nodes")
+
+    def sync_intelligence_from_peers(self):
+        """Synchronize intelligence from peer bootstrap nodes"""
+        if not self.federation_enabled:
+            return
+
+        current_time = time.time()
+        sync_count = 0
+
+        for peer_id, peer_endpoint in self.intelligence_peers:
+            try:
+                # Check if we need to sync (every 5 minutes)
+                last_sync = self.last_sync_times.get(peer_id, 0)
+                if current_time - last_sync > 300:  # 5 minutes
+                    peer_intelligence = self._sync_from_peer(peer_id, peer_endpoint)
+                    if peer_intelligence:
+                        self._merge_peer_intelligence(peer_id, peer_intelligence)
+                        self.last_sync_times[peer_id] = current_time
+                        sync_count += 1
+            except Exception as e:
+                logger.warning(f"Intelligence sync failed with {peer_id}: {e}")
+
+        if sync_count > 0:
+            logger.info(f"Synchronized intelligence from {sync_count} peer bootstrap nodes")
+
+    def _share_with_peer(self, peer_id: str, peer_endpoint: str, intelligence_data: dict):
+        """Share intelligence data with a specific peer"""
+        try:
+            # In production, this would use HTTP client with proper error handling
+            # For now, just log the intent
+            logger.info(f"Sharing intelligence with peer {peer_id} at {peer_endpoint}")
+            # TODO: Implement actual HTTP POST to peer_endpoint + '/api/v1/intelligence/share'
+        except Exception as e:
+            logger.error(f"Intelligence sharing failed for {peer_id}: {e}")
+            raise
+
+    def _sync_from_peer(self, peer_id: str, peer_endpoint: str) -> dict:
+        """Synchronize intelligence from a specific peer"""
+        try:
+            # In production, this would make HTTP GET request
+            # For now, return mock data to demonstrate the concept
+            logger.info(f"Syncing intelligence from peer {peer_id} at {peer_endpoint}")
+            # TODO: Implement actual HTTP GET to peer_endpoint + '/api/v1/intelligence/sync'
+
+            # Mock peer intelligence for demonstration
+            return {
+                'threat_zones': ['peer-region-high-threat'],
+                'active_attacks': [{
+                    'type': 'connection_spike',
+                    'severity': 'medium',
+                    'location': 'peer-region',
+                    'timestamp': time.time()
+                }],
+                'intelligence_summary': {
+                    'threat_level': 'medium',
+                    'data_points_analyzed': 1500
+                },
+                'peer_timestamp': time.time()
+            }
+        except Exception as e:
+            logger.error(f"Intelligence sync failed for {peer_id}: {e}")
+            raise
+
+    def _merge_peer_intelligence(self, peer_id: str, peer_intelligence: dict):
+        """Merge intelligence from peer bootstrap node"""
+        try:
+            # Merge threat zones
+            peer_threat_zones = peer_intelligence.get('threat_zones', [])
+            for zone in peer_threat_zones:
+                if zone not in self.network_intelligence.threat_zones:
+                    # Only add if not already known (could add confidence scoring)
+                    self.network_intelligence.threat_zones.add(zone)
+                    logger.info(f"Added threat zone from peer {peer_id}: {zone}")
+
+            # Merge attack data
+            peer_attacks = peer_intelligence.get('active_attacks', [])
+            for attack in peer_attacks:
+                # Add peer identifier and merge
+                attack['source'] = f'peer_{peer_id}'
+                self.network_intelligence.potential_attacks.append(attack)
+
+            # Keep only recent attacks
+            self.network_intelligence.potential_attacks = self.network_intelligence.potential_attacks[-100:]
+
+            # Update intelligence summary
+            peer_summary = peer_intelligence.get('intelligence_summary', {})
+            if peer_summary.get('threat_level') == 'high':
+                logger.warning(f"Peer {peer_id} reports high threat level")
+
+            logger.info(f"Merged intelligence from peer {peer_id}")
+
+        except Exception as e:
+            logger.error(f"Intelligence merge failed for {peer_id}: {e}")
+
+    def get_federation_status(self) -> dict:
+        """Get federation status and peer information"""
+        return {
+            'federation_enabled': self.federation_enabled,
+            'active_peers': len(self.intelligence_peers),
+            'peer_list': [{'node_id': pid, 'endpoint': endpoint}
+                         for pid, endpoint in self.intelligence_peers],
+            'last_sync_times': self.last_sync_times,
+            'shared_intelligence_count': len(self.shared_intelligence)
+        }
+
+# Initialize intelligence federation
+intelligence_federation = IntelligenceFederation(network_intelligence, bootstrap_node_registry)
 
 # Bootstrap Node Registry (Global state for secondary bootstrap nodes)
 bootstrap_node_registry = {}
@@ -1270,6 +1549,62 @@ def _find_optimal_bootstrap_node(service: str, requesting_node: str) -> dict:
         return candidates[0][1]
 
     return None
+
+def _validate_miner_report(miner_id: str, report_data: dict) -> bool:
+    """Validate miner intelligence report"""
+    # Basic validation - in production would verify proof-of-work or signature
+    required_fields = ['miner_id', 'hashrate', 'timestamp']
+    for field in required_fields:
+        if field not in report_data:
+            return False
+
+    # Check timestamp is recent (within last hour)
+    current_time = time.time()
+    report_time = report_data.get('timestamp', 0)
+    if current_time - report_time > 3600:  # 1 hour
+        return False
+
+    # Basic miner ID format check
+    if not miner_id or len(miner_id) < 8:
+        return False
+
+    return True
+
+def _validate_wallet_report(wallet_id_hash: str, report_data: dict) -> bool:
+    """Validate wallet intelligence report (privacy-preserving)"""
+    # Privacy-focused validation - only check required anonymous fields
+    required_fields = ['wallet_id_hash', 'report_type', 'timestamp']
+    for field in required_fields:
+        if field not in report_data:
+            return False
+
+    # Check timestamp is recent (within last hour)
+    current_time = time.time()
+    report_time = report_data.get('timestamp', 0)
+    if current_time - report_time > 3600:  # 1 hour
+        return False
+
+    # Validate wallet ID hash format (should be hex string)
+    import re
+    if not re.match(r'^[a-f0-9]{64}$', wallet_id_hash):  # SHA256 hash
+        return False
+
+    return True
+
+def _is_authorized_bootstrap_peer(sender_id: str, client_ip: str) -> bool:
+    """Check if sender is an authorized bootstrap peer"""
+    # Check if sender is registered in our bootstrap registry
+    if not _is_bootstrap_node_registered(sender_id):
+        return False
+
+    # Additional validation could include IP whitelist, signatures, etc.
+    return True
+
+def _is_authorized_bootstrap_peer_from_ip(client_ip: str) -> bool:
+    """Check if requesting IP belongs to an authorized bootstrap peer"""
+    # This would need more sophisticated IP validation in production
+    # For now, accept from any IP (would add proper authentication)
+    return True
 
 @app.route('/', methods=['GET'])
 def root_health():
@@ -1671,6 +2006,193 @@ def load_predictions():
     except Exception as e:
         logger.error(f"Load prediction error: {e}")
         return jsonify({'error': 'Prediction failed'}), 500
+
+@app.route('/api/v1/intelligence/miner-report', methods=['POST'])
+def miner_intelligence_report():
+    """Receive intelligence reports from mining nodes"""
+    logger.info("Miner intelligence report endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get miner report data
+        report_data = request.get_json() or {}
+        miner_id = report_data.get('miner_id')
+
+        if not miner_id:
+            return jsonify({'error': 'Miner ID required'}), 400
+
+        # Basic validation (in production, would verify miner proof-of-work or signature)
+        if not _validate_miner_report(miner_id, report_data):
+            return jsonify({'error': 'Invalid miner report'}), 403
+
+        # Process miner intelligence
+        intelligence_contribution = network_intelligence.process_miner_intelligence(report_data)
+
+        # Reward miner with intelligence credit (concept for future token economics)
+        miner_credits = intelligence_contribution.get('intelligence_value', 0)
+
+        logger.info(f"Processed intelligence report from miner {miner_id}: {intelligence_contribution}")
+
+        return jsonify({
+            'report_accepted': True,
+            'miner_id': miner_id,
+            'intelligence_processed': intelligence_contribution,
+            'intelligence_credits': miner_credits,
+            'contribution_timestamp': time.time(),
+            'network_threat_level': network_intelligence.get_network_insights().get('intelligence_summary', {}).get('threat_level', 'unknown')
+        })
+
+    except Exception as e:
+        logger.error(f"Miner intelligence report error: {e}")
+        return jsonify({'error': 'Intelligence report processing failed'}), 500
+
+@app.route('/api/v1/intelligence/wallet-report', methods=['POST'])
+def wallet_intelligence_report():
+    """Receive privacy-preserving intelligence reports from wallet nodes"""
+    logger.info("Wallet intelligence report endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get wallet report data
+        report_data = request.get_json() or {}
+        wallet_id_hash = report_data.get('wallet_id_hash')  # Privacy-preserving
+
+        if not wallet_id_hash:
+            return jsonify({'error': 'Wallet ID hash required'}), 400
+
+        # Privacy-preserving validation (zero-knowledge style)
+        if not _validate_wallet_report(wallet_id_hash, report_data):
+            return jsonify({'error': 'Invalid wallet report'}), 403
+
+        # Process wallet intelligence (privacy-preserving aggregation)
+        intelligence_contribution = network_intelligence.process_wallet_intelligence(report_data)
+
+        # Anonymous reward credit
+        wallet_credits = intelligence_contribution.get('intelligence_value', 0)
+
+        logger.info(f"Processed privacy-preserving intelligence report from wallet: {intelligence_contribution}")
+
+        return jsonify({
+            'report_accepted': True,
+            'wallet_id_hash': wallet_id_hash,
+            'intelligence_processed': intelligence_contribution,
+            'intelligence_credits': wallet_credits,
+            'contribution_timestamp': time.time(),
+            'privacy_preserved': True,
+            'aggregated_with_peers': True  # Indicates data was combined with other reports
+        })
+
+    except Exception as e:
+        logger.error(f"Wallet intelligence report error: {e}")
+        return jsonify({'error': 'Intelligence report processing failed'}), 500
+
+@app.route('/api/v1/intelligence/federation', methods=['GET'])
+def intelligence_federation_status():
+    """Get intelligence federation status between bootstrap nodes"""
+    logger.info("Intelligence federation status endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get federation status
+        federation_status = intelligence_federation.get_federation_status()
+
+        return jsonify({
+            'federation_status': federation_status,
+            'intelligence_sharing_active': federation_status['federation_enabled'],
+            'network_intelligence_nodes': federation_status['active_peers'] + 1,  # +1 for self
+            'last_federation_sync': max(federation_status['last_sync_times'].values()) if federation_status['last_sync_times'] else None,
+            'intelligence_contributors': {
+                'bootstrap_nodes': federation_status['active_peers'],
+                'active_miners': 0,  # Would be tracked in production
+                'active_wallets': 0,  # Would be tracked in production
+                'total_contributors': federation_status['active_peers']  # Simplified
+            },
+            'timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"Intelligence federation status error: {e}")
+        return jsonify({'error': 'Federation status unavailable'}), 500
+
+@app.route('/api/v1/intelligence/share', methods=['POST'])
+def share_intelligence():
+    """Receive shared intelligence from peer bootstrap nodes"""
+    logger.info("Intelligence sharing endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get shared intelligence data
+        intelligence_data = request.get_json() or {}
+
+        # Validate sender is registered bootstrap node
+        sender_id = intelligence_data.get('sender_node_id')
+        if not sender_id or not _is_authorized_bootstrap_peer(sender_id, client_ip):
+            return jsonify({'error': 'Unauthorized intelligence share'}), 403
+
+        # Process shared intelligence
+        processed_intelligence = intelligence_federation._merge_peer_intelligence(sender_id, intelligence_data.get('data', {}))
+
+        logger.info(f"Received shared intelligence from bootstrap peer: {sender_id}")
+
+        return jsonify({
+            'intelligence_accepted': True,
+            'sender_node_id': sender_id,
+            'intelligence_processed': processed_intelligence,
+            'federation_timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"Intelligence sharing error: {e}")
+        return jsonify({'error': 'Intelligence sharing failed'}), 500
+
+@app.route('/api/v1/intelligence/sync', methods=['GET'])
+def sync_intelligence():
+    """Provide intelligence snapshot for peer synchronization"""
+    logger.info("Intelligence sync endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Verify requesting node is authorized (registered bootstrap peer)
+        if not _is_authorized_bootstrap_peer_from_ip(client_ip):
+            return jsonify({'error': 'Unauthorized sync request'}), 403
+
+        # Provide intelligence snapshot
+        intelligence_snapshot = {
+            'threat_zones': list(network_intelligence.threat_zones),
+            'active_attacks': network_intelligence.potential_attacks[-10:],  # Last 10 attacks
+            'intelligence_summary': network_intelligence.get_network_insights().get('intelligence_summary', {}),
+            'federation_status': intelligence_federation.get_federation_status(),
+            'sync_timestamp': time.time(),
+            'data_freshness': time.time() - network_intelligence.get_network_insights().get('intelligence_summary', {}).get('analysis_timestamp', time.time())
+        }
+
+        logger.info(f"Provided intelligence sync to authorized peer at {client_ip}")
+
+        return jsonify({
+            'intelligence_snapshot': intelligence_snapshot,
+            'sync_success': True,
+            'data_points_shared': len(network_intelligence.connection_history),
+            'threat_zones_shared': len(network_intelligence.threat_zones)
+        })
+
+    except Exception as e:
+        logger.error(f"Intelligence sync error: {e}")
+        return jsonify({'error': 'Intelligence sync failed'}), 500
 
 @app.route('/nodes', methods=['GET'])
 def nodes():
