@@ -35,16 +35,17 @@ class BootstrapNode:
     - Node registration and heartbeat monitoring
     """
 
-    def __init__(self, host: str = '0.0.0.0', port: int = 3142):
+    def __init__(self, host: str = '0.0.0.0', port: Optional[int] = None):
         """
         Initialize the bootstrap node.
 
         Args:
             host: Host to bind to
-            port: Port to listen on
+            port: Port to listen on (uses RAILWAY_PORT if not specified)
         """
         self.host = host
-        self.port = port
+        # Use Railway's PORT environment variable, fallback to provided port or default
+        self.port = port or int(os.environ.get('PORT', '3142'))
 
         # Initialize Flask app
         self.app = Flask(__name__)
@@ -400,6 +401,15 @@ def run_server():
     server = BootstrapNode(host=args.host, port=args.port)
     server.run(debug=args.debug)
 
+
+# Create WSGI application for Gunicorn
+def create_app():
+    """Create and configure the Flask application for WSGI servers."""
+    server = BootstrapNode()
+    return server.app
+
+# Global WSGI application object
+app = create_app()
 
 if __name__ == '__main__':
     run_server()

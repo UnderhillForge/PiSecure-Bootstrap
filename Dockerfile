@@ -21,12 +21,12 @@ RUN useradd --create-home --shell /bin/bash bootstrap
 RUN chown -R bootstrap:bootstrap /app
 USER bootstrap
 
-# Expose port
+# Expose port (Railway will override with $PORT)
 EXPOSE 3142
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3142/api/v1/health || exit 1
+    CMD curl -f http://localhost:$PORT/api/v1/health || exit 1
 
-# Run the bootstrap node
-CMD ["python", "bootstrap/server.py", "--host", "0.0.0.0", "--port", "3142"]
+# Run with Gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "--workers", "2", "--threads", "4", "bootstrap.server:app"]
