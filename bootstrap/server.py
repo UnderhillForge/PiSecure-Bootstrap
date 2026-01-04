@@ -723,9 +723,9 @@ def _count_active_nodes_static(registered_nodes):
 # Create WSGI application for Gunicorn
 def create_app():
     """Create and configure the Flask application for WSGI servers."""
-    # For Gunicorn/workers, create a single Flask app without BootstrapNode instances
-    # Read port from environment (Railway sets PORT)
-    port = int(os.environ.get('PORT', '3142'))
+    # For Railway Metal builder, use port 8080 (Metal builder requirement)
+    # Metal builder expects applications to bind to port 8080
+    port = 8080
 
     # Initialize Flask app directly
     app = Flask(__name__)
