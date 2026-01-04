@@ -1,7 +1,4 @@
 {
-  "build": {
-    "builder": "DOCKER"
-  },
   "deploy": {
     "startCommand": "python bootstrap/server.py",
     "healthcheckPath": "/api/v1/health",
