@@ -2194,8 +2194,33 @@ def _get_node_recommendations(node_id: str, status_data: dict) -> list:
 
     return recommendations
 
+def _cleanup_inactive_nodes():
+    """Remove inactive nodes from registry (burn inactive nodes)"""
+    current_time = time.time()
+    inactive_timeout = 24 * 60 * 60  # 24 hours in seconds
+    nodes_to_remove = []
+
+    for node_id, node_data in pisecure_node_registry.items():
+        last_seen = node_data.get('last_seen', 0)
+        if current_time - last_seen > inactive_timeout:
+            nodes_to_remove.append(node_id)
+            logger.info(f"Burning inactive node: {node_id} (last seen {current_time - last_seen:.0f}s ago)")
+
+    # Remove inactive nodes from registry
+    for node_id in nodes_to_remove:
+        pisecure_node_registry.pop(node_id, None)
+        node_status_history.pop(node_id, None)
+
+    if nodes_to_remove:
+        logger.info(f"Burned {len(nodes_to_remove)} inactive nodes from registry")
+
+    return len(nodes_to_remove)
+
 def _get_registered_nodes_filtered(node_type: str = None, location: str = None, service: str = None) -> list:
-    """Get filtered list of registered nodes"""
+    """Get filtered list of registered nodes (with inactive node cleanup)"""
+    # Clean up inactive nodes before returning list
+    _cleanup_inactive_nodes()
+
     nodes = []
 
     for node_id, node_data in pisecure_node_registry.items():
