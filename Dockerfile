@@ -28,5 +28,5 @@ EXPOSE 3142
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:$PORT/api/v1/health || exit 1
 
-# Run with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:$PORT", "--workers", "2", "--threads", "4", "bootstrap.server:app"]
+# Run with Gunicorn (let Railway handle port assignment)
+CMD ["gunicorn", "--bind", "0.0.0.0", "--workers", "2", "--threads", "4", "bootstrap.server:app"]

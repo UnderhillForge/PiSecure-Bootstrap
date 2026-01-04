@@ -1,7 +1,7 @@
 {
   "deploy": {
-    "startCommand": "gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 4 bootstrap.server:app",
-    "healthcheckPath": "/api/v1/health",
+    "startCommand": "gunicorn --bind 0.0.0.0 --workers 2 --threads 4 bootstrap.server:app",
+    "healthcheckPath": "/",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   },

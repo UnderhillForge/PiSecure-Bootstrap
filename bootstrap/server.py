@@ -108,6 +108,11 @@ class BootstrapNode:
     def _setup_routes(self):
         """Setup all API routes."""
 
+        # Root health check (for Railway)
+        @self.app.route('/', methods=['GET'])
+        def root_health():
+            return jsonify({'status': 'healthy'})
+
         # Health check
         @self.app.route(f'/api/{self.api_version}/health', methods=['GET'])
         def health():
