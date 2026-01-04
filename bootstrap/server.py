@@ -2031,20 +2031,388 @@ class PiSecureDEXCoordinator:
         # Simplified - would track actual volume
         return sum(pool['volume_24h'] for pool in self.liquidity_pools.values())
 
-    def _get_pool_health_recommendations(self) -> list:
-        """Get recommendations for improving pool health"""
-        recommendations = []
+# PiSecure Node Registry for managing registered nodes
+pisecure_node_registry = {}
+node_status_history = defaultdict(list)  # node_id -> [status_updates]
 
-        # Find pools with low liquidity
-        low_liquidity_pools = [
-            pool_id for pool_id, pool in self.liquidity_pools.items()
-            if pool['total_liquidity_a'] + pool['total_liquidity_b'] < self.min_liquidity_314st
-        ]
+def _validate_node_registration(registration_data: dict) -> bool:
+    """Validate node registration data"""
+    required_fields = ['node_id', 'node_type', 'services', 'capabilities']
 
-        if low_liquidity_pools:
-            recommendations.append(f"Consider bootstrapping liquidity for pools: {', '.join(low_liquidity_pools)}")
+    for field in required_fields:
+        if field not in registration_data:
+            return False
 
-        return recommendations
+    # Validate node_id format (alphanumeric + hyphens/underscores)
+    import re
+    if not re.match(r'^[a-zA-Z0-9_-]{5,50}$', registration_data['node_id']):
+        return False
+
+    # Validate node_type
+    valid_types = ['miner', 'validator', 'wallet', 'bootstrap', 'standard']
+    if registration_data.get('node_type') not in valid_types:
+        return False
+
+    # Validate services list
+    if not isinstance(registration_data.get('services', []), list):
+        return False
+
+    # Validate capabilities list
+    if not isinstance(registration_data.get('capabilities', []), list):
+        return False
+
+    return True
+
+def _register_pisecure_node(node_data: dict) -> bool:
+    """Register a PiSecure node in the registry"""
+    try:
+        node_id = node_data['node_id']
+
+        # Store node data
+        pisecure_node_registry[node_id] = {
+            **node_data,
+            'registration_timestamp': time.time(),
+            'status_updates': 0,
+            'last_status_update': None,
+            'performance_score': 0.0
+        }
+
+        logger.info(f"Registered PiSecure node: {node_id}")
+        return True
+
+    except Exception as e:
+        logger.error(f"Node registration failed: {e}")
+        return False
+
+def _is_node_registered(node_id: str) -> bool:
+    """Check if a node is registered"""
+    return node_id in pisecure_node_registry
+
+def _update_node_status(node_id: str, status_update: dict) -> bool:
+    """Update node status and store in history"""
+    try:
+        if node_id not in pisecure_node_registry:
+            return False
+
+        # Update node data
+        pisecure_node_registry[node_id].update({
+            'last_seen': time.time(),
+            'last_status_update': status_update,
+            'status_updates': pisecure_node_registry[node_id]['status_updates'] + 1
+        })
+
+        # Store status in history (keep last 50 updates)
+        node_status_history[node_id].append({
+            **status_update,
+            'timestamp': time.time()
+        })
+        node_status_history[node_id] = node_status_history[node_id][-50:]
+
+        # Calculate performance score
+        performance_score = _calculate_node_performance_score(node_id)
+        pisecure_node_registry[node_id]['performance_score'] = performance_score
+
+        return True
+
+    except Exception as e:
+        logger.error(f"Status update failed for {node_id}: {e}")
+        return False
+
+def _calculate_node_performance_score(node_id: str) -> float:
+    """Calculate performance score for a node based on status history"""
+    if node_id not in node_status_history or not node_status_history[node_id]:
+        return 0.0
+
+    status_updates = node_status_history[node_id][-10:]  # Last 10 updates
+
+    # Calculate uptime from status reports
+    active_count = sum(1 for update in status_updates if update.get('status') == 'active')
+    uptime_score = active_count / len(status_updates) if status_updates else 0
+
+    # Mining activity score
+    mining_active_count = sum(1 for update in status_updates if update.get('mining_active', False))
+    mining_score = mining_active_count / len(status_updates) if status_updates else 0
+
+    # Peer connectivity score
+    avg_peers = sum(update.get('peers_connected', 0) for update in status_updates) / len(status_updates)
+    connectivity_score = min(1.0, avg_peers / 10)  # Max score at 10 peers
+
+    # Combined performance score (0-100)
+    performance_score = (uptime_score * 0.4 + mining_score * 0.3 + connectivity_score * 0.3) * 100
+
+    return round(performance_score, 2)
+
+def _process_node_intelligence(node_id: str, status_data: dict):
+    """Process intelligence from node status updates"""
+    try:
+        # Extract intelligence data
+        hashrate = status_data.get('hashrate', 0)
+        location = pisecure_node_registry[node_id].get('location', 'unknown')
+        mining_active = status_data.get('mining_active', False)
+
+        # Create intelligence report
+        intelligence_report = {
+            'miner_id': node_id,
+            'hashrate': hashrate,
+            'location': location,
+            'mining_active': mining_active,
+            'timestamp': time.time()
+        }
+
+        # Process through network intelligence
+        network_intelligence.process_miner_intelligence(intelligence_report)
+
+    except Exception as e:
+        logger.warning(f"Intelligence processing failed for {node_id}: {e}")
+
+def _get_node_recommendations(node_id: str, status_data: dict) -> list:
+    """Generate recommendations for node based on status"""
+    recommendations = []
+
+    try:
+        # Check mining status
+        if not status_data.get('mining_active', False):
+            recommendations.append("Consider activating mining to contribute to network security")
+
+        # Check peer connections
+        peers_connected = status_data.get('peers_connected', 0)
+        if peers_connected < 3:
+            recommendations.append(f"Low peer count ({peers_connected}). Consider improving connectivity")
+
+        # Check hashrate
+        hashrate = status_data.get('hashrate', 0)
+        if hashrate < 1000000:  # Less than 1 MH/s
+            recommendations.append("Consider upgrading mining hardware for better network contribution")
+
+        # Performance-based recommendations
+        performance_score = pisecure_node_registry[node_id].get('performance_score', 0)
+        if performance_score < 50:
+            recommendations.append("Performance score below average. Check node configuration")
+
+    except Exception as e:
+        logger.warning(f"Recommendation generation failed for {node_id}: {e}")
+
+    return recommendations
+
+def _get_registered_nodes_filtered(node_type: str = None, location: str = None, service: str = None) -> list:
+    """Get filtered list of registered nodes"""
+    nodes = []
+
+    for node_id, node_data in pisecure_node_registry.items():
+        # Apply filters
+        if node_type and node_data.get('node_type') != node_type:
+            continue
+        if location and node_data.get('location') != location:
+            continue
+        if service and service not in node_data.get('services', []):
+            continue
+
+        # Add intelligence insights
+        nodes.append({
+            'node_id': node_id,
+            'node_type': node_data.get('node_type'),
+            'services': node_data.get('services', []),
+            'capabilities': node_data.get('capabilities', []),
+            'location': node_data.get('location'),
+            'status': node_data.get('status'),
+            'last_seen': node_data.get('last_seen'),
+            'performance_score': node_data.get('performance_score', 0),
+            'registered_at': node_data.get('registered_at'),
+            'wallet_address': node_data.get('wallet_address')
+        })
+
+    return nodes
+
+def _get_node_insights(node_id: str) -> dict:
+    """Get intelligence insights for a specific node"""
+    try:
+        if node_id not in pisecure_node_registry:
+            return {}
+
+        node_data = pisecure_node_registry[node_id]
+        status_history = node_status_history.get(node_id, [])
+
+        if not status_history:
+            return {'insights_available': False}
+
+        # Calculate insights
+        recent_updates = status_history[-5:]  # Last 5 status updates
+        avg_uptime = sum(1 for update in recent_updates if update.get('status') == 'active') / len(recent_updates)
+        avg_peers = sum(update.get('peers_connected', 0) for update in recent_updates) / len(recent_updates)
+        mining_participation = sum(1 for update in recent_updates if update.get('mining_active')) / len(recent_updates)
+
+        return {
+            'insights_available': True,
+            'uptime_percentage': round(avg_uptime * 100, 1),
+            'avg_peer_connections': round(avg_peers, 1),
+            'mining_participation_rate': round(mining_participation * 100, 1),
+            'total_status_updates': len(status_history),
+            'performance_trend': _calculate_performance_trend(status_history),
+            'network_contribution_score': node_data.get('performance_score', 0)
+        }
+
+    except Exception as e:
+        logger.warning(f"Node insights calculation failed for {node_id}: {e}")
+        return {'insights_available': False, 'error': str(e)}
+
+def _calculate_performance_trend(status_history: list) -> str:
+    """Calculate performance trend from status history"""
+    if len(status_history) < 5:
+        return 'insufficient_data'
+
+    # Simple trend analysis
+    recent_scores = []
+    for i, status in enumerate(status_history[-10:]):  # Last 10 updates
+        # Calculate simple performance score for each update
+        score = 0
+        if status.get('status') == 'active':
+            score += 30
+        if status.get('mining_active'):
+            score += 40
+        if status.get('peers_connected', 0) >= 3:
+            score += 30
+        recent_scores.append(score)
+
+    if len(recent_scores) >= 5:
+        # Compare first half vs second half
+        mid = len(recent_scores) // 2
+        first_half_avg = sum(recent_scores[:mid]) / mid
+        second_half_avg = sum(recent_scores[mid:]) / (len(recent_scores) - mid)
+
+        if second_half_avg > first_half_avg * 1.1:
+            return 'improving'
+        elif second_half_avg < first_half_avg * 0.9:
+            return 'declining'
+        else:
+            return 'stable'
+
+    return 'analyzing'
+
+def calculate_bootstrap_operator_value() -> dict:
+    """Calculate the economic value of bootstrap operators based on real-world models"""
+
+    # Base calculations
+    current_time = time.time()
+
+    # Intelligence processing value (threat detection, optimization)
+    intelligence_value_per_hour = 50  # $50/hour for ML processing and analysis
+    intelligence_uptime_hours = 24 * 30  # Assuming 30 days of operation
+    intelligence_value_monthly = intelligence_value_per_hour * intelligence_uptime_hours
+
+    # DEX coordination fees (percentage of trading volume)
+    dex_trading_volume_daily = pisecure_dex._calculate_24h_volume() if pisecure_dex.liquidity_pools else 10000
+    dex_fee_percentage = 0.003  # 0.3% average fee
+    dex_bootstrap_share = 0.10  # 10% of fees to bootstrap operators
+    dex_daily_fees = dex_trading_volume_daily * dex_fee_percentage * dex_bootstrap_share
+    dex_monthly_value = dex_daily_fees * 30
+
+    # Network health monitoring value
+    network_monitoring_hourly = 25  # $25/hour for 24/7 monitoring
+    network_monitoring_monthly = network_monitoring_hourly * 24 * 30
+
+    # Bootstrap coordination value (peer discovery, federation)
+    bootstrap_coordination_hourly = 30  # $30/hour for coordination services
+    bootstrap_coordination_monthly = bootstrap_coordination_hourly * 24 * 30
+
+    # Operating costs (electricity, hosting)
+    electricity_cost_hourly = 0.5  # $0.50/hour electricity for dedicated server
+    hosting_cost_monthly = 50  # $50/month hosting
+    operating_costs_monthly = (electricity_cost_hourly * 24 * 30) + hosting_cost_monthly
+
+    # Work value (operator time and expertise)
+    operator_time_hourly = 15  # $15/hour value of operator expertise
+    maintenance_time_daily = 2  # 2 hours daily maintenance
+    operator_value_monthly = operator_time_hourly * maintenance_time_daily * 30
+
+    # Availability and reliability bonuses
+    base_uptime_percentage = 99.5  # 99.5% uptime
+    uptime_bonus_percentage = max(0, (base_uptime_percentage - 95) / 5)  # Bonus for >95% uptime
+    uptime_bonus_monthly = (intelligence_value_monthly + network_monitoring_monthly) * uptime_bonus_percentage
+
+    # Utility value (prevents attacks, improves user experience)
+    attack_prevention_value = 500  # $500/month value for preventing attacks
+    user_experience_value = 300  # $300/month value for better UX through intelligence
+    utility_value_monthly = attack_prevention_value + user_experience_value
+
+    # Calculate total monthly value
+    gross_value_monthly = (
+        intelligence_value_monthly +
+        dex_monthly_value +
+        network_monitoring_monthly +
+        bootstrap_coordination_monthly +
+        uptime_bonus_monthly +
+        utility_value_monthly
+    )
+
+    net_value_monthly = gross_value_monthly - operating_costs_monthly - operator_value_monthly
+
+    # Calculate hourly and daily rates
+    net_value_daily = net_value_monthly / 30
+    net_value_hourly = net_value_daily / 24
+
+    # 314ST equivalent (assuming $1 = 100 314ST for this example)
+    usd_to_314st_rate = 100
+    net_value_314st_monthly = int(net_value_monthly * usd_to_314st_rate)
+    net_value_314st_daily = int(net_value_daily * usd_to_314st_rate)
+    net_value_314st_hourly = int(net_value_hourly * usd_to_314st_rate)
+
+    return {
+        'breakdown': {
+            'intelligence_processing': {
+                'hourly_usd': intelligence_value_per_hour,
+                'monthly_usd': intelligence_value_monthly,
+                'description': 'ML-powered threat detection and optimization'
+            },
+            'dex_coordination_fees': {
+                'daily_usd': dex_daily_fees,
+                'monthly_usd': dex_monthly_value,
+                'description': 'Percentage of DEX trading fees'
+            },
+            'network_monitoring': {
+                'hourly_usd': network_monitoring_hourly,
+                'monthly_usd': network_monitoring_monthly,
+                'description': '24/7 network health monitoring'
+            },
+            'bootstrap_coordination': {
+                'hourly_usd': bootstrap_coordination_hourly,
+                'monthly_usd': bootstrap_coordination_monthly,
+                'description': 'Peer discovery and federation coordination'
+            },
+            'uptime_bonus': {
+                'monthly_usd': uptime_bonus_monthly,
+                'percentage': uptime_bonus_percentage * 100,
+                'description': f'Bonus for {base_uptime_percentage}% uptime'
+            },
+            'utility_value': {
+                'monthly_usd': utility_value_monthly,
+                'description': 'Attack prevention and improved user experience'
+            },
+            'operating_costs': {
+                'monthly_usd': operating_costs_monthly,
+                'description': 'Electricity, hosting, and infrastructure'
+            },
+            'operator_work_value': {
+                'monthly_usd': operator_value_monthly,
+                'description': 'Time and expertise investment'
+            }
+        },
+        'totals': {
+            'gross_value_monthly_usd': gross_value_monthly,
+            'net_value_monthly_usd': net_value_monthly,
+            'net_value_daily_usd': net_value_daily,
+            'net_value_hourly_usd': net_value_hourly,
+            'net_value_monthly_314st': net_value_314st_monthly,
+            'net_value_daily_314st': net_value_314st_daily,
+            'net_value_hourly_314st': net_value_314st_hourly
+        },
+        'assumptions': {
+            'usd_to_314st_rate': usd_to_314st_rate,
+            'uptime_percentage': base_uptime_percentage,
+            'dex_volume_daily': dex_trading_volume_daily,
+            'calculation_date': current_time
+        },
+        'disclaimer': 'Values are estimates based on industry standards and current network activity. Actual value may vary based on market conditions, network usage, and operational efficiency.'
+    }
 
 # Initialize PiSecure DEX Coordinator
 pisecure_dex = PiSecureDEXCoordinator(network_intelligence, bootstrap_node_registry)
@@ -3179,6 +3547,171 @@ def dex_stats():
     except Exception as e:
         logger.error(f"DEX stats error: {e}")
         return jsonify({'error': 'DEX stats unavailable'}), 500
+
+@app.route('/api/v1/nodes/register', methods=['POST'])
+def register_node():
+    """Register a PiSecure node with the bootstrap server"""
+    logger.info("Node registration endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get registration data
+        registration_data = request.get_json() or {}
+        node_id = registration_data.get('node_id')
+        node_type = registration_data.get('node_type', 'standard')
+        services = registration_data.get('services', [])
+        location = registration_data.get('location', 'unknown')
+        wallet_address = registration_data.get('wallet_address')
+        capabilities = registration_data.get('capabilities', [])
+
+        if not node_id:
+            return jsonify({'error': 'node_id required'}), 400
+
+        # Validate node data
+        if not _validate_node_registration(registration_data):
+            return jsonify({'error': 'Invalid node registration data'}), 400
+
+        # Register the node
+        node_data = {
+            'node_id': node_id,
+            'node_type': node_type,
+            'services': services,
+            'location': location,
+            'wallet_address': wallet_address,
+            'capabilities': capabilities,
+            'registered_at': time.time(),
+            'last_seen': time.time(),
+            'status': 'registered',
+            'client_ip': client_ip
+        }
+
+        # Store in node tracker
+        success = _register_pisecure_node(node_data)
+
+        if success:
+            logger.info(f"Successfully registered PiSecure node: {node_id} ({node_type}) from {location}")
+
+            return jsonify({
+                'registration_success': True,
+                'node_id': node_id,
+                'registration_time': node_data['registered_at'],
+                'network_info': {
+                    'bootstrap_coordinator': 'bootstrap.pisecure.org',
+                    'federation_enabled': True,
+                    'intelligence_sharing': True
+                },
+                'capabilities_acknowledged': capabilities,
+                'services_enabled': services
+            })
+        else:
+            return jsonify({'error': 'Node registration failed'}), 500
+
+    except Exception as e:
+        logger.error(f"Node registration error: {e}")
+        return jsonify({'error': 'Registration failed'}), 500
+
+@app.route('/api/v1/nodes/status', methods=['POST'])
+def update_node_status():
+    """Receive periodic status updates from registered PiSecure nodes"""
+    logger.info("Node status update endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get status data
+        status_data = request.get_json() or {}
+        node_id = status_data.get('node_id')
+
+        if not node_id:
+            return jsonify({'error': 'node_id required'}), 400
+
+        # Check if node is registered
+        if not _is_node_registered(node_id):
+            return jsonify({'error': 'Node not registered. Please register first.'}), 403
+
+        # Update node status
+        status_update = {
+            'status': status_data.get('status', 'active'),
+            'mining_active': status_data.get('mining_active', False),
+            'blocks_mined': status_data.get('blocks_mined', 0),
+            'peers_connected': status_data.get('peers_connected', 0),
+            'syndicate_membership': status_data.get('syndicate_membership'),
+            'hashrate': status_data.get('hashrate'),
+            'uptime_percentage': status_data.get('uptime_percentage'),
+            'last_status_update': time.time(),
+            'client_ip': client_ip
+        }
+
+        # Process the status update
+        success = _update_node_status(node_id, status_update)
+
+        if success:
+            # Trigger intelligence processing for this node's data
+            _process_node_intelligence(node_id, status_data)
+
+            logger.info(f"Status update received from node: {node_id}")
+
+            return jsonify({
+                'status_update_accepted': True,
+                'node_id': node_id,
+                'intelligence_processed': True,
+                'network_recommendations': _get_node_recommendations(node_id, status_data),
+                'timestamp': time.time()
+            })
+        else:
+            return jsonify({'error': 'Status update failed'}), 500
+
+    except Exception as e:
+        logger.error(f"Node status update error: {e}")
+        return jsonify({'error': 'Status update failed'}), 500
+
+@app.route('/api/v1/nodes/list', methods=['GET'])
+def list_registered_nodes():
+    """Get list of registered PiSecure nodes (for coordination)"""
+    logger.info("Registered nodes list endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get filter parameters
+        node_type = request.args.get('type')
+        location = request.args.get('location')
+        service = request.args.get('service')
+
+        # Retrieve registered nodes
+        nodes_list = _get_registered_nodes_filtered(node_type, location, service)
+
+        # Add intelligence insights
+        nodes_with_insights = []
+        for node in nodes_list:
+            node_insights = _get_node_insights(node['node_id'])
+            nodes_with_insights.append({
+                **node,
+                'intelligence_insights': node_insights
+            })
+
+        return jsonify({
+            'total_registered_nodes': len(nodes_list),
+            'nodes': nodes_with_insights,
+            'filters_applied': {
+                'type': node_type,
+                'location': location,
+                'service': service
+            },
+            'intelligence_enhanced': True,
+            'timestamp': time.time()
+        })
+
+    except Exception as e:
+        logger.error(f"Registered nodes list error: {e}")
+        return jsonify({'error': 'Node list unavailable'}), 500
 
 @app.route('/nodes', methods=['GET'])
 def nodes():
