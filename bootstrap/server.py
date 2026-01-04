@@ -443,7 +443,14 @@ def _setup_routes_static(app, api_version, start_time, registered_nodes, bootstr
     # Root health check (for Railway)
     @app.route('/', methods=['GET'])
     def root_health():
-        return jsonify({'status': 'healthy'})
+        logger.info("Root health check endpoint called")
+        try:
+            response = jsonify({'status': 'healthy'})
+            logger.info(f"Root health check response: {response}")
+            return response
+        except Exception as e:
+            logger.error(f"Root health check error: {e}")
+            return "error", 500
 
     # Health check
     @app.route(f'/api/{api_version}/health', methods=['GET'])
