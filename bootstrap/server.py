@@ -79,8 +79,8 @@ def hello():
     </head>
     <body>
         <div class="container">
-            <h1>=€ PiSecure Bootstrap Node</h1>
-            <div class="status"> Service is Running!</div>
+            <h1>PiSecure Bootstrap Node</h1>
+            <div class="status">Service is Running!</div>
             <div class="info">
                 <strong>Domain:</strong> bootstrap.pisecure.org<br>
                 <strong>Status:</strong> Active and Online<br>
