@@ -1,0 +1,427 @@
+# PiSecure Bootstrap Node Documentation
+
+## Overview
+PiSecure Bootstrap Nodes are intelligent, ML-powered network coordinators that provide advanced peer discovery, attack detection, and routing optimization capabilities. Unlike traditional bootstrap services, PiSecure nodes actively monitor network health, detect threats, and optimize routing in real-time.
+
+## Unique Features
+
+### 1. Intelligent Bootstrap Handshake System
+**Purpose:** Secure, coordinated bootstrap node registration and service discovery.
+
+#### API Endpoint: `POST /api/v1/bootstrap/handshake`
+**Description:** Register secondary bootstrap nodes with the primary node for coordinated operation.
+
+**Request Body:**
+```json
+{
+  "node_id": "bootstrap-secondary-01",
+  "address": "192.168.1.100",
+  "port": 8081,
+  "services": ["peer_discovery", "network_health"],
+  "capabilities": ["bootstrap_coordination", "peer_discovery", "network_health"],
+  "region": "us-east",
+  "version": "1.0.0",
+  "reliability_score": 0.95,
+  "load_factor": 0.2
+}
+```
+
+**Response:**
+```json
+{
+  "handshake_accepted": true,
+  "primary_node": "bootstrap.pisecure.org",
+  "node_id": "bootstrap-secondary-01",
+  "registration_time": 1704379200.0,
+  "network_info": {
+    "total_bootstrap_nodes": 5,
+    "active_services": ["coordination", "peer_discovery", "health_monitoring"],
+    "protocol_version": "1.0",
+    "coordination_enabled": true
+  },
+  "peer_discovery_endpoints": [
+    "/api/v1/bootstrap/peers",
+    "/api/v1/network/status"
+  ]
+}
+```
+
+**Unique Features:**
+- Service capability validation
+- Geographic region assignment
+- Load balancing coordination
+- Reliability scoring system
+
+### 2. ML-Powered Attack Detection System
+**Purpose:** Advanced anomaly detection using machine learning and statistical analysis.
+
+#### API Endpoint: `GET /api/v1/intelligence/attacks`
+**Description:** Get current attack detection analysis using ML algorithms.
+
+**Response:**
+```json
+{
+  "detected_attacks": [
+    {
+      "type": "ml_anomaly_detection",
+      "severity": "high",
+      "ml_score": -0.85,
+      "confidence": 0.95,
+      "timestamp": 1704379200.0,
+      "description": "ML-detected anomaly with score -0.85"
+    }
+  ],
+  "threat_level": "high",
+  "analysis_period": "last_hour",
+  "total_analyzed_connections": 1250,
+  "ml_models_active": {
+    "isolation_forest": true,
+    "ensemble_classifier": true,
+    "geographic_clustering": true
+  },
+  "recent_defense_actions": [],
+  "active_threat_zones": ["us-east-high-risk"],
+  "blocked_ips_count": 0,
+  "blocked_regions_count": 0,
+  "timestamp": 1704379200.0
+}
+```
+
+#### API Endpoint: `GET /api/v1/intelligence/defense`
+**Description:** Get comprehensive automated defense intelligence and status.
+
+**Response:**
+```json
+{
+  "defense_intelligence": {
+    "automated_defense_active": true,
+    "ml_attack_detection_enabled": true,
+    "smart_routing_enabled": true,
+    "threat_intelligence_level": "low",
+    "active_attacks_detected": 0,
+    "threat_zones_active": 0,
+    "auto_response_actions": 0,
+    "blocked_entities": 0,
+    "defense_effectiveness_score": 95,
+    "last_defense_action": null,
+    "attack_prevention_rate": 0.92,
+    "coordinated_defense_nodes": 3,
+    "timestamp": 1704379200.0
+  },
+  "recent_attacks": [],
+  "active_threats": [],
+  "defense_capabilities": [
+    "ML-powered anomaly detection",
+    "Statistical attack pattern recognition",
+    "Automated threat response",
+    "Smart routing with threat avoidance",
+    "Geographic attack clustering",
+    "Real-time network immune system"
+  ]
+}
+```
+
+**Unique Features:**
+- Isolation Forest ML algorithm for unsupervised anomaly detection
+- Statistical attack pattern recognition (connection spikes, geographic anomalies)
+- Real-time threat scoring and confidence levels
+- Automated defense actions (rate limiting, regional blocking)
+- Threat zone management and geographic attack clustering
+
+### 3. Smart Routing Optimization Engine
+**Purpose:** AI-powered peer routing with threat awareness and performance optimization.
+
+#### API Endpoint: `POST /api/v1/intelligence/optimize`
+**Description:** Get intelligent routing optimization for peer connections.
+
+**Request Body:**
+```json
+{
+  "available_nodes": [
+    {
+      "node_id": "node-001",
+      "location": "us-east",
+      "load_factor": 0.3,
+      "reliability_score": 0.95
+    },
+    {
+      "node_id": "node-002",
+      "location": "eu-west",
+      "load_factor": 0.1,
+      "reliability_score": 0.98
+    }
+  ],
+  "service_type": "p2p_sync"
+}
+```
+
+**Response:**
+```json
+{
+  "optimization_success": true,
+  "service_type": "p2p_sync",
+  "optimized_nodes": [
+    {
+      "node": {
+        "node_id": "node-002",
+        "location": "eu-west",
+        "load_factor": 0.1,
+        "reliability_score": 0.98
+      },
+      "score": 0.875,
+      "geo_score": 0.9,
+      "load_score": 0.95,
+      "reliability_score": 0.98,
+      "route_score": 0.8,
+      "threat_adjusted": false
+    }
+  ],
+  "total_candidates": 2,
+  "optimization_method": "statistical_scoring",
+  "scoring_weights": {
+    "geographic_diversity": 0.3,
+    "load_balancing": 0.4,
+    "reliability": 0.3
+  },
+  "timestamp": 1704379200.0
+}
+```
+
+**Unique Features:**
+- Threat-aware geographic scoring
+- Predictive load balancing
+- Reinforcement learning route optimization (Q-table)
+- Geographic clustering for regional optimization
+- Real-time threat zone avoidance
+
+### 4. Geographic Clustering and Network Analysis
+**Purpose:** ML-powered geographic analysis for optimal network topology.
+
+#### API Endpoint: `GET /api/v1/intelligence/clusters`
+**Description:** Get geographic clustering analysis for routing optimization.
+
+**Response:**
+```json
+{
+  "geographic_clusters": {
+    "0": {
+      "locations": ["us-east", "us-central"],
+      "total_traffic": 450,
+      "centroid": [-95.7129, 37.0902]
+    },
+    "1": {
+      "locations": ["eu-west", "eu-central"],
+      "total_traffic": 320,
+      "centroid": [10.4515, 51.1657]
+    }
+  },
+  "clustering_method": "kmeans",
+  "total_regions_analyzed": 5,
+  "cluster_count": 2,
+  "routing_optimization_available": true,
+  "timestamp": 1704379200.0
+}
+```
+
+**Unique Features:**
+- K-means clustering for geographic region identification
+- Traffic pattern analysis by region
+- Centroid calculation for optimal routing hubs
+- Dynamic cluster adaptation based on network conditions
+
+### 5. Network Load Prediction Engine
+**Purpose:** Predictive analytics for network capacity planning.
+
+#### API Endpoint: `GET /api/v1/intelligence/predict`
+**Description:** Get network load predictions for capacity planning.
+
+**Response:**
+```json
+{
+  "predictions": {
+    "predicted_connections": 1500,
+    "confidence": "medium",
+    "timeframe_hours": 1,
+    "method": "moving_average"
+  },
+  "confidence_level": "medium",
+  "prediction_horizon": "1-24_hours",
+  "data_points_used": 1000,
+  "model_type": "statistical_time_series",
+  "timestamp": 1704379200.0
+}
+```
+
+**Unique Features:**
+- Time series analysis for load forecasting
+- Multiple prediction horizons (1-24 hours)
+- Confidence scoring for prediction reliability
+- Statistical moving average algorithms
+
+### 6. Bootstrap Service Coordination
+**Purpose:** Distributed service coordination among bootstrap nodes.
+
+#### API Endpoint: `POST /api/v1/bootstrap/coordinate`
+**Description:** Coordinate service distribution among bootstrap nodes.
+
+**Request Body:**
+```json
+{
+  "requesting_node": "node-client-001",
+  "service": "peer_discovery"
+}
+```
+
+**Response:**
+```json
+{
+  "coordination_success": true,
+  "service": "peer_discovery",
+  "assigned_node": "bootstrap-secondary-02",
+  "endpoint": "http://192.168.1.101:8082",
+  "capabilities": ["bootstrap_coordination", "peer_discovery"],
+  "load_factor": 0.15
+}
+```
+
+**Unique Features:**
+- Service load balancing across bootstrap nodes
+- Geographic service optimization
+- Reliability-based node selection
+- Fallback coordination when primary services unavailable
+
+### 7. Bootstrap Node Registry System
+**Purpose:** Centralized registry and monitoring of all bootstrap nodes.
+
+#### API Endpoint: `GET /api/v1/bootstrap/registry`
+**Description:** Get the current bootstrap node registry.
+
+**Response:**
+```json
+{
+  "primary_node": {
+    "node_id": "bootstrap-primary",
+    "address": "bootstrap.pisecure.org",
+    "port": 3142,
+    "status": "active",
+    "services": ["coordination", "peer_discovery", "health_monitoring"]
+  },
+  "secondary_nodes": [
+    {
+      "node_id": "bootstrap-secondary-01",
+      "address": "192.168.1.100",
+      "port": 8081,
+      "services": ["peer_discovery", "network_health"],
+      "capabilities": ["bootstrap_coordination", "peer_discovery"],
+      "region": "us-east",
+      "status": "active",
+      "load_factor": 0.2,
+      "last_seen": 1704379200.0
+    }
+  ],
+  "total_nodes": 4,
+  "last_updated": 1704379200.0,
+  "coordination_status": "active"
+}
+```
+
+**Unique Features:**
+- Hierarchical bootstrap node architecture
+- Service capability tracking
+- Geographic distribution monitoring
+- Load factor and health status reporting
+
+### 8. Service Advertisement System
+**Purpose:** Dynamic service capability advertisement and discovery.
+
+#### API Endpoint: `POST /api/v1/bootstrap/advertise`
+**Description:** Advertise current services and status.
+
+**Request Body:**
+```json
+{
+  "node_id": "bootstrap-secondary-01",
+  "services": ["peer_discovery", "network_health", "attack_detection"],
+  "status": "active",
+  "load_factor": 0.25,
+  "current_connections": 150,
+  "health_metrics": {
+    "cpu_usage": 0.45,
+    "memory_usage": 0.67,
+    "network_latency": 12.5
+  },
+  "service_endpoints": {
+    "peer_discovery": "/api/v1/peers",
+    "health_check": "/api/v1/health"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "advertisement_accepted": true,
+  "node_id": "bootstrap-secondary-01",
+  "timestamp": 1704379200.0,
+  "services_acknowledged": ["peer_discovery", "network_health", "attack_detection"]
+}
+```
+
+**Unique Features:**
+- Dynamic service capability updates
+- Health metrics integration
+- Load factor reporting for coordination
+- Service endpoint discovery
+
+## Technical Architecture
+
+### ML Models Used
+- **Isolation Forest**: Unsupervised anomaly detection for attack identification
+- **K-means Clustering**: Geographic region optimization
+- **Statistical Analysis**: Z-score calculations, moving averages, time series
+- **Reinforcement Learning**: Q-table route optimization
+
+### Data Sources
+- Real-time connection monitoring
+- Geographic IP geolocation
+- Latency measurements
+- Service health metrics
+- Network traffic patterns
+
+### Security Features
+- Service capability validation
+- Geographic threat zone management
+- Automated rate limiting
+- Regional traffic blocking
+- Threat intelligence sharing
+
+### Performance Optimizations
+- Connection data buffering (1000 entries)
+- Geographic caching with database persistence
+- Service load balancing algorithms
+- Predictive scaling based on ML forecasts
+
+## Deployment Considerations
+
+### Environment Variables
+- `FLASK_ENV`: Set to 'development' for debug mode
+- `PORT`: Server port (default: 8080)
+
+### Database Requirements
+- SQLite database for persistent storage
+- Automatic schema creation on startup
+- Geo IP caching for performance
+
+### Monitoring and Logging
+- Comprehensive logging of all API calls
+- ML model initialization status
+- Attack detection events
+- Service coordination activities
+
+### Scaling Considerations
+- Horizontal scaling with multiple bootstrap nodes
+- Geographic distribution for global coverage
+- Load balancing across service instances
+- Database replication for high availability
+
+This documentation covers the unique, advanced capabilities that make PiSecure Bootstrap Nodes significantly more intelligent and capable than traditional blockchain bootstrap services.
