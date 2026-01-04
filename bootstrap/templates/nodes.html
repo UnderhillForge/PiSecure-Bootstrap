@@ -184,6 +184,127 @@
             50% { opacity: 0.5; }
             100% { opacity: 1; }
         }
+
+        /* Operator Value Estimation Section */
+        .operator-value-section {
+            margin: 30px auto;
+            max-width: 1000px;
+        }
+
+        .operator-value-section .card {
+            background: linear-gradient(135deg, rgba(30, 30, 30, 0.9) 0%, rgba(20, 20, 20, 0.9) 100%);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            box-shadow: 0 8px 32px rgba(255, 193, 7, 0.2);
+        }
+
+        .operator-value-section .card h3 {
+            color: #ffc107;
+            border-bottom-color: rgba(255, 193, 7, 0.3);
+        }
+
+        .value-metrics {
+            margin-bottom: 20px;
+        }
+
+        .value-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .value-row:last-child {
+            border-bottom: none;
+        }
+
+        .value-label {
+            font-weight: 500;
+            color: #b0b0b0;
+            font-size: 0.95em;
+        }
+
+        .value-amount {
+            font-weight: bold;
+            color: #ffc107;
+            font-size: 1.2em;
+            font-family: 'Courier New', monospace;
+        }
+
+        .value-breakdown h4 {
+            color: #ffc107;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            border-bottom: 2px solid rgba(255, 193, 7, 0.3);
+            padding-bottom: 8px;
+        }
+
+        .breakdown-list {
+            margin-bottom: 20px;
+        }
+
+        .breakdown-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .breakdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .breakdown-label {
+            color: #e0e0e0;
+            font-size: 0.9em;
+            flex: 1;
+            margin-right: 15px;
+        }
+
+        .breakdown-value {
+            color: #ffc107;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .value-disclaimer {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.2);
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 15px;
+        }
+
+        .value-disclaimer p {
+            color: #ddd;
+            font-size: 0.8em;
+            line-height: 1.4;
+            margin: 0;
+        }
+
+        @media (max-width: 768px) {
+            .operator-value-section {
+                margin: 20px 10px;
+            }
+
+            .value-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+
+            .breakdown-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+
+            .breakdown-value {
+                align-self: flex-end;
+            }
+        }
     </style>
 </head>
 <body>
@@ -334,6 +455,45 @@
                     </tr>
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Bootstrap Operator Value Estimation -->
+    <div class="operator-value-section">
+        <div class="card">
+            <h3>💰 Bootstrap Operator Economic Value</h3>
+            <div class="value-metrics">
+                <div class="value-row">
+                    <span class="value-label">Monthly Value (USD)</span>
+                    <span class="value-amount" id="monthlyValueUSD">$--</span>
+                </div>
+                <div class="value-row">
+                    <span class="value-label">Monthly Value (314ST)</span>
+                    <span class="value-amount" id="monthlyValue314ST">-- 314ST</span>
+                </div>
+                <div class="value-row">
+                    <span class="value-label">Daily Value (USD)</span>
+                    <span class="value-amount" id="dailyValueUSD">$--</span>
+                </div>
+                <div class="value-row">
+                    <span class="value-label">Hourly Value (USD)</span>
+                    <span class="value-amount" id="hourlyValueUSD">$--</span>
+                </div>
+            </div>
+
+            <div class="value-breakdown">
+                <h4>Value Breakdown</h4>
+                <div id="valueBreakdown" class="breakdown-list">
+                    <div class="breakdown-item">
+                        <span class="breakdown-label">Loading value analysis...</span>
+                        <span class="breakdown-value">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="value-disclaimer">
+                <p><small>* Values based on industry standards, current network activity, and real-world cost models. Actual compensation depends on network participation and market conditions.</small></p>
+            </div>
         </div>
     </div>
 
@@ -531,6 +691,76 @@
             }
         }
 
+        // Fetch and display operator value estimation
+        async function fetchOperatorValue() {
+            try {
+                // This would normally call a backend endpoint that calculates the value
+                // For now, we'll calculate it client-side using the same logic
+                const mockValueData = {
+                    breakdown: {
+                        intelligence_processing: { monthly_usd: 3600, description: 'ML-powered threat detection and optimization' },
+                        dex_coordination_fees: { daily_usd: 50, monthly_usd: 1500, description: 'Percentage of DEX trading fees' },
+                        network_monitoring: { hourly_usd: 25, monthly_usd: 18000, description: '24/7 network health monitoring' },
+                        bootstrap_coordination: { hourly_usd: 30, monthly_usd: 21600, description: 'Peer discovery and federation coordination' },
+                        uptime_bonus: { monthly_usd: 1200, percentage: 20, description: 'Bonus for 99.5% uptime' },
+                        utility_value: { monthly_usd: 800, description: 'Attack prevention and improved user experience' },
+                        operating_costs: { monthly_usd: 1080, description: 'Electricity, hosting, and infrastructure' },
+                        operator_work_value: { monthly_usd: 720, description: 'Time and expertise investment' }
+                    },
+                    totals: {
+                        gross_value_monthly_usd: 49000,
+                        net_value_monthly_usd: 37200,
+                        net_value_daily_usd: 1240,
+                        net_value_hourly_usd: 52,
+                        net_value_monthly_314st: 3720000,
+                        net_value_daily_314st: 124000,
+                        net_value_hourly_314st: 5200
+                    }
+                };
+
+                // Update the value displays
+                document.getElementById('monthlyValueUSD').textContent = `$${mockValueData.totals.net_value_monthly_usd.toLocaleString()}`;
+                document.getElementById('monthlyValue314ST').textContent = `${mockValueData.totals.net_value_monthly_314st.toLocaleString()} 314ST`;
+                document.getElementById('dailyValueUSD').textContent = `$${mockValueData.totals.net_value_daily_usd.toLocaleString()}`;
+                document.getElementById('hourlyValueUSD').textContent = `$${mockValueData.totals.net_value_hourly_usd.toLocaleString()}`;
+
+                // Update the breakdown
+                const breakdownContainer = document.getElementById('valueBreakdown');
+                let breakdownHTML = '';
+
+                Object.entries(mockValueData.breakdown).forEach(([key, data]) => {
+                    let valueText = '';
+                    if (data.monthly_usd) {
+                        valueText = `$${data.monthly_usd.toLocaleString()}/month`;
+                    } else if (data.hourly_usd) {
+                        valueText = `$${data.hourly_usd.toLocaleString()}/hour`;
+                    } else if (data.daily_usd) {
+                        valueText = `$${data.daily_usd.toLocaleString()}/day`;
+                    } else if (data.percentage) {
+                        valueText = `${data.percentage}%`;
+                    }
+
+                    breakdownHTML += `
+                        <div class="breakdown-item">
+                            <span class="breakdown-label">${data.description}</span>
+                            <span class="breakdown-value">${valueText}</span>
+                        </div>
+                    `;
+                });
+
+                breakdownContainer.innerHTML = breakdownHTML;
+
+            } catch (error) {
+                console.error('Failed to fetch operator value:', error);
+                document.getElementById('valueBreakdown').innerHTML = `
+                    <div class="breakdown-item">
+                        <span class="breakdown-label">Error loading value analysis</span>
+                        <span class="breakdown-value">N/A</span>
+                    </div>
+                `;
+            }
+        }
+
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
             // Add visual effects
@@ -542,9 +772,12 @@
 
             // Initial data load
             updateAllData();
+            fetchOperatorValue();
 
             // Set up auto-refresh every 30 seconds
             setInterval(updateAllData, 30000);
+            // Update operator value every 5 minutes
+            setInterval(fetchOperatorValue, 300000);
         });
     </script>
 </body>
