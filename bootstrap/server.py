@@ -1427,11 +1427,11 @@ class IntelligenceFederation:
             'shared_intelligence_count': len(self.shared_intelligence)
         }
 
-# Initialize intelligence federation
-intelligence_federation = IntelligenceFederation(network_intelligence, bootstrap_node_registry)
-
 # Bootstrap Node Registry (Global state for secondary bootstrap nodes)
 bootstrap_node_registry = {}
+
+# Initialize intelligence federation
+intelligence_federation = IntelligenceFederation(network_intelligence, bootstrap_node_registry)
 
 def _validate_bootstrap_node(handshake_data: dict) -> bool:
     """Validate that the node attempting handshake is a legitimate bootstrap node"""
