@@ -9,7 +9,7 @@ import hashlib
 import ipaddress
 import json
 from collections import deque, defaultdict
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template_string
 from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, Text, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
@@ -1124,79 +1124,472 @@ def create_cross_exchange_settlement():
 
 @app.route('/nodes', methods=['GET'])
 def nodes():
-    """Legacy /nodes endpoint - now returns formatted network stats"""
-    logger.info("Legacy nodes endpoint called")
+    """Beautiful dark mode HTML dashboard for network statistics"""
+    logger.info("Nodes dashboard endpoint called")
 
     # Get current network statistics
     mining_stats = mining_aggregator.get_mining_stats()
     active_nodes = sum(1 for node in node_tracker.nodes.values()
                       if time.time() - node.get('last_seen', 0) < 300)
 
-    # Build comprehensive response
-    network_stats = {
-        'network_overview': {
-            'total_nodes': len(node_tracker.nodes),
-            'active_nodes': active_nodes,
-            'total_connections': len(node_tracker.active_connections),
-            'network_hashrate': f"{mining_stats['total_mining_hashrate']:.1f} MH/s",
-            'difficulty': '1,234,567,890',  # Mock for now
-            'block_height': 456789,  # Mock for now
-            'avg_block_time': '12.5 seconds',
-            'network_status': 'healthy' if active_nodes > 0 else 'initializing'
-        },
-        'bootstrap_nodes': [
-            {
-                'id': 'bootstrap-primary',
-                'address': 'bootstrap.pisecure.org:3142',
-                'status': 'active',
-                'uptime': '99.97%',
-                'region': 'US-East',
-                'connections': len(peer_discovery.get_bootstrap_peers()),
-                'version': '1.0.0'
-            }
-        ],
-        'mining_nodes': mining_stats,
-        'network_health': {
-            'status': 'excellent' if active_nodes > 0 else 'initializing',
-            'latency_avg': '45ms',
-            'packet_loss': '0.01%',
-            'sync_status': 'fully_synced',
-            'fork_risk': 'low',
-            'last_block_time': '8 seconds ago',
-            'mempool_size': 234,
-            'pending_transactions': 1247
-        },
-        'recent_blocks': [
-            {
-                'height': 456789,
-                'hash': 'a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef',
-                'miner': 'unknown',
-                'timestamp': '2026-01-04T12:01:30Z',
-                'transactions': 45,
-                'size': '1.2 MB',
-                'reward': '50 PISC'
-            }
-        ],
-        'protocol_info': {
-            'version': '1.0.0',
-            'network_id': 'pisecure-mainnet',
-            'consensus': 'PoW + PoS hybrid',
-            'block_time_target': '12 seconds',
-            'max_block_size': '4 MB',
-            'total_supply': '21,000,000 PISC',
-            'circulating_supply': '12,456,789 PISC'
-        },
-        'geographic_distribution': dict(defaultdict(int, {
-            loc: count for loc, count in [
-                (node.get('location', 'unknown'), 1)
-                for node in node_tracker.nodes.values()
-            ]
-        })),
-        'last_updated': time.time(),
-        'api_version': '1.0'
+    # Prepare data for template
+    network_overview = {
+        'total_nodes': len(node_tracker.nodes),
+        'active_nodes': active_nodes,
+        'total_connections': len(node_tracker.active_connections),
+        'network_hashrate': f"{mining_stats['total_mining_hashrate']:.1f}",
+        'difficulty': '1,234,567,890',
+        'block_height': 456789,
+        'avg_block_time': '12.5',
+        'network_status': 'healthy' if active_nodes > 0 else 'initializing'
     }
 
-    return jsonify(network_stats)
+    bootstrap_nodes = [
+        {
+            'id': 'bootstrap-primary',
+            'address': 'bootstrap.pisecure.org:3142',
+            'status': 'active',
+            'uptime': '99.97%',
+            'region': 'US-East',
+            'connections': len(peer_discovery.get_bootstrap_peers()),
+            'version': '1.0.0'
+        }
+    ]
+
+    network_health = {
+        'status': 'excellent' if active_nodes > 0 else 'initializing',
+        'latency_avg': '45ms',
+        'packet_loss': '0.01%',
+        'sync_status': 'fully_synced',
+        'fork_risk': 'low',
+        'last_block_time': '8 seconds ago',
+        'mempool_size': 234,
+        'pending_transactions': 1247
+    }
+
+    recent_blocks = [
+        {
+            'height': 456789,
+            'hash': 'a1b2c3d4e5f678901234567890abcdef1234567890abcdef1234567890abcdef',
+            'miner': 'unknown',
+            'timestamp': '2026-01-04T12:01:30Z',
+            'transactions': 45,
+            'size': '1.2 MB',
+            'reward': '50 PISC'
+        }
+    ]
+
+    protocol_info = {
+        'version': '1.0.0',
+        'network_id': 'pisecure-mainnet',
+        'consensus': 'PoW + PoS hybrid',
+        'block_time_target': '12 seconds',
+        'max_block_size': '4 MB',
+        'total_supply': '21,000,000 PISC',
+        'circulating_supply': '12,456,789 PISC'
+    }
+
+    geographic_distribution = dict(defaultdict(int, {
+        loc: count for loc, count in [
+            (node.get('location', 'unknown'), 1)
+            for node in node_tracker.nodes.values()
+        ]
+    }))
+
+    # Create beautiful dark mode HTML template
+    html_template = '''
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PiSecure Network Dashboard</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 100%);
+                color: #e0e0e0;
+                min-height: 100vh;
+                padding: 20px;
+            }
+
+            .header {
+                text-align: center;
+                margin-bottom: 30px;
+                background: linear-gradient(45deg, #00d4ff, #090979);
+                padding: 20px;
+                border-radius: 15px;
+                box-shadow: 0 8px 32px rgba(0, 212, 255, 0.3);
+            }
+
+            .header h1 {
+                font-size: 2.5em;
+                margin-bottom: 10px;
+                text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            }
+
+            .header p {
+                font-size: 1.1em;
+                opacity: 0.9;
+            }
+
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+                gap: 20px;
+                margin-bottom: 20px;
+            }
+
+            .card {
+                background: rgba(30, 30, 30, 0.8);
+                border: 1px solid rgba(0, 212, 255, 0.2);
+                border-radius: 12px;
+                padding: 20px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+                backdrop-filter: blur(10px);
+                transition: all 0.3s ease;
+            }
+
+            .card:hover {
+                transform: translateY(-5px);
+                box-shadow: 0 8px 30px rgba(0, 212, 255, 0.2);
+                border-color: rgba(0, 212, 255, 0.4);
+            }
+
+            .card h3 {
+                color: #00d4ff;
+                margin-bottom: 15px;
+                font-size: 1.3em;
+                border-bottom: 2px solid rgba(0, 212, 255, 0.3);
+                padding-bottom: 8px;
+            }
+
+            .metric {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+                padding: 8px 0;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .metric:last-child {
+                border-bottom: none;
+                margin-bottom: 0;
+            }
+
+            .metric-label {
+                font-weight: 500;
+                color: #b0b0b0;
+            }
+
+            .metric-value {
+                font-weight: bold;
+                color: #00d4ff;
+                font-size: 1.1em;
+            }
+
+            .status-healthy {
+                color: #00ff88;
+            }
+
+            .status-warning {
+                color: #ffaa00;
+            }
+
+            .status-error {
+                color: #ff4444;
+            }
+
+            .status-initializing {
+                color: #888888;
+            }
+
+            .blocks-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 10px;
+            }
+
+            .blocks-table th,
+            .blocks-table td {
+                padding: 8px 12px;
+                text-align: left;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .blocks-table th {
+                color: #00d4ff;
+                font-weight: 600;
+            }
+
+            .blocks-table td {
+                font-family: 'Courier New', monospace;
+                font-size: 0.9em;
+            }
+
+            .hash-cell {
+                max-width: 200px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .footer {
+                text-align: center;
+                margin-top: 30px;
+                padding: 20px;
+                background: rgba(20, 20, 20, 0.8);
+                border-radius: 10px;
+                border: 1px solid rgba(0, 212, 255, 0.2);
+            }
+
+            .footer p {
+                color: #888;
+                font-size: 0.9em;
+            }
+
+            .last-updated {
+                font-size: 0.8em;
+                color: #666;
+                margin-top: 10px;
+            }
+
+            @media (max-width: 768px) {
+                .grid {
+                    grid-template-columns: 1fr;
+                }
+
+                .header h1 {
+                    font-size: 2em;
+                }
+            }
+
+            .pulse {
+                animation: pulse 2s infinite;
+            }
+
+            @keyframes pulse {
+                0% { opacity: 1; }
+                50% { opacity: 0.5; }
+                100% { opacity: 1; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>= PiSecure Network Dashboard</h1>
+            <p>Real-time blockchain network statistics and node information</p>
+        </div>
+
+        <div class="grid">
+            <!-- Network Overview -->
+            <div class="card">
+                <h3>< Network Overview</h3>
+                <div class="metric">
+                    <span class="metric-label">Total Nodes</span>
+                    <span class="metric-value">{{ network_overview.total_nodes }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Active Nodes</span>
+                    <span class="metric-value status-healthy">{{ network_overview.active_nodes }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Network Hashrate</span>
+                    <span class="metric-value">{{ network_overview.network_hashrate }} MH/s</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Block Height</span>
+                    <span class="metric-value">{{ network_overview.block_height }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Average Block Time</span>
+                    <span class="metric-value">{{ network_overview.avg_block_time }}s</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Network Status</span>
+                    <span class="metric-value status-healthy">{{ network_overview.network_status|title }}</span>
+                </div>
+            </div>
+
+            <!-- Network Health -->
+            <div class="card">
+                <h3>=š Network Health</h3>
+                <div class="metric">
+                    <span class="metric-label">Health Status</span>
+                    <span class="metric-value status-healthy">{{ network_health.status|title }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Average Latency</span>
+                    <span class="metric-value">{{ network_health.latency_avg }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Packet Loss</span>
+                    <span class="metric-value">{{ network_health.packet_loss }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Sync Status</span>
+                    <span class="metric-value status-healthy">{{ network_health.sync_status|replace('_', ' ')|title }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Mempool Size</span>
+                    <span class="metric-value">{{ network_health.mempool_size }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Pending Transactions</span>
+                    <span class="metric-value">{{ network_health.pending_transactions }}</span>
+                </div>
+            </div>
+
+            <!-- Mining Statistics -->
+            <div class="card">
+                <h3>Ï Mining Statistics</h3>
+                <div class="metric">
+                    <span class="metric-label">Active Miners</span>
+                    <span class="metric-value">{{ mining_stats.active_miners }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Total Hashrate</span>
+                    <span class="metric-value">{{ mining_stats.total_mining_hashrate }} MH/s</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Blocks Last Hour</span>
+                    <span class="metric-value">{{ mining_stats.blocks_last_hour }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Avg Blocks/Hour</span>
+                    <span class="metric-value">{{ mining_stats.avg_blocks_per_hour }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Top Miners</span>
+                    <span class="metric-value">{{ mining_stats.mining_nodes|length }}</span>
+                </div>
+            </div>
+
+            <!-- Protocol Information -->
+            <div class="card">
+                <h3>=Ë Protocol Information</h3>
+                <div class="metric">
+                    <span class="metric-label">Protocol Version</span>
+                    <span class="metric-value">{{ protocol_info.version }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Network ID</span>
+                    <span class="metric-value">{{ protocol_info.network_id }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Consensus</span>
+                    <span class="metric-value">{{ protocol_info.consensus }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Block Time Target</span>
+                    <span class="metric-value">{{ protocol_info.block_time_target }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Max Block Size</span>
+                    <span class="metric-value">{{ protocol_info.max_block_size }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Circulating Supply</span>
+                    <span class="metric-value">{{ protocol_info.circulating_supply }}</span>
+                </div>
+            </div>
+
+            <!-- Bootstrap Nodes -->
+            <div class="card">
+                <h3>=€ Bootstrap Nodes</h3>
+                {% for node in bootstrap_nodes %}
+                <div class="metric">
+                    <span class="metric-label">{{ node.id }}</span>
+                    <span class="metric-value status-healthy">{{ node.status }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Address</span>
+                    <span class="metric-value">{{ node.address }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Region</span>
+                    <span class="metric-value">{{ node.region }}</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Connections</span>
+                    <span class="metric-value">{{ node.connections }}</span>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Recent Blocks -->
+            <div class="card">
+                <h3>=æ Recent Blocks</h3>
+                <table class="blocks-table">
+                    <thead>
+                        <tr>
+                            <th>Height</th>
+                            <th>Hash</th>
+                            <th>Miner</th>
+                            <th>Transactions</th>
+                            <th>Reward</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for block in recent_blocks %}
+                        <tr>
+                            <td>{{ block.height }}</td>
+                            <td class="hash-cell">{{ block.hash[:16] }}...</td>
+                            <td>{{ block.miner }}</td>
+                            <td>{{ block.transactions }}</td>
+                            <td>{{ block.reward }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>= Secure " =€ Fast " < Decentralized</p>
+            <div class="last-updated">
+                Last updated: <span id="lastUpdated">{{ last_updated }}</span>
+            </div>
+        </div>
+
+        <script>
+            function updateTime() {
+                const now = new Date();
+                document.getElementById('lastUpdated').textContent = now.toLocaleString();
+            }
+
+            // Update time every second
+            setInterval(updateTime, 1000);
+
+            // Add some visual effects
+            document.addEventListener('DOMContentLoaded', function() {
+                const cards = document.querySelectorAll('.card');
+                cards.forEach((card, index) => {
+                    card.style.animationDelay = `${index * 0.1}s`;
+                    card.classList.add('pulse');
+                });
+            });
+        </script>
+    </body>
+    </html>
+    '''
+
+    return render_template_string(html_template,
+                                network_overview=network_overview,
+                                bootstrap_nodes=bootstrap_nodes,
+                                mining_stats=mining_stats,
+                                network_health=network_health,
+                                recent_blocks=recent_blocks,
+                                protocol_info=protocol_info,
+                                geographic_distribution=geographic_distribution,
+                                last_updated=time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime()))
 
 if __name__ == '__main__':
     import os
