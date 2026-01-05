@@ -812,11 +812,19 @@
         // API fetch functions
         async function fetchNetworkStats() {
             try {
-                const response = await fetch('/api/v1/intelligence/health');
-                const data = await response.json();
-                updateNetworkOverview(data);
-                updateNetworkHealth(data);
-                updateMiningStats(data);
+                // Fetch BOTH intelligence data AND registered nodes data
+                const [intelResponse, nodesResponse] = await Promise.all([
+                    fetch('/api/v1/intelligence/health'),
+                    fetch('/api/v1/nodes/list')
+                ]);
+
+                const intelData = await intelResponse.json();
+                const nodesData = await nodesResponse.json();
+
+                // Pass the correct data to each update function
+                updateNetworkOverview(nodesData);  // Node counts from nodes API
+                updateNetworkHealth(intelData);    // Health from intelligence API
+                updateMiningStats({intelData, nodesData}); // Both for mining stats
             } catch (error) {
                 console.error('Failed to fetch network stats:', error);
                 // Set default values
@@ -906,14 +914,29 @@
         }
 
         function updateMiningStats(data) {
-            // Get mining data from intelligence insights
-            const insights = data.performance_insights || {};
+            // Data now contains both intelData and nodesData
+            const { intelData, nodesData } = data;
+            const insights = intelData?.performance_insights || {};
 
-            document.getElementById('activeMiners').textContent = '--'; // Will be calculated from registered nodes
-            document.getElementById('totalHashrate').textContent = '-- MH/s'; // No real mining data yet
+            // Count active miners from registered nodes
+            const allNodes = nodesData?.nodes || [];
+            const minerNodes = allNodes.filter(node => node.node_type === 'miner');
+            const activeMiners = minerNodes.filter(node => node.status === 'active').length;
+
+            // Calculate total hashrate from active miners
+            const totalHashrate = minerNodes
+                .filter(node => node.status === 'active')
+                .reduce((sum, node) => sum + (node.hashrate || 0), 0);
+
+            document.getElementById('activeMiners').textContent = activeMiners;
+            document.getElementById('totalHashrate').textContent = totalHashrate > 0 ?
+                `${(totalHashrate / 1000000).toFixed(1)} MH/s` : '-- MH/s';
             document.getElementById('blocksLastHour').textContent = '--'; // No blockchain data yet
             document.getElementById('avgBlocksPerHour').textContent = '--'; // No blockchain data yet
-            document.getElementById('topMiners').textContent = '--'; // No mining data yet
+            document.getElementById('topMiners').textContent = minerNodes.length > 0 ?
+                Math.min(minerNodes.length, 10) : '--'; // Show up to top 10
+
+            console.log(`✅ Mining stats: ${activeMiners} active miners, ${totalHashrate.toLocaleString()} H/s total hashrate`);
         }
 
         function updateProtocolInfo(data) {
