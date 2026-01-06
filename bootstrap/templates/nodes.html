@@ -897,8 +897,10 @@
         }
 
         function updateNetworkHealth(data) {
-            const health = data.network_health || {};
-            const overallHealth = data.overall_health || 0;
+            // Access nested intelligence_analysis data
+            const intelligence = data.intelligence_analysis || {};
+            const health = intelligence.network_health || {};
+            const overallHealth = intelligence.overall_health || 0;
 
             document.getElementById('healthStatus').textContent = overallHealth > 80 ? 'Excellent' :
                 overallHealth > 60 ? 'Good' : overallHealth > 40 ? 'Fair' : 'Poor';
@@ -911,6 +913,8 @@
             document.getElementById('syncStatus').textContent = 'Active'; // Bootstrap is running
             document.getElementById('mempoolSize').textContent = '--'; // Not available in current API
             document.getElementById('pendingTransactions').textContent = '--'; // Not available in current API
+
+            console.log(`✅ Network health: ${overallHealth}% overall health`);
         }
 
         function updateMiningStats(data) {
