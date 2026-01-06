@@ -1129,4 +1129,106 @@ sudo journalctl -u pisecure-bootstrap -f
 - **Performance Monitoring**: Real-time performance tracking and alerting
 - **Audit Trails**: Complete audit logging for security and compliance
 
+### 21. Dual Peer Discovery System (peers.json + API)
+**Purpose:** Provide both traditional static peer discovery and dynamic intelligent peer coordination for maximum compatibility and functionality.
+
+#### Static peers.json Endpoint (`/peers.json`)
+**Description:** Traditional blockchain bootstrap file serving primary bootstrap node information for compatibility with standard clients.
+
+**Response Format:**
+```json
+[
+  {
+    "node_id": "bootstrap-primary",
+    "address": "bootstrap.pisecure.org",
+    "port": 3142,
+    "services": ["coordination", "peer_discovery", "intelligence_sharing"],
+    "capabilities": ["bootstrap_coordination", "peer_discovery", "network_health", "intelligence_sharing", "threat_propagation", "regional_coordination", "federation_management"],
+    "location": "us-east",
+    "operator": "PiSecure Foundation",
+    "trust_level": "foundation_verified",
+    "version": "1.0.0",
+    "description": "Primary PiSecure bootstrap node - authoritative coordination hub with ML-powered intelligence",
+    "federation_enabled": true,
+    "intelligence_capable": true,
+    "dex_coordination": true,
+    "last_updated": "2026-01-06T10:39:00Z"
+  }
+]
+```
+
+#### Dynamic /api/v1/bootstrap/peers API
+**Description:** Intelligent peer discovery with filtering, geographic optimization, and trust-based selection.
+
+**Query Parameters:**
+- `location`: Filter peers by geographic region (e.g., `us-east`, `eu-west`)
+- `services`: Filter peers by required services (comma-separated)
+- `intelligence`: Enable/disable intelligent filtering (`true`/`false`)
+- `limit`: Maximum number of peers to return (default: 10)
+
+**Response Format:**
+```json
+{
+  "peers": [
+    {
+      "node_id": "bootstrap-primary",
+      "address": "bootstrap.pisecure.org",
+      "port": 3142,
+      "services": ["coordination", "peer_discovery"],
+      "capabilities": ["bootstrap_coordination"],
+      "location": "us-east",
+      "operator": "PiSecure Foundation",
+      "trust_level": "foundation_verified",
+      "version": "1.0.0",
+      "federation_enabled": true,
+      "intelligence_capable": true,
+      "dex_coordination": true,
+      "last_seen": 1704379200.0,
+      "reliability_score": 1.0,
+      "load_factor": 0.0,
+      "intelligence_sharing": true
+    }
+  ],
+  "total_available": 4,
+  "returned_count": 3,
+  "intelligence_applied": true,
+  "filters_applied": {
+    "location": "us-east",
+    "services": "peer_discovery",
+    "intelligence_enabled": true
+  },
+  "recommended_usage": "Use primary bootstrap for initial coordination, secondaries for redundancy",
+  "timestamp": 1704379200.0
+}
+```
+
+**Unique Features:**
+- **Dual Compatibility**: Supports both traditional peers.json format and advanced API
+- **Intelligent Filtering**: Geographic, service-based, and trust-level filtering
+- **Reliability Scoring**: Dynamic peer reliability calculation
+- **Load Balancing**: Automatic distribution across available peers
+- **Geographic Optimization**: Preferentially returns local peers
+- **Trust Hierarchy**: Foundation verified > Community trusted > Unverified
+- **Real-time Updates**: Dynamic peer list based on current network state
+
+**Usage Examples:**
+
+**Traditional Bootstrap (Bitcoin Core style):**
+```bash
+# Fetch static peers.json
+curl https://bootstrap.pisecure.org/peers.json
+
+# Add to Bitcoin Core
+bitcoin-cli addnode bootstrap.pisecure.org:3142 onetry
+```
+
+**Intelligent Bootstrap (PiSecure nodes):**
+```bash
+# Get geographically optimized peers
+curl "https://bootstrap.pisecure.org/api/v1/bootstrap/peers?location=us-east&services=peer_discovery,intelligence_sharing"
+
+# Get all available peers with intelligence
+curl "https://bootstrap.pisecure.org/api/v1/bootstrap/peers?intelligence=true&limit=5"
+```
+
 This documentation covers the complete, advanced capabilities that make PiSecure Bootstrap Nodes significantly more intelligent, secure, and capable than traditional blockchain bootstrap services. The system provides enterprise-grade bootstrap coordination with ML-powered intelligence, comprehensive security, and production-ready deployment options.

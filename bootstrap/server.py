@@ -26,6 +26,72 @@ from collections import Counter
 import threading
 import time as time_module
 
+# Load node configuration
+NODE_CONFIG = None
+NODE_IDENTITY = None
+
+def load_node_config():
+    """Load node configuration from config.json"""
+    global NODE_CONFIG, NODE_IDENTITY
+    config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+
+    try:
+        with open(config_path, 'r') as f:
+            NODE_CONFIG = json.load(f)
+
+        NODE_IDENTITY = NODE_CONFIG['node']['identity']
+        logger.info(f"Loaded configuration for node: {NODE_IDENTITY['name']} (role: {NODE_IDENTITY['role']})")
+        return NODE_CONFIG
+
+    except FileNotFoundError:
+        logger.warning("config.json not found, using default configuration")
+        NODE_CONFIG = get_default_config()
+        NODE_IDENTITY = NODE_CONFIG['node']['identity']
+        return NODE_CONFIG
+    except Exception as e:
+        logger.error(f"Failed to load config.json: {e}")
+        NODE_CONFIG = get_default_config()
+        NODE_IDENTITY = NODE_CONFIG['node']['identity']
+        return NODE_CONFIG
+
+def get_default_config():
+    """Get default configuration when config.json is not available"""
+    return {
+        "node": {
+            "identity": {
+                "name": "PiSecure Bootstrap Node",
+                "node_id": "bootstrap-primary",
+                "role": "primary",
+                "version": "1.0.0",
+                "operator": "PiSecure Foundation",
+                "contact_email": "admin@pisecure.org",
+                "description": "PiSecure bootstrap node"
+            },
+            "network": {
+                "domain": "bootstrap.pisecure.org",
+                "ip_address": "0.0.0.0",
+                "ports": {"bootstrap": 3142, "api": 8080},
+                "region": "us-east"
+            },
+            "federation": {
+                "enabled": True,
+                "trust_model": "hierarchical",
+                "max_secondary_nodes": 10,
+                "sync_interval_seconds": 300,
+                "intelligence_sharing": True
+            },
+            "capabilities": {
+                "bootstrap_coordination": True,
+                "peer_discovery": True,
+                "network_health_monitoring": True,
+                "intelligence_sharing": True
+            }
+        }
+    }
+
+# Load configuration at module import
+load_node_config()
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -2750,6 +2816,139 @@ def advertise_services():
         logger.error(f"Service advertisement error: {e}")
         return jsonify({'error': 'Advertisement failed'}), 500
 
+@app.route('/peers.json', methods=['GET'])
+def peers_json():
+    """Serve static peers.json file for traditional bootstrap compatibility"""
+    logger.info("Static peers.json endpoint called")
+
+    try:
+        # Serve the static peers.json file
+        return send_from_directory('.', 'peers.json', mimetype='application/json')
+    except Exception as e:
+        logger.error(f"peers.json serving error: {e}")
+        return jsonify({'error': 'Peers file unavailable'}), 500
+
+@app.route('/api/v1/bootstrap/peers', methods=['GET'])
+def bootstrap_peers():
+    """Dynamic peer discovery API with intelligence-enhanced peer selection"""
+    logger.info("Dynamic bootstrap peers endpoint called")
+
+    try:
+        # Record this API call for intelligence
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        # Get query parameters for intelligent filtering
+        requesting_location = request.args.get('location')
+        requesting_services = request.args.get('services', '').split(',') if request.args.get('services') else None
+        intelligence_enabled = request.args.get('intelligence', 'true').lower() == 'true'
+
+        # Build primary bootstrap peer
+        primary_peer = {
+            'node_id': NODE_IDENTITY['node_id'],
+            'address': NODE_CONFIG['node']['network']['domain'],
+            'port': NODE_CONFIG['node']['network']['ports']['bootstrap'],
+            'services': NODE_CONFIG['node']['capabilities'],
+            'capabilities': NODE_CONFIG['node']['capabilities'],
+            'location': NODE_CONFIG['node']['network']['region'],
+            'operator': NODE_IDENTITY['operator'],
+            'trust_level': 'foundation_verified',
+            'version': NODE_IDENTITY['version'],
+            'federation_enabled': NODE_CONFIG['node']['federation']['enabled'],
+            'intelligence_capable': True,
+            'dex_coordination': NODE_CONFIG['dex']['coordination_enabled'],
+            'last_seen': time.time(),
+            'reliability_score': 1.0,  # Primary is always 100% reliable
+            'load_factor': 0.0,  # Primary has minimal load
+            'intelligence_sharing': NODE_CONFIG['node']['federation']['intelligence_sharing']
+        }
+
+        peers = [primary_peer]
+
+        # Add active secondary bootstrap nodes
+        secondary_bootstraps = _get_registered_bootstrap_nodes()
+        for bootstrap in secondary_bootstraps:
+            # Apply intelligent filtering if requested
+            if intelligence_enabled and requesting_location:
+                # Prefer geographically close bootstraps
+                if bootstrap['region'] != requesting_location:
+                    # Still include but with lower priority
+                    bootstrap['geographic_distance'] = 'regional'
+                else:
+                    bootstrap['geographic_distance'] = 'local'
+
+            # Filter by requested services
+            if requesting_services:
+                peer_services = set(bootstrap.get('services', []))
+                requested_set = set(requesting_services)
+                if not requested_set.issubset(peer_services):
+                    continue  # Skip peers that don't offer required services
+
+            # Calculate reliability score for secondary nodes
+            last_seen = bootstrap.get('last_seen', 0)
+            time_since_seen = time.time() - last_seen
+            reliability_score = max(0.0, 1.0 - (time_since_seen / 3600))  # Degrade over 1 hour
+
+            peer_data = {
+                'node_id': bootstrap['node_id'],
+                'address': bootstrap['address'],
+                'port': bootstrap['port'],
+                'services': bootstrap['services'],
+                'capabilities': bootstrap['capabilities'],
+                'location': bootstrap['region'],
+                'operator': 'Community Operator',  # Secondary bootstraps are community-operated
+                'trust_level': 'community_trusted',
+                'version': bootstrap.get('version', 'unknown'),
+                'federation_enabled': True,  # All secondary bootstraps support federation
+                'intelligence_capable': 'intelligence_sharing' in bootstrap.get('capabilities', []),
+                'dex_coordination': False,  # Secondary bootstraps don't coordinate DEX by default
+                'last_seen': last_seen,
+                'reliability_score': reliability_score,
+                'load_factor': bootstrap.get('load_factor', 0.5),
+                'intelligence_sharing': 'intelligence_sharing' in bootstrap.get('capabilities', [])
+            }
+
+            peers.append(peer_data)
+
+        # Intelligent sorting if enabled
+        if intelligence_enabled:
+            peers.sort(key=lambda x: (
+                x['trust_level'] == 'foundation_verified',  # Primary first
+                x.get('geographic_distance') == 'local',   # Local peers next
+                x['reliability_score'],                     # Then by reliability
+                -x['load_factor']                           # Lower load factor preferred
+            ), reverse=True)
+        else:
+            # Simple sorting: primary first, then by reliability
+            peers.sort(key=lambda x: (
+                x['trust_level'] == 'foundation_verified',
+                x['reliability_score']
+            ), reverse=True)
+
+        # Limit to top peers for performance
+        max_peers = int(request.args.get('limit', 10))
+        peers = peers[:max_peers]
+
+        response = {
+            'peers': peers,
+            'total_available': len(secondary_bootstraps) + 1,
+            'returned_count': len(peers),
+            'intelligence_applied': intelligence_enabled,
+            'filters_applied': {
+                'location': requesting_location,
+                'services': requesting_services,
+                'intelligence_enabled': intelligence_enabled
+            },
+            'recommended_usage': 'Use primary bootstrap for initial coordination, secondaries for redundancy',
+            'timestamp': time.time()
+        }
+
+        return jsonify(response)
+
+    except Exception as e:
+        logger.error(f"Dynamic bootstrap peers error: {e}")
+        return jsonify({'error': 'Peer discovery failed'}), 500
+
 @app.route('/api/v1/bootstrap/registry', methods=['GET'])
 def bootstrap_registry():
     """Get the current bootstrap node registry (for coordination)"""
@@ -2759,18 +2958,41 @@ def bootstrap_registry():
         # Only allow access from registered bootstrap nodes or with auth
         # For now, allow public access but could add authentication later
 
+        # Build primary node info from configuration
+        primary_node = {
+            'node_id': NODE_IDENTITY['node_id'],
+            'name': NODE_IDENTITY['name'],
+            'role': NODE_IDENTITY['role'],
+            'operator': NODE_IDENTITY['operator'],
+            'address': NODE_CONFIG['node']['network']['domain'],
+            'port': NODE_CONFIG['node']['network']['ports']['bootstrap'],
+            'status': 'active',
+            'services': NODE_CONFIG['node']['capabilities'],
+            'capabilities': NODE_CONFIG['node']['capabilities'],
+            'region': NODE_CONFIG['node']['network']['region'],
+            'version': NODE_IDENTITY['version'],
+            'trust_level': 'foundation_verified',
+            'uptime_target': NODE_CONFIG['node']['operations']['uptime_target_percentage'],
+            'intelligence_sharing': NODE_CONFIG['node']['federation']['intelligence_sharing']
+        }
+
         registry = {
-            'primary_node': {
-                'node_id': 'bootstrap-primary',
-                'address': 'bootstrap.pisecure.org',
-                'port': 3142,
-                'status': 'active',
-                'services': ['coordination', 'peer_discovery', 'health_monitoring']
-            },
+            'primary_node': primary_node,
             'secondary_nodes': _get_registered_bootstrap_nodes(),
             'total_nodes': len(_get_registered_bootstrap_nodes()) + 1,
+            'federation_config': {
+                'enabled': NODE_CONFIG['node']['federation']['enabled'],
+                'trust_model': NODE_CONFIG['node']['federation']['trust_model'],
+                'max_secondary_nodes': NODE_CONFIG['node']['federation']['max_secondary_nodes'],
+                'intelligence_sharing': NODE_CONFIG['node']['federation']['intelligence_sharing']
+            },
+            'network_info': {
+                'coordination_status': 'active',
+                'federation_active': intelligence_federation.federation_enabled,
+                'intelligence_nodes': len(_get_registered_bootstrap_nodes()) + 1
+            },
             'last_updated': time.time(),
-            'coordination_status': 'active'
+            'config_version': NODE_IDENTITY['version']
         }
 
         return jsonify(registry)

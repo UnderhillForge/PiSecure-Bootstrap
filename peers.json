@@ -1,0 +1,18 @@
+[
+  {
+    "node_id": "bootstrap-primary",
+    "address": "bootstrap.pisecure.org",
+    "port": 3142,
+    "services": ["coordination", "peer_discovery", "intelligence_sharing"],
+    "capabilities": ["bootstrap_coordination", "peer_discovery", "network_health", "intelligence_sharing", "threat_propagation", "regional_coordination", "federation_management"],
+    "location": "us-east",
+    "operator": "PiSecure Foundation",
+    "trust_level": "foundation_verified",
+    "version": "1.0.0",
+    "description": "Primary PiSecure bootstrap node - authoritative coordination hub with ML-powered intelligence",
+    "federation_enabled": true,
+    "intelligence_capable": true,
+    "dex_coordination": true,
+    "last_updated": "2026-01-06T10:39:00Z"
+  }
+]
