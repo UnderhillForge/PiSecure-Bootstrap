@@ -40,16 +40,16 @@ def load_node_config():
             NODE_CONFIG = json.load(f)
 
         NODE_IDENTITY = NODE_CONFIG['node']['identity']
-        logger.info(f"Loaded configuration for node: {NODE_IDENTITY['name']} (role: {NODE_IDENTITY['role']})")
+        print(f"Loaded configuration for node: {NODE_IDENTITY['name']} (role: {NODE_IDENTITY['role']})")
         return NODE_CONFIG
 
     except FileNotFoundError:
-        logger.warning("config.json not found, using default configuration")
+        print("config.json not found, using default configuration")
         NODE_CONFIG = get_default_config()
         NODE_IDENTITY = NODE_CONFIG['node']['identity']
         return NODE_CONFIG
     except Exception as e:
-        logger.error(f"Failed to load config.json: {e}")
+        print(f"Failed to load config.json: {e}")
         NODE_CONFIG = get_default_config()
         NODE_IDENTITY = NODE_CONFIG['node']['identity']
         return NODE_CONFIG
@@ -89,12 +89,12 @@ def get_default_config():
         }
     }
 
-# Load configuration at module import
-load_node_config()
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Load configuration at module import (after logger is available)
+load_node_config()
 
 # Database setup
 DATABASE_URL = "sqlite:///pisecure_bootstrap.db"
