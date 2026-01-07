@@ -1,0 +1,49 @@
+# PiSecure Core Components Needed for Bootstrap Integration
+# These are the None placeholders in server.py that need actual implementations
+
+## CRITICAL - Blockchain Integration
+- SignChain() instance for real_blockchain
+  - Block height tracking
+  - Block time calculations
+  - Transaction mempool data
+  - Chain difficulty and hashrate
+
+## CRITICAL - Network Protocol
+- PiSecureP2P() instance for p2p_protocol
+  - Peer connection management
+  - Network status reporting
+  - Sync status tracking
+  - Connection latency measurement
+
+## CRITICAL - Consensus Engine
+- PiSecureConsensus() instance for consensus_engine
+  - Consensus status reporting
+  - Block validation state
+  - Network sync status
+  - Consensus algorithm metrics
+
+## HIGH - Token Economics
+- TokenEconomicsEngine() instance for token_economics
+  - 314ST token supply tracking
+  - Market data integration
+  - Token valuation calculations
+  - Economic metrics
+
+## HIGH - P2P Sync Manager
+- P2PSyncManager() instance for p2p_sync_manager
+  - Block sync status
+  - Peer sync coordination
+  - Network sync progress
+  - Sync performance metrics
+
+## MEDIUM - Real DEX Integration
+- DEX coordinator needs real pool data
+- Token trading volume tracking
+- Liquidity pool metrics
+- DEX health monitoring
+
+## LOW - Advanced Intelligence
+- Real threat intelligence feeds
+- Geographic attack pattern analysis
+- Cross-network intelligence sharing
+- Advanced ML model training data
