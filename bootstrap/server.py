@@ -2843,24 +2843,30 @@ def bootstrap_peers():
         requesting_services = request.args.get('services', '').split(',') if request.args.get('services') else None
         intelligence_enabled = request.args.get('intelligence', 'true').lower() == 'true'
 
-        # Build primary bootstrap peer
+        # Safe configuration access with defaults
+        network_config = NODE_CONFIG.get('node', {}).get('network', {}) if NODE_CONFIG else {}
+        federation_config = NODE_CONFIG.get('node', {}).get('federation', {}) if NODE_CONFIG else {}
+        dex_config = NODE_CONFIG.get('dex', {}) if NODE_CONFIG else {}
+        node_capabilities = NODE_CONFIG.get('node', {}).get('capabilities', []) if NODE_CONFIG else []
+
+        # Build primary bootstrap peer with safe access
         primary_peer = {
-            'node_id': NODE_IDENTITY['node_id'],
-            'address': NODE_CONFIG['node']['network']['domain'],
-            'port': NODE_CONFIG['node']['network']['ports']['bootstrap'],
-            'services': NODE_CONFIG['node']['capabilities'],
-            'capabilities': NODE_CONFIG['node']['capabilities'],
-            'location': NODE_CONFIG['node']['network']['region'],
-            'operator': NODE_IDENTITY['operator'],
+            'node_id': NODE_IDENTITY.get('node_id', 'bootstrap-primary') if NODE_IDENTITY else 'bootstrap-primary',
+            'address': network_config.get('domain', 'bootstrap.pisecure.org'),
+            'port': network_config.get('ports', {}).get('bootstrap', 3142),
+            'services': node_capabilities,
+            'capabilities': node_capabilities,
+            'location': network_config.get('region', 'us-east'),
+            'operator': NODE_IDENTITY.get('operator', 'PiSecure Foundation') if NODE_IDENTITY else 'PiSecure Foundation',
             'trust_level': 'foundation_verified',
-            'version': NODE_IDENTITY['version'],
-            'federation_enabled': NODE_CONFIG['node']['federation']['enabled'],
+            'version': NODE_IDENTITY.get('version', '1.0.0') if NODE_IDENTITY else '1.0.0',
+            'federation_enabled': federation_config.get('enabled', True),
             'intelligence_capable': True,
-            'dex_coordination': NODE_CONFIG['dex']['coordination_enabled'],
+            'dex_coordination': dex_config.get('coordination_enabled', False),
             'last_seen': time.time(),
             'reliability_score': 1.0,  # Primary is always 100% reliable
             'load_factor': 0.0,  # Primary has minimal load
-            'intelligence_sharing': NODE_CONFIG['node']['federation']['intelligence_sharing']
+            'intelligence_sharing': federation_config.get('intelligence_sharing', True)
         }
 
         peers = [primary_peer]
