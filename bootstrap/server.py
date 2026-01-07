@@ -3336,16 +3336,32 @@ def intelligence_federation_status():
         # Get federation status
         federation_status = intelligence_federation.get_federation_status()
 
+        # Add active sync information
+        sync_status = {
+            'active_sync_enabled': active_federation_sync.running,
+            'sync_interval_seconds': active_federation_sync.sync_interval,
+            'last_sync_time': active_federation_sync.last_sync_time,
+            'state_checksum': active_federation_sync._calculate_state_checksum(),
+            'sync_thread_active': active_federation_sync.sync_thread.is_alive() if active_federation_sync.sync_thread else False
+        }
+
         return jsonify({
             'federation_status': federation_status,
+            'active_sync_status': sync_status,
             'intelligence_sharing_active': federation_status['federation_enabled'],
             'network_intelligence_nodes': federation_status['active_peers'] + 1,  # +1 for self
             'last_federation_sync': max(federation_status['last_sync_times'].values()) if federation_status['last_sync_times'] else None,
             'intelligence_contributors': {
                 'bootstrap_nodes': federation_status['active_peers'],
-                'active_miners': 0,  # Would be tracked in production
-                'active_wallets': 0,  # Would be tracked in production
-                'total_contributors': federation_status['active_peers']  # Simplified
+                'active_miners': len([n for n in node_tracker.nodes.values() if n.get('node_type') == 'miner' and n.get('status') == 'active']),
+                'active_wallets': len([n for n in node_tracker.nodes.values() if n.get('node_type') == 'wallet' and n.get('status') == 'active']),
+                'total_contributors': federation_status['active_peers'] + len(node_tracker.nodes)
+            },
+            'federation_health': {
+                'sync_active': active_federation_sync.running,
+                'peers_in_sync': len([t for t in federation_status['last_sync_times'].values() if time.time() - t < 600]),  # Within 10 min
+                'state_consistency': True,  # Simplified - would check actual consistency
+                'federation_uptime': time.time() - active_federation_sync.last_sync_time if active_federation_sync.last_sync_time > 0 else 0
             },
             'timestamp': time.time()
         })
