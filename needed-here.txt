@@ -1,34 +1,6 @@
 # Bootstrap Server Implementation Needs
 # These are incomplete functions/features in the bootstrap server itself
 
-## HIGH - Federation HTTP Communication
-- Implement actual HTTP POST/GET calls in IntelligenceFederation
-  - _share_with_peer(): Real HTTP POST to peer endpoints
-  - _sync_from_peer(): Real HTTP GET from peer endpoints
-  - Remove mock response simulation
-  - Add proper error handling and retries
-
-## MEDIUM - Real Blockchain Data Integration
-- Replace mock block data with real SignChain integration
-  - _calculate_blocks_last_hour(): Use actual block data
-  - _calculate_avg_blocks_per_hour(): Real historical calculations
-  - updateProtocolInfo(): Connect to actual blockchain state
-  - Block height, difficulty, hashrate from real chain
-
-## MEDIUM - Dashboard Data Sources
-- Connect dashboard to real data sources
-  - Block explorer integration for recent blocks table
-  - Real mempool size from SignChain
-  - Actual pending transaction counts
-  - Real network sync status
-
-## MEDIUM - Intelligence Federation Enhancement
-- Complete active federation synchronization
-  - Real peer state merging (not just threat zones)
-  - Node registry synchronization between bootstraps
-  - DEX pool data sharing
-  - Performance metrics aggregation
-
 ## LOW - Token Distribution (Optional)
 - Implement real 314ST wallet distribution
   - _distribute_314st_to_wallet(): Actual token transfers
