@@ -836,15 +836,36 @@
 
         async function fetchBlockchainInfo() {
             try {
-                // Use intelligence health for now since blockchain/info doesn't exist
-                const response = await fetch('/api/v1/intelligence/health');
-                const data = await response.json();
-                updateProtocolInfo(data);
-                updateRecentBlocks(data);
+                // Use real blockchain data functions from MiningStatsAggregator
+                const [blockchainResponse, mempoolResponse, syncResponse] = await Promise.all([
+                    fetch('/api/v1/blockchain/info'),
+                    fetch('/api/v1/blockchain/mempool'),
+                    fetch('/api/v1/blockchain/sync-status')
+                ]);
+
+                const blockchainData = blockchainResponse.ok ? await blockchainResponse.json() : {};
+                const mempoolData = mempoolResponse.ok ? await mempoolResponse.json() : {};
+                const syncData = syncResponse.ok ? await syncResponse.json() : {};
+
+                updateProtocolInfo(blockchainData);
+                updateMempoolInfo(mempoolData);
+                updateSyncStatus(syncData);
             } catch (error) {
                 console.error('Failed to fetch blockchain info:', error);
                 updateProtocolInfo({});
-                updateRecentBlocks({});
+                updateMempoolInfo({});
+                updateSyncStatus({});
+            }
+        }
+
+        async function fetchRecentBlocks() {
+            try {
+                const response = await fetch('/api/v1/blockchain/recent-blocks?limit=10');
+                const data = await response.json();
+                updateRecentBlocks(data.blocks || []);
+            } catch (error) {
+                console.error('Failed to fetch recent blocks:', error);
+                updateRecentBlocks([]);
             }
         }
 

@@ -1,20 +1,21 @@
-# PiSecure Complete API Documentation
+ps# PiSecure Complete API Documentation
 # Comprehensive API reference for PiSecure blockchain platform and 314ST token system
 
 ## Table of Contents
 1. Core Blockchain API
-2. Wallet Management API
-3. PiNS (Pi Name System) API
-4. Mining API
-5. Network & Discovery API
-6. Update Management API
-7. System Administration API
-8. Real Blockchain Data Source API
-9. PiSecure P2P Protocol API
-10. Consensus Mechanism API
-11. Mining Syndicate API
-12. Token Economics API
-13. Integration APIs
+2. Bootstrap Node Intelligence APIs
+3. Wallet Management API
+4. PiNS (Pi Name System) API
+5. Mining API
+6. Network & Discovery API
+7. Update Management API
+8. System Administration API
+9. Real Blockchain Data Source API
+10. PiSecure P2P Protocol API
+11. Consensus Mechanism API
+12. Mining Syndicate API
+13. Token Economics API
+14. Integration APIs
 
 ---
 
@@ -26,6 +27,576 @@ https://pisecure-bootstrap-production.up.railway.app/api/v1/
 ```
 
 **Note:** Currently hosted on Railway. Future domain: `https://bootstrap.pisecure.org/api/v1/`
+
+### Bootstrap Node Intelligence APIs
+
+#### POST /api/v1/bootstrap/handshake
+Register secondary bootstrap nodes with the primary node for coordinated operation.
+
+**Request:**
+```json
+{
+  "node_id": "bootstrap-secondary-01",
+  "address": "192.168.1.100",
+  "port": 8081,
+  "services": ["peer_discovery", "network_health"],
+  "capabilities": ["bootstrap_coordination", "peer_discovery", "network_health"],
+  "region": "us-east",
+  "version": "1.0.0",
+  "reliability_score": 0.95,
+  "load_factor": 0.2
+}
+```
+
+**Response:**
+```json
+{
+  "handshake_accepted": true,
+  "primary_node": "bootstrap.pisecure.org",
+  "node_id": "bootstrap-secondary-01",
+  "registration_time": 1704379200.0,
+  "network_info": {
+    "total_bootstrap_nodes": 5,
+    "active_services": ["coordination", "peer_discovery", "health_monitoring"],
+    "protocol_version": "1.0",
+    "coordination_enabled": true
+  },
+  "peer_discovery_endpoints": [
+    "/api/v1/bootstrap/peers",
+    "/api/v1/network/status"
+  ]
+}
+```
+
+#### GET /api/v1/intelligence/attacks
+Get current attack detection analysis using ML algorithms.
+
+**Response:**
+```json
+{
+  "detected_attacks": [
+    {
+      "type": "ml_anomaly_detection",
+      "severity": "high",
+      "ml_score": -0.85,
+      "confidence": 0.95,
+      "timestamp": 1704379200.0,
+      "description": "ML-detected anomaly with score -0.85"
+    }
+  ],
+  "threat_level": "high",
+  "analysis_period": "last_hour",
+  "total_analyzed_connections": 1250,
+  "ml_models_active": {
+    "isolation_forest": true,
+    "ensemble_classifier": true,
+    "geographic_clustering": true
+  },
+  "recent_defense_actions": [],
+  "active_threat_zones": ["us-east-high-risk"],
+  "blocked_ips_count": 0,
+  "blocked_regions_count": 0,
+  "timestamp": 1704379200.0
+}
+```
+
+#### GET /api/v1/intelligence/defense
+Get comprehensive automated defense intelligence and status.
+
+**Response:**
+```json
+{
+  "defense_intelligence": {
+    "automated_defense_active": true,
+    "ml_attack_detection_enabled": true,
+    "smart_routing_enabled": true,
+    "threat_intelligence_level": "low",
+    "active_attacks_detected": 0,
+    "threat_zones_active": 0,
+    "auto_response_actions": 0,
+    "blocked_entities": 0,
+    "defense_effectiveness_score": 95,
+    "last_defense_action": null,
+    "attack_prevention_rate": 0.92,
+    "coordinated_defense_nodes": 3,
+    "timestamp": 1704379200.0
+  },
+  "recent_attacks": [],
+  "active_threats": [],
+  "defense_capabilities": [
+    "ML-powered anomaly detection",
+    "Statistical attack pattern recognition",
+    "Automated threat response",
+    "Smart routing with threat avoidance",
+    "Geographic attack clustering",
+    "Real-time network immune system"
+  ]
+}
+```
+
+#### POST /api/v1/intelligence/optimize
+Get intelligent routing optimization for peer connections.
+
+**Request:**
+```json
+{
+  "available_nodes": [
+    {
+      "node_id": "node-001",
+      "location": "us-east",
+      "load_factor": 0.3,
+      "reliability_score": 0.95
+    },
+    {
+      "node_id": "node-002",
+      "location": "eu-west",
+      "load_factor": 0.1,
+      "reliability_score": 0.98
+    }
+  ],
+  "service_type": "p2p_sync"
+}
+```
+
+**Response:**
+```json
+{
+  "optimization_success": true,
+  "service_type": "p2p_sync",
+  "optimized_nodes": [
+    {
+      "node": {
+        "node_id": "node-002",
+        "location": "eu-west",
+        "load_factor": 0.1,
+        "reliability_score": 0.98
+      },
+      "score": 0.875,
+      "geo_score": 0.9,
+      "load_score": 0.95,
+      "reliability_score": 0.98,
+      "route_score": 0.8,
+      "threat_adjusted": false
+    }
+  ],
+  "total_candidates": 2,
+  "optimization_method": "statistical_scoring",
+  "scoring_weights": {
+    "geographic_diversity": 0.3,
+    "load_balancing": 0.4,
+    "reliability": 0.3
+  },
+  "timestamp": 1704379200.0
+}
+```
+
+#### GET /api/v1/intelligence/clusters
+Get geographic clustering analysis for routing optimization.
+
+**Response:**
+```json
+{
+  "geographic_clusters": {
+    "0": {
+      "locations": ["us-east", "us-central"],
+      "total_traffic": 450,
+      "centroid": [-95.7129, 37.0902]
+    },
+    "1": {
+      "locations": ["eu-west", "eu-central"],
+      "total_traffic": 320,
+      "centroid": [10.4515, 51.1657]
+    }
+  },
+  "clustering_method": "kmeans",
+  "total_regions_analyzed": 5,
+  "cluster_count": 2,
+  "routing_optimization_available": true,
+  "timestamp": 1704379200.0
+}
+```
+
+#### GET /api/v1/intelligence/predict
+Get network load predictions for capacity planning.
+
+**Query Parameters:**
+- `hours_ahead`: Hours to predict ahead (default: 1, max: 24)
+
+**Response:**
+```json
+{
+  "predictions": {
+    "predicted_connections": 1500,
+    "confidence": "medium",
+    "timeframe_hours": 1,
+    "method": "moving_average"
+  },
+  "confidence_level": "medium",
+  "prediction_horizon": "1-24_hours",
+  "data_points_used": 1000,
+  "model_type": "statistical_time_series",
+  "timestamp": 1704379200.0
+}
+```
+
+#### POST /api/v1/bootstrap/coordinate
+Coordinate service distribution among bootstrap nodes.
+
+**Request:**
+```json
+{
+  "requesting_node": "node-client-001",
+  "service": "peer_discovery"
+}
+```
+
+**Response:**
+```json
+{
+  "coordination_success": true,
+  "service": "peer_discovery",
+  "assigned_node": "bootstrap-secondary-02",
+  "endpoint": "http://192.168.1.101:8082",
+  "capabilities": ["bootstrap_coordination", "peer_discovery"],
+  "load_factor": 0.15
+}
+```
+
+#### GET /api/v1/bootstrap/registry
+Get the current bootstrap node registry.
+
+**Response:**
+```json
+{
+  "primary_node": {
+    "node_id": "bootstrap-primary",
+    "address": "bootstrap.pisecure.org",
+    "port": 3142,
+    "status": "active",
+    "services": ["coordination", "peer_discovery", "health_monitoring"]
+  },
+  "secondary_nodes": [
+    {
+      "node_id": "bootstrap-secondary-01",
+      "address": "192.168.1.100",
+      "port": 8081,
+      "services": ["peer_discovery", "network_health"],
+      "capabilities": ["bootstrap_coordination", "peer_discovery"],
+      "region": "us-east",
+      "status": "active",
+      "load_factor": 0.2,
+      "last_seen": 1704379200.0
+    }
+  ],
+  "total_nodes": 4,
+  "last_updated": 1704379200.0,
+  "coordination_status": "active"
+}
+```
+
+#### POST /api/v1/bootstrap/advertise
+Advertise current services and status.
+
+**Request:**
+```json
+{
+  "node_id": "bootstrap-secondary-01",
+  "services": ["peer_discovery", "network_health", "attack_detection"],
+  "status": "active",
+  "load_factor": 0.25,
+  "current_connections": 150,
+  "health_metrics": {
+    "cpu_usage": 0.45,
+    "memory_usage": 0.67,
+    "network_latency": 12.5
+  },
+  "service_endpoints": {
+    "peer_discovery": "/api/v1/peers",
+    "health_check": "/api/v1/health"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "advertisement_accepted": true,
+  "node_id": "bootstrap-secondary-01",
+  "timestamp": 1704379200.0,
+  "services_acknowledged": ["peer_discovery", "network_health", "attack_detection"]
+}
+```
+
+#### POST /api/v1/operator/configure-wallet
+Configure operator reward wallet.
+
+**Request:**
+```json
+{
+  "wallet_address": "pisecure_wallet_operator_abc123"
+}
+```
+
+**Response:**
+```json
+{
+  "configuration_success": true,
+  "wallet_address": "pisecure_wallet_operator_abc123",
+  "reward_percentage": 0.05,
+  "minimum_payout_314st": 10,
+  "timestamp": 1704379200.0
+}
+```
+
+#### GET /api/v1/operator/314st-analytics
+Get comprehensive 314ST reward analytics.
+
+**Response:**
+```json
+{
+  "operator_analytics": {
+    "operator_wallet": "pisecure_wallet_operator_abc123",
+    "pending_rewards_314st": 25,
+    "total_distributed_314st": 150,
+    "recent_distributions": [...],
+    "performance_score": 87.5,
+    "daily_average_earnings": 8.5,
+    "reward_configuration": {
+      "percentage": 0.05,
+      "minimum_payout": 10,
+      "daily_budget": 1000
+    }
+  },
+  "network_reward_info": {
+    "daily_budget_314st": 1000,
+    "intelligence_fee_percentage": 0.05,
+    "active_bootstrap_nodes": 4,
+    "reward_token": "314ST"
+  }
+}
+```
+
+#### POST /api/v1/operator/314st-payout
+Trigger manual 314ST payout.
+
+**Response:**
+```json
+{
+  "payout_success": true,
+  "distributed_amount_314st": 25,
+  "operator_wallet": "pisecure_wallet_operator_abc123",
+  "distribution_timestamp": 1704379200.0
+}
+```
+
+#### GET /api/v1/operator/rewards-status
+Get operator rewards status.
+
+**Response:**
+```json
+{
+  "operator_wallet_configured": true,
+  "operator_wallet": "pisecure_wallet_operator_abc123",
+  "reward_configuration": {
+    "percentage": 0.05,
+    "minimum_payout_314st": 10,
+    "daily_budget_314st": 1000,
+    "reward_token": "314ST"
+  },
+  "pending_rewards_314st": 25,
+  "total_distributed_314st": 150,
+  "last_payout_timestamp": 1704378200.0,
+  "reward_eligibility": {
+    "has_pending_rewards": true,
+    "uptime_bonus_eligible": true,
+    "federation_bonus_eligible": true
+  }
+}
+```
+
+#### GET /api/v1/dex/pools
+Get available liquidity pools for DEX trading.
+
+**Response:**
+```json
+{
+  "liquidity_pools": [
+    {
+      "pool_id": "314ST_wBTC_1704379200",
+      "token_a": "314ST",
+      "token_b": "wBTC",
+      "liquidity_a": 50000,
+      "liquidity_b": 25,
+      "fee_percentage": 0.003,
+      "trade_count": 150,
+      "volume_24h": 5000,
+      "pool_health_score": 85,
+      "exchange_rate": 0.0005
+    }
+  ],
+  "total_pools": 3,
+  "dex_health_score": 87,
+  "intelligence_enabled": true,
+  "timestamp": 1704379200.0
+}
+```
+
+#### POST /api/v1/dex/pool/create
+Create a new liquidity pool.
+
+**Request:**
+```json
+{
+  "token_a": "314ST",
+  "token_b": "wBTC",
+  "creator_wallet": "pisecure_wallet_creator"
+}
+```
+
+**Response:**
+```json
+{
+  "pool_created": true,
+  "pool_details": {
+    "pool_id": "314ST_wBTC_1704379200",
+    "token_a": "314ST",
+    "token_b": "wBTC",
+    "fee_percentage": 0.003
+  },
+  "intelligence_optimized": true,
+  "timestamp": 1704379200.0
+}
+```
+
+#### POST /api/v1/dex/pool/add-liquidity
+Add liquidity to an existing pool.
+
+**Request:**
+```json
+{
+  "pool_id": "314ST_wBTC_1704379200",
+  "provider_wallet": "pisecure_wallet_provider",
+  "amount_a": 10000,
+  "amount_b": 5
+}
+```
+
+**Response:**
+```json
+{
+  "liquidity_added": true,
+  "liquidity_details": {
+    "pool_id": "314ST_wBTC_1704379200",
+    "liquidity_added": {"amount_a": 10000, "amount_b": 5},
+    "reward_314st": 25
+  },
+  "intelligence_rewards_earned": 25,
+  "timestamp": 1704379200.0
+}
+```
+
+#### POST /api/v1/dex/swap
+Execute intelligent token swap with ML optimization.
+
+**Request:**
+```json
+{
+  "token_in": "314ST",
+  "token_out": "wBTC",
+  "amount_in": 1000,
+  "user_wallet": "pisecure_wallet_user",
+  "max_slippage": 0.01
+}
+```
+
+**Response:**
+```json
+{
+  "swap_coordinated": true,
+  "swap_details": {
+    "swap_id": "swap_1704379200_12345",
+    "expected_out": 0.5,
+    "min_out": 0.495,
+    "pool_id": "314ST_wBTC_1704379200",
+    "fee_amount": 3,
+    "recommended_slippage": 0.01,
+    "intelligence_optimized": true
+  },
+  "network_conditions": {
+    "threat_level": "low",
+    "recommended_approach": "standard"
+  },
+  "estimated_completion": "30_seconds",
+  "timestamp": 1704379200.0
+}
+```
+
+#### GET /api/v1/dex/intelligence
+Get comprehensive DEX intelligence and analytics.
+
+**Response:**
+```json
+{
+  "dex_intelligence": {
+    "dex_health_score": 87,
+    "active_pools": 3,
+    "total_liquidity_314st": 150000,
+    "trading_volume_24h": 25000,
+    "pool_health_analysis": {
+      "total_pools": 3,
+      "healthy_pools": 3,
+      "health_percentage": 100
+    },
+    "trading_patterns": {
+      "peak_trading_hours": ["14:00-16:00 UTC"],
+      "popular_pairs": ["314ST/wBTC", "314ST/wETH"],
+      "average_trade_size": 500
+    },
+    "recommendations": [
+      "Consider adding incentives for new liquidity pools"
+    ],
+    "intelligence_benefits": [
+      "Optimal trade routing based on network conditions",
+      "Threat-aware slippage limits",
+      "Pool health monitoring and recommendations"
+    ]
+  },
+  "intelligence_source": "bootstrap_coordinator",
+  "network_intelligence_integrated": true,
+  "timestamp": 1704379200.0
+}
+```
+
+#### GET /api/v1/dex/stats
+Get DEX statistics and market data.
+
+**Response:**
+```json
+{
+  "dex_stats": {
+    "total_pools": 3,
+    "total_liquidity_314st": 150000,
+    "trading_volume_24h": 25000,
+    "popular_pairs": [
+      {
+        "pair": "314ST/wBTC",
+        "pool_id": "314ST_wBTC_1704379200",
+        "liquidity": 100000,
+        "volume_24h": 15000,
+        "trade_count": 200
+      }
+    ],
+    "dex_health_score": 87
+  },
+  "intelligence_features": [
+    "ML-optimized trade routing",
+    "Threat-aware liquidity selection",
+    "Network condition adaptation",
+    "Real-time pool health monitoring"
+  ],
+  "timestamp": 1704379200.0
+}
+```
 
 ### Endpoints
 
@@ -1569,6 +2140,35 @@ X-RateLimit-Retry-After: 60
 }
 ```
 
+### Dynamic Rate Limiting (Bootstrap Intelligence)
+PiSecure implements intelligent rate limiting that adapts based on network conditions and threat intelligence:
+
+#### Intelligent Rate Adjustment
+- **Network Load Prediction**: Uses bootstrap server intelligence to predict traffic patterns
+- **Dynamic Scaling**: Automatically adjusts rate limits based on predicted connections
+- **Geographic Optimization**: Different rate limits for different geographic regions
+- **Threat-Based Adjustment**: Higher restrictions during detected attack patterns
+
+#### Rate Limit Intelligence
+```json
+{
+  "dynamic_rate_limiting": {
+    "enabled": true,
+    "current_limit": 75,
+    "base_limit": 100,
+    "adjustment_factor": 0.75,
+    "prediction_source": "bootstrap_intelligence",
+    "last_update": 1700000000.0,
+    "next_update": 1700000300.0
+  },
+  "network_conditions": {
+    "predicted_connections": 1500,
+    "confidence": "high",
+    "threat_level": "low"
+  }
+}
+```
+
 ---
 
 ## 16. Authentication & Security
@@ -1884,6 +2484,277 @@ subscription_id = economics.subscribe_to_plan(trust_id, "user_wallet", plan_id)
 overview = economics.get_economic_overview()
 print(f"Total trust funds: {overview['trust_funds']['total']}")
 print(f"Monthly revenue: ${overview['trust_funds']['monthly_revenue']}")
+```
+
+---
+
+## 23. Advanced Cryptographic Features
+
+### Zero-Knowledge Token Authenticity Proofs
+
+PiSecure implements advanced zero-knowledge proofs for token authenticity that prove token legitimacy without revealing sensitive hardware information.
+
+#### POST /api/v1/transaction/submit-zk
+Submit transaction with zero-knowledge authenticity proof.
+
+**Request:**
+```json
+{
+  "transaction": {
+    "type": "token_transfer",
+    "sender_address": "wallet_from",
+    "recipient_address": "wallet_to",
+    "amount": 100.0,
+    "timestamp": 1700000000.0
+  },
+  "zk_proof": {
+    "proof_type": "zk_token_authenticity",
+    "token_id": "token_123",
+    "statement": "This token was legitimately created on verified hardware",
+    "proof": {
+      "commitment": "sha256_commitment",
+      "challenge_response": "proof_response",
+      "range_proof": {...},
+      "consistency_proof": {...}
+    },
+    "public_inputs": {
+      "token_id": "token_123",
+      "transaction_hash": "tx_hash",
+      "timestamp": 1700000000.0,
+      "amount": 100.0
+    },
+    "security_level": 128
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "transaction_hash": "tx123...",
+  "zk_verification": {
+    "proof_valid": true,
+    "security_level": 128,
+    "verification_time": 0.023
+  },
+  "status": "submitted"
+}
+```
+
+#### GET /api/v1/zk/proof-status/{proof_id}
+Check zero-knowledge proof verification status.
+
+**Response:**
+```json
+{
+  "proof_id": "proof_123",
+  "status": "verified",
+  "verification_result": {
+    "is_valid": true,
+    "confidence": 0.999,
+    "verification_time": 0.023,
+    "security_level": 128
+  },
+  "cache_hit": true,
+  "timestamp": 1700000000.0
+}
+```
+
+### Quantum-Resistant Signature Schemes
+
+PiSecure supports XMSS (eXtended Merkle Signature Scheme) for post-quantum cryptographic security.
+
+#### POST /api/v1/wallet/create-xmss
+Create wallet with quantum-resistant XMSS signatures.
+
+**Request:**
+```json
+{
+  "wallet_id": "secure_wallet",
+  "name": "Quantum-Secure Wallet",
+  "key_size": 32,
+  "tree_height": 10
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "wallet_id": "secure_wallet",
+  "xmss_keypair": {
+    "key_id": "xmss_key_123",
+    "algorithm": "XMSS",
+    "parameters": {
+      "key_size": 32,
+      "tree_height": 10,
+      "max_signatures": 1024
+    },
+    "public_key": "xmss_public_key_hex",
+    "generated_at": 1700000000.0
+  },
+  "remaining_signatures": 1024
+}
+```
+
+#### POST /api/v1/wallet/sign-xmss
+Sign transaction with XMSS quantum-resistant signature.
+
+**Request:**
+```json
+{
+  "wallet_id": "secure_wallet",
+  "key_id": "xmss_key_123",
+  "transaction": {
+    "type": "token_transfer",
+    "sender_address": "wallet_from",
+    "recipient_address": "wallet_to",
+    "amount": 100.0,
+    "timestamp": 1700000000.0
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "transaction": {
+    "type": "token_transfer",
+    "sender_address": "wallet_from",
+    "recipient_address": "wallet_to",
+    "amount": 100.0,
+    "timestamp": 1700000000.0,
+    "xmss_signature": {
+      "signature_type": "XMSS",
+      "key_id": "xmss_key_123",
+      "signature": "xmss_signature_hex",
+      "signature_index": 0,
+      "message_hash": "sha256_hash",
+      "timestamp": 1700000000.0,
+      "remaining_signatures": 1023
+    }
+  }
+}
+```
+
+#### GET /api/v1/wallet/xmss-status/{key_id}
+Get XMSS key status and signature usage.
+
+**Response:**
+```json
+{
+  "key_id": "xmss_key_123",
+  "algorithm": "XMSS",
+  "used_signatures": 5,
+  "remaining_signatures": 1019,
+  "max_signatures": 1024,
+  "usage_percentage": 0.49,
+  "is_exhausted": false,
+  "key_status": "active",
+  "last_used": 1700000000.0
+}
+```
+
+#### POST /api/v1/wallet/rotate-xmss
+Rotate to new XMSS key when current key is exhausted.
+
+**Request:**
+```json
+{
+  "old_key_id": "xmss_key_123",
+  "new_wallet_id": "secure_wallet_rotated"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "rotation_complete": true,
+  "old_key_status": {
+    "key_id": "xmss_key_123",
+    "used_signatures": 1024,
+    "is_exhausted": true
+  },
+  "new_keypair": {
+    "key_id": "xmss_key_456",
+    "algorithm": "XMSS",
+    "remaining_signatures": 1024
+  },
+  "rotation_timestamp": 1700000000.0
+}
+```
+
+### Hardware-Verified Block Seals
+
+PiSecure implements hardware-verified block seals for enhanced mining authenticity.
+
+#### GET /api/v1/blockchain/seal-info/{block_index}
+Get hardware seal information for a block.
+
+**Response:**
+```json
+{
+  "block_index": 10492,
+  "has_hardware_seal": true,
+  "seal_info": {
+    "seal_type": "pi_hardware_verified",
+    "hardware_fingerprint": "pi4_2gb_verified",
+    "security_level": 2,
+    "verification_status": "valid",
+    "seal_timestamp": 1700000000.0
+  },
+  "mining_authenticity": {
+    "hardware_verified": true,
+    "asic_resistant": true,
+    "miner_type": "raspberry_pi_4",
+    "mining_algorithm": "sha3"
+  }
+}
+```
+
+### Cryptographic Security Features
+
+#### GET /api/v1/security/crypto-status
+Get comprehensive cryptographic security status.
+
+**Response:**
+```json
+{
+  "zk_proofs": {
+    "enabled": true,
+    "security_level": 128,
+    "proof_cache_size": 1000,
+    "average_verification_time": 0.023
+  },
+  "quantum_resistance": {
+    "xmss_enabled": true,
+    "active_keys": 5,
+    "total_signatures_used": 2500,
+    "keys_exhausted": 1,
+    "key_rotations": 2
+  },
+  "hardware_verification": {
+    "enabled": true,
+    "supported_models": ["pi3", "pi4", "pi5", "pi400", "pi_zero_2_w"],
+    "active_verifications": 12,
+    "verification_success_rate": 0.98
+  },
+  "advanced_security": {
+    "multi_layer_authenticity": true,
+    "temporal_anchoring": true,
+    "cross_validation": false,
+    "quantum_threat_level": "low"
+  },
+  "performance_impact": {
+    "zk_verification_overhead": "3-5x slower",
+    "xmss_signature_overhead": "2-4x slower",
+    "hardware_verification_overhead": "minimal",
+    "overall_security_benefit": "quantum-resistant"
+  }
+}
 ```
 
 ---

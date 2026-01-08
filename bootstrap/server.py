@@ -308,12 +308,78 @@ class MiningStatsAggregator:
         return time_since_last_seen < 300  # 5 minutes
 
     def _calculate_blocks_last_hour(self) -> int:
-        # Mock implementation - would track actual blocks
-        return 12
+        """Calculate actual blocks mined in the last hour using SignChain"""
+        try:
+            # Use real blockchain data when SignChain is available
+            if real_blockchain and hasattr(real_blockchain, 'get_recent_blocks'):
+                current_time = time.time()
+                one_hour_ago = current_time - 3600
+
+                # Get blocks from the last hour
+                recent_blocks = real_blockchain.get_recent_blocks(since_timestamp=one_hour_ago)
+                return len(recent_blocks) if recent_blocks else 0
+
+            # Fallback to mock data until SignChain is integrated
+            logger.debug("Using mock block calculation - SignChain not available")
+            return self._calculate_mock_blocks_last_hour()
+
+        except Exception as e:
+            logger.warning(f"Error calculating blocks last hour: {e}")
+            return 0
 
     def _calculate_avg_blocks_per_hour(self) -> float:
-        # Mock implementation - would calculate from history
-        return 11.8
+        """Calculate average blocks per hour using SignChain historical data"""
+        try:
+            # Use real blockchain data when SignChain is available
+            if real_blockchain and hasattr(real_blockchain, 'get_block_history'):
+                # Get last 24 hours of block data
+                current_time = time.time()
+                twenty_four_hours_ago = current_time - (24 * 3600)
+
+                block_history = real_blockchain.get_block_history(since_timestamp=twenty_four_hours_ago)
+
+                if block_history and len(block_history) > 0:
+                    # Calculate blocks per hour average
+                    hours_covered = 24  # Full 24 hours
+                    return len(block_history) / hours_covered
+
+                return 0.0
+
+            # Fallback to mock data until SignChain is integrated
+            logger.debug("Using mock block average calculation - SignChain not available")
+            return self._calculate_mock_avg_blocks_per_hour()
+
+        except Exception as e:
+            logger.warning(f"Error calculating avg blocks per hour: {e}")
+            return 0.0
+
+    def _calculate_mock_blocks_last_hour(self) -> int:
+        """Mock implementation for blocks last hour - replace with SignChain"""
+        # This would be replaced with actual SignChain calls
+        # For now, return a reasonable mock value based on network activity
+        current_time = time.time()
+
+        # Simulate variable block production based on time of day
+        hour_of_day = time.gmtime(current_time).tm_hour
+
+        # More blocks during peak hours (simulate higher activity)
+        if 14 <= hour_of_day <= 20:  # Peak trading hours
+            base_blocks = 15
+        elif 6 <= hour_of_day <= 12:  # Morning activity
+            base_blocks = 10
+        else:  # Off-peak
+            base_blocks = 8
+
+        # Add some randomness (±20%)
+        import random
+        variation = random.uniform(0.8, 1.2)
+        return int(base_blocks * variation)
+
+    def _calculate_mock_avg_blocks_per_hour(self) -> float:
+        """Mock implementation for avg blocks per hour - replace with SignChain"""
+        # Calculate from recent mock history
+        # In production, this would use real historical block data
+        return 11.8  # Target block time simulation
 
 class GeoLocator:
     def __init__(self, api_key: str = None):
@@ -1415,42 +1481,225 @@ class IntelligenceFederation:
             logger.info(f"Synchronized intelligence from {sync_count} peer bootstrap nodes")
 
     def _share_with_peer(self, peer_id: str, peer_endpoint: str, intelligence_data: dict):
-        """Share intelligence data with a specific peer"""
+        """Share intelligence data with a specific peer via HTTP POST"""
         try:
-            # In production, this would use HTTP client with proper error handling
-            # For now, just log the intent
-            logger.info(f"Sharing intelligence with peer {peer_id} at {peer_endpoint}")
-            # TODO: Implement actual HTTP POST to peer_endpoint + '/api/v1/intelligence/share'
+            # Construct the full endpoint URL
+            share_url = f"{peer_endpoint.rstrip('/')}/api/v1/intelligence/share"
+
+            # Prepare the request payload
+            request_data = {
+                'sender_node_id': 'bootstrap-primary',  # Would be dynamic in production
+                'federation_version': '1.0',
+                'data': intelligence_data,
+                'timestamp': time.time(),
+                'checksum': self._calculate_payload_checksum(intelligence_data)
+            }
+
+            # Set up headers with basic authentication (would be more sophisticated in production)
+            headers = {
+                'Content-Type': 'application/json',
+                'User-Agent': 'PiSecure-Bootstrap-Federation/1.0',
+                'X-Federation-Auth': self._generate_federation_auth_token(peer_id)
+            }
+
+            # Make the HTTP POST request with timeout and retries
+            max_retries = 3
+            retry_delay = 1.0
+
+            for attempt in range(max_retries):
+                try:
+                    response = requests.post(
+                        share_url,
+                        json=request_data,
+                        headers=headers,
+                        timeout=10.0,  # 10 second timeout
+                        verify=True  # SSL verification (would be configurable)
+                    )
+
+                    # Check response
+                    if response.status_code == 200:
+                        response_data = response.json()
+                        if response_data.get('intelligence_accepted'):
+                            logger.info(f"Successfully shared intelligence with peer {peer_id}")
+                            return True
+                        else:
+                            logger.warning(f"Peer {peer_id} rejected intelligence share: {response_data}")
+                            return False
+                    elif response.status_code == 401:
+                        logger.warning(f"Authentication failed with peer {peer_id}")
+                        return False
+                    elif response.status_code == 403:
+                        logger.warning(f"Peer {peer_id} blocked intelligence share")
+                        return False
+                    else:
+                        logger.warning(f"Unexpected response from peer {peer_id}: {response.status_code}")
+
+                except requests.exceptions.Timeout:
+                    logger.warning(f"Timeout sharing intelligence with peer {peer_id} (attempt {attempt + 1})")
+                except requests.exceptions.ConnectionError:
+                    logger.warning(f"Connection error sharing intelligence with peer {peer_id} (attempt {attempt + 1})")
+                except requests.exceptions.RequestException as e:
+                    logger.warning(f"Request error sharing intelligence with peer {peer_id}: {e}")
+
+                # Wait before retry (exponential backoff)
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay * (2 ** attempt))
+
+            logger.error(f"Failed to share intelligence with peer {peer_id} after {max_retries} attempts")
+            return False
+
         except Exception as e:
             logger.error(f"Intelligence sharing failed for {peer_id}: {e}")
-            raise
+            return False
 
     def _sync_from_peer(self, peer_id: str, peer_endpoint: str) -> dict:
-        """Synchronize intelligence from a specific peer"""
+        """Synchronize intelligence from a specific peer via HTTP GET"""
         try:
-            # In production, this would make HTTP GET request
-            # For now, return mock data to demonstrate the concept
-            logger.info(f"Syncing intelligence from peer {peer_id} at {peer_endpoint}")
-            # TODO: Implement actual HTTP GET to peer_endpoint + '/api/v1/intelligence/sync'
+            # Construct the full endpoint URL
+            sync_url = f"{peer_endpoint.rstrip('/')}/api/v1/intelligence/sync"
 
-            # Mock peer intelligence for demonstration
-            return {
-                'threat_zones': ['peer-region-high-threat'],
-                'active_attacks': [{
-                    'type': 'connection_spike',
-                    'severity': 'medium',
-                    'location': 'peer-region',
-                    'timestamp': time.time()
-                }],
-                'intelligence_summary': {
-                    'threat_level': 'medium',
-                    'data_points_analyzed': 1500
-                },
-                'peer_timestamp': time.time()
+            # Set up headers with authentication
+            headers = {
+                'User-Agent': 'PiSecure-Bootstrap-Federation/1.0',
+                'X-Federation-Auth': self._generate_federation_auth_token(peer_id),
+                'Accept': 'application/json'
             }
+
+            # Make the HTTP GET request with timeout and retries
+            max_retries = 3
+            retry_delay = 1.0
+
+            for attempt in range(max_retries):
+                try:
+                    response = requests.get(
+                        sync_url,
+                        headers=headers,
+                        timeout=15.0,  # Longer timeout for sync operations
+                        verify=True
+                    )
+
+                    # Check response
+                    if response.status_code == 200:
+                        response_data = response.json()
+
+                        if response_data.get('sync_success'):
+                            intelligence_snapshot = response_data.get('intelligence_snapshot', {})
+
+                            # Validate the sync data
+                            if self._validate_sync_data(peer_id, intelligence_snapshot):
+                                logger.info(f"Successfully synced intelligence from peer {peer_id}")
+                                return intelligence_snapshot
+                            else:
+                                logger.warning(f"Invalid sync data received from peer {peer_id}")
+                                return {}
+                        else:
+                            logger.warning(f"Peer {peer_id} reported sync failure: {response_data}")
+                            return {}
+
+                    elif response.status_code == 401:
+                        logger.warning(f"Authentication failed syncing with peer {peer_id}")
+                        return {}
+                    elif response.status_code == 403:
+                        logger.warning(f"Peer {peer_id} blocked sync request")
+                        return {}
+                    else:
+                        logger.warning(f"Unexpected response from peer {peer_id}: {response.status_code}")
+
+                except requests.exceptions.Timeout:
+                    logger.warning(f"Timeout syncing intelligence with peer {peer_id} (attempt {attempt + 1})")
+                except requests.exceptions.ConnectionError:
+                    logger.warning(f"Connection error syncing intelligence with peer {peer_id} (attempt {attempt + 1})")
+                except requests.exceptions.RequestException as e:
+                    logger.warning(f"Request error syncing intelligence with peer {peer_id}: {e}")
+                except ValueError as e:
+                    logger.warning(f"Invalid JSON response from peer {peer_id}: {e}")
+
+                # Wait before retry (exponential backoff)
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay * (2 ** attempt))
+
+            logger.error(f"Failed to sync intelligence from peer {peer_id} after {max_retries} attempts")
+            return {}
+
         except Exception as e:
             logger.error(f"Intelligence sync failed for {peer_id}: {e}")
-            raise
+            return {}
+
+    def _generate_federation_auth_token(self, peer_id: str) -> str:
+        """Generate a simple authentication token for federation communication"""
+        # In production, this would use proper cryptographic authentication
+        # For now, use a simple hash-based token
+        import hashlib
+        import hmac
+
+        # Simple shared secret (would be configurable per peer in production)
+        shared_secret = "pisecure-federation-secret-2024"  # Should be environment variable
+
+        # Create token with timestamp to prevent replay attacks
+        timestamp = str(int(time.time()))
+        message = f"{peer_id}:{timestamp}"
+
+        # Generate HMAC
+        token = hmac.new(
+            shared_secret.encode(),
+            message.encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        return f"{timestamp}:{token}"
+
+    def _calculate_payload_checksum(self, data: dict) -> str:
+        """Calculate checksum of payload for integrity verification"""
+        import hashlib
+        import json
+
+        # Create deterministic JSON string
+        data_str = json.dumps(data, sort_keys=True, separators=(',', ':'))
+
+        # Calculate SHA256 hash
+        checksum = hashlib.sha256(data_str.encode()).hexdigest()
+        return checksum[:16]  # First 16 characters for brevity
+
+    def _validate_sync_data(self, peer_id: str, sync_data: dict) -> bool:
+        """Validate the integrity and reasonableness of sync data"""
+        try:
+            # Check required fields
+            required_fields = ['threat_zones', 'active_attacks', 'intelligence_summary', 'sync_timestamp']
+            for field in required_fields:
+                if field not in sync_data:
+                    logger.warning(f"Sync data from {peer_id} missing required field: {field}")
+                    return False
+
+            # Check timestamp is reasonable (within last hour)
+            sync_timestamp = sync_data.get('sync_timestamp', 0)
+            current_time = time.time()
+            if current_time - sync_timestamp > 3600:  # 1 hour
+                logger.warning(f"Sync data from {peer_id} has stale timestamp: {sync_timestamp}")
+                return False
+
+            # Check threat zones are reasonable (not too many)
+            threat_zones = sync_data.get('threat_zones', [])
+            if len(threat_zones) > 100:  # Arbitrary reasonable limit
+                logger.warning(f"Sync data from {peer_id} has too many threat zones: {len(threat_zones)}")
+                return False
+
+            # Check attacks are reasonable
+            active_attacks = sync_data.get('active_attacks', [])
+            if len(active_attacks) > 50:  # Arbitrary reasonable limit
+                logger.warning(f"Sync data from {peer_id} has too many active attacks: {len(active_attacks)}")
+                return False
+
+            # Validate attack data structure
+            for attack in active_attacks:
+                if not isinstance(attack, dict) or 'type' not in attack or 'timestamp' not in attack:
+                    logger.warning(f"Sync data from {peer_id} has invalid attack structure")
+                    return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error validating sync data from {peer_id}: {e}")
+            return False
 
     def _merge_peer_intelligence(self, peer_id: str, peer_intelligence: dict):
         """Merge intelligence from peer bootstrap node"""

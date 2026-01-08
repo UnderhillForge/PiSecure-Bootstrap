@@ -1,0 +1,116 @@
+{
+  "node": {
+    "identity": {
+      "name": "PiSecure Bootstrap Primary",
+      "node_id": "bootstrap-primary",
+      "role": "primary",
+      "version": "1.0.0",
+      "operator": "PiSecure Foundation",
+      "contact_email": "admin@pisecure.org",
+      "description": "Primary bootstrap node for PiSecure network - authoritative coordination hub"
+    },
+    "network": {
+      "domain": "bootstrap.pisecure.org",
+      "ip_address": "0.0.0.0",
+      "ports": {
+        "bootstrap": 3142,
+        "api": 8080,
+        "federation": 9001
+      },
+      "region": "us-east",
+      "datacenter": "aws-us-east-1",
+      "jurisdiction": "delaware",
+      "timezone": "UTC-5"
+    },
+    "federation": {
+      "enabled": true,
+      "trust_model": "hierarchical",
+      "max_secondary_nodes": 10,
+      "sync_interval_seconds": 300,
+      "intelligence_sharing": true,
+      "geographic_distribution": {
+        "preferred_regions": ["us-east", "us-west", "eu-west", "eu-central", "asia-pacific"],
+        "max_region_distance_km": 5000,
+        "min_regional_coverage": 3
+      },
+      "trust_levels": {
+        "foundation_verified": {
+          "max_trust_score": 100,
+          "capabilities": ["bootstrap_coordination", "intelligence_sharing", "threat_propagation"],
+          "sync_privileges": "full",
+          "required_uptime": 99.5
+        },
+        "community_trusted": {
+          "max_trust_score": 75,
+          "capabilities": ["peer_discovery", "regional_coordination"],
+          "sync_privileges": "limited",
+          "required_uptime": 95.0
+        },
+        "unverified": {
+          "max_trust_score": 25,
+          "capabilities": ["peer_discovery"],
+          "sync_privileges": "read-only",
+          "required_uptime": 90.0
+        }
+      }
+    },
+    "security": {
+      "require_peer_authentication": true,
+      "authentication_method": "capability_based",
+      "allowed_jurisdictions": ["us", "eu", "ca", "uk", "au"],
+      "max_failed_auth_attempts": 3,
+      "session_timeout_seconds": 3600,
+      "encryption_required": true,
+      "audit_logging": true
+    },
+    "operations": {
+      "uptime_target_percentage": 99.9,
+      "backup_frequency_hours": 24,
+      "log_retention_days": 30,
+      "maintenance_window_utc": "02:00-04:00",
+      "auto_restart_on_failure": true,
+      "health_check_interval_seconds": 30,
+      "performance_monitoring": true
+    },
+    "capabilities": {
+      "bootstrap_coordination": true,
+      "peer_discovery": true,
+      "network_health_monitoring": true,
+      "intelligence_sharing": true,
+      "threat_propagation": true,
+      "regional_coordination": true,
+      "federation_management": true
+    }
+  },
+  "intelligence": {
+    "ml_models_enabled": true,
+    "threat_detection_sensitivity": "medium",
+    "anomaly_detection_threshold": 0.75,
+    "federation_intelligence_sync": true,
+    "geographic_clustering_enabled": true,
+    "predictive_modeling": true,
+    "real_time_analysis": true
+  },
+  "economics": {
+    "operator_wallet": "",
+    "reward_percentage": 0.05,
+    "daily_budget_314st": 1000,
+    "minimum_payout_314st": 10,
+    "foundation_treasury_allocation": 0.5,
+    "operator_compensation_allocation": 0.5
+  },
+  "dex": {
+    "coordination_enabled": true,
+    "intelligence_optimization": true,
+    "threat_aware_routing": true,
+    "fee_sharing_enabled": true,
+    "liquidity_monitoring": true
+  },
+  "monitoring": {
+    "metrics_collection": true,
+    "alerts_enabled": true,
+    "dashboard_access": "public",
+    "performance_tracking": true,
+    "error_reporting": true
+  }
+}
