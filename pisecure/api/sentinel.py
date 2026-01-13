@@ -399,7 +399,7 @@ class SentinelService:
             }
     
     def propagate_alert(self, alert_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Propagate security alert across the network"""
+        """Propagate security alert across the network using Intelligence Federation"""
         source_node = alert_data.get('source_node')
         alert_id = alert_data.get('alert_id')
         severity = alert_data.get('severity', 'medium')
@@ -409,9 +409,28 @@ class SentinelService:
         recommended_actions = alert_data.get('recommended_actions', [])
         
         with self.lock:
-            # Validate source
+            # Validate source with trust-based filtering
             if source_node not in self.node_reputations:
                 return {'error': 'Source node not registered'}
+            
+            source_reputation = self.node_reputations[source_node]
+            
+            # Trust-based filtering: only propagate high-severity alerts from trusted sources
+            min_reputation_for_propagation = {
+                'critical': 70.0,  # Only highly trusted nodes can trigger critical alerts
+                'high': 60.0,      # High reputation needed for high-severity alerts
+                'medium': 40.0,    # Neutral reputation for medium alerts
+                'low': 20.0        # Even low reputation nodes can report low-severity issues
+            }
+            
+            required_reputation = min_reputation_for_propagation.get(severity, 40.0)
+            
+            if source_reputation.reputation_score < required_reputation:
+                return {
+                    'propagation_denied': True,
+                    'reason': f'Source reputation ({source_reputation.reputation_score:.1f}) below threshold ({required_reputation}) for {severity} severity alerts',
+                    'alert_id': alert_id
+                }
             
             # Record alert
             self.alert_history.append({
@@ -423,14 +442,53 @@ class SentinelService:
                 'timestamp': time.time()
             })
             
-            # Determine propagation scope
-            propagation_count = self._propagate_to_network(alert_data)
+            # Local propagation count
+            local_propagation_count = self._propagate_to_network(alert_data)
+            
+            # Propagate to Intelligence Federation for network-wide distribution
+            federation_propagation_count = 0
+            
+            # Only propagate critical and high severity alerts to federation
+            if severity in ['critical', 'high']:
+                try:
+                    # Import intelligence federation (circular import prevention)
+                    import sys
+                    bootstrap_module = sys.modules.get('bootstrap.server')
+                    
+                    if bootstrap_module and hasattr(bootstrap_module, 'intelligence_federation'):
+                        intelligence_federation = bootstrap_module.intelligence_federation
+                        
+                        # Prepare threat intelligence for sharing
+                        threat_intel = {
+                            'alert_id': alert_id,
+                            'source_node': source_node,
+                            'source_reputation': source_reputation.reputation_score,
+                            'severity': severity,
+                            'category': category,
+                            'message': message,
+                            'affected_components': affected_components,
+                            'recommended_actions': recommended_actions,
+                            'timestamp': time.time(),
+                            'trust_verified': True
+                        }
+                        
+                        # Share with peer bootstrap nodes
+                        intelligence_federation.share_threat_intelligence(threat_intel)
+                        federation_propagation_count = len(intelligence_federation.intelligence_peers)
+                        
+                except Exception as e:
+                    # Log error but don't fail the alert propagation
+                    print(f"[SENTINEL] Federation propagation error: {e}")
             
             return {
                 'propagation_success': True,
                 'alert_id': alert_id,
-                'nodes_notified': propagation_count,
+                'local_nodes_notified': local_propagation_count,
+                'federation_nodes_notified': federation_propagation_count,
+                'total_propagation': local_propagation_count + federation_propagation_count,
                 'severity': severity,
+                'trust_verified': True,
+                'source_reputation': source_reputation.reputation_score,
                 'recommended_actions': recommended_actions
             }
     

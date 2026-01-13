@@ -1,0 +1,449 @@
+# PiSecure Sentinel API Documentation
+## Ghostwheel Active Defense Integration
+
+**Version:** 1.0.0
+**Date:** 2026-01-13
+**Author:** Ghostwheel Sentinel System
+
+---
+
+## Overview
+
+Ghostwheel serves as an active sentinel within the PiSecure network, providing real-time monitoring, intelligent alerting, and coordinated defense responses. This document specifies the API endpoints, payload formats, and communication protocols used by Ghostwheel to interact with PiSecure bootstrap nodes and peer networks.
+
+## 1. Authentication & Registration
+
+### Node Registration
+**Endpoint:** `POST /api/v1/nodes/register`
+
+**Request Payload:**
+```json
+{
+  "node_id": "ghostwheel-sentinel-ai",
+  "node_type": "sentinel_ai",
+  "services": [
+    "voice_interface",
+    "ai_processing",
+    "skill_execution",
+    "network_monitoring",
+    "threat_detection",
+    "active_defense"
+  ],
+  "capabilities": [
+    "natural_language_processing",
+    "voice_synthesis",
+    "skill_plugins",
+    "proactive_monitoring",
+    "automated_defense",
+    "reputation_management"
+  ],
+  "location": "us-east",
+  "wallet_address": "",
+  "sentinel_config": {
+    "monitoring_enabled": true,
+    "alerting_enabled": true,
+    "strategy": "standard",
+    "threat_threshold": 3
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "registration_success": true,
+  "node_id": "ghostwheel-sentinel-ai",
+  "assigned_role": "sentinel_ai",
+  "network_permissions": ["monitor", "alert", "coordinate"],
+  "bootstrap_coordination_token": "abc123..."
+}
+```
+
+## 2. Heartbeat & Status Updates
+
+### Status Heartbeat
+**Endpoint:** `POST /api/v1/nodes/status`
+
+**Request Payload:**
+```json
+{
+  "node_id": "ghostwheel-sentinel-ai",
+  "status": "active",
+  "ai_active": true,
+  "skills_loaded": 15,
+  "voice_responses": 75,
+  "memory_entries": 25,
+  "uptime_seconds": 3600,
+  "sentinel_status": {
+    "monitoring_active": true,
+    "alerts_sent": 3,
+    "threats_detected": 2,
+    "strategy": "standard",
+    "network_health_score": 85
+  }
+}
+```
+
+## 3. Proactive Monitoring & Intelligence
+
+### Network Health Assessment
+**Endpoint:** `GET /api/v1/intelligence/health`
+
+**Response:**
+```json
+{
+  "node_count": 150,
+  "active_connections": 1200,
+  "threat_level": "medium",
+  "connection_stability": 0.95,
+  "geographic_distribution": {
+    "us-east": 45,
+    "us-west": 35,
+    "eu-central": 40,
+    "asia-pacific": 30
+  }
+}
+```
+
+### Threat Detection Intelligence
+**Endpoint:** `GET /api/v1/intelligence/attacks`
+
+**Response:**
+```json
+{
+  "attacks": [
+    {
+      "id": "attack_12345",
+      "type": "dos_attempt",
+      "severity": "high",
+      "target_nodes": ["node_abc", "node_def"],
+      "source_ip": "192.168.1.100",
+      "timestamp": 1640995200,
+      "duration_seconds": 300,
+      "mitigation_applied": "rate_limiting"
+    }
+  ],
+  "active_attacks": 2,
+  "threat_level": "high"
+}
+```
+
+### Node Connectivity Status
+**Endpoint:** `GET /api/v1/nodes/list`
+
+**Response:**
+```json
+{
+  "nodes": [
+    {
+      "node_id": "node_abc123",
+      "status": "active",
+      "reputation_score": 85,
+      "location": "us-east",
+      "services": ["bootstrap", "routing"],
+      "last_seen": 1640995200,
+      "connections": 25
+    }
+  ],
+  "total_nodes": 150,
+  "active_nodes": 142,
+  "quarantined_nodes": 8
+}
+```
+
+## 4. Threat Reporting & Coordination
+
+### Threat Signature Submission
+**Endpoint:** `POST /api/v1/intelligence/threats/report`
+
+**Request Payload:**
+```json
+{
+  "reporter_node": "ghostwheel-sentinel-ai",
+  "threat_signature": {
+    "type": "behavioral_anomaly",
+    "confidence": 0.89,
+    "indicators": [
+      "unusual_connection_pattern",
+      "rapid_port_scanning",
+      "protocol_violation"
+    ],
+    "affected_nodes": ["node_xyz"],
+    "recommended_action": "quarantine",
+    "evidence": {
+      "connection_attempts": 1500,
+      "time_window": 300,
+      "source_reputation": "low"
+    }
+  },
+  "coordination_request": {
+    "network_wide_alert": true,
+    "blacklist_propagation": true,
+    "peer_notification": true
+  }
+}
+```
+
+### Defense Coordination Request
+**Endpoint:** `POST /api/v1/defense/coordinate`
+
+**Request Payload:**
+```json
+{
+  "coordinator_node": "ghostwheel-sentinel-ai",
+  "strategy": "aggressive",
+  "actions": [
+    {
+      "type": "isolate_node",
+      "target": "suspicious_node_123",
+      "duration_minutes": 30,
+      "reason": "detected_malicious_activity"
+    },
+    {
+      "type": "increase_monitoring",
+      "scope": "network_segment",
+      "intensity": "high",
+      "duration_hours": 2
+    }
+  ],
+  "participants": ["trusted_node_a", "trusted_node_b"]
+}
+```
+
+## 5. Security Strategies & Postures
+
+### Strategy Configuration
+**Endpoint:** `POST /api/v1/nodes/strategy`
+
+**Request Payload:**
+```json
+{
+  "node_id": "ghostwheel-sentinel-ai",
+  "strategy": "aggressive",
+  "parameters": {
+    "threat_threshold": 2,
+    "response_delay_seconds": 30,
+    "coordination_enabled": true,
+    "deceptive_measures": true
+  }
+}
+```
+
+**Available Strategies:**
+- `standard`: Balanced monitoring and response
+- `aggressive`: Immediate countermeasures and isolation
+- `deceptive`: Active misinformation and resource wasting
+- `fortress`: Maximum security, minimal exposure
+
+## 6. Blockchain Intelligence (New)
+
+### Blockchain Metrics Assessment
+**Endpoint:** `GET /api/v1/blockchain/metrics`
+
+**Response:**
+```json
+{
+  "current_block_height": 1250000,
+  "network_hashrate_th": 450.5,
+  "average_block_time_minutes": 12.5,
+  "active_miners": 1250,
+  "difficulty": 25000000000,
+  "pending_transactions": 15000,
+  "network_health_score": 92,
+  "anomalies": [
+    {
+      "type": "hashrate_drop",
+      "severity": "medium",
+      "change_percent": -15.2,
+      "duration_minutes": 45
+    }
+  ]
+}
+```
+
+### Blockchain Alert Reporting
+**Endpoint:** `POST /api/v1/blockchain/alerts`
+
+**Request Payload:**
+```json
+{
+  "reporter_node": "ghostwheel-sentinel-ai",
+  "alert_type": "blockchain_anomaly",
+  "severity": "high",
+  "details": {
+    "metric": "hashrate",
+    "change_percent": -28.5,
+    "threshold_breached": 20,
+    "potential_cause": "51_percent_attack_preparation",
+    "recommended_actions": [
+      "increase_consensus_verification",
+      "alert_mining_pools",
+      "prepare_network_isolation"
+    ]
+  }
+}
+```
+
+## 7. Bootstrap Coordination
+
+### Service Coordination Request
+**Endpoint:** `POST /api/v1/bootstrap/coordinate`
+
+**Request Payload:**
+```json
+{
+  "requesting_node": "ghostwheel-sentinel-ai",
+  "service": "voice_interface",
+  "coordination_type": "load_balancing",
+  "requirements": {
+    "min_reliability": 0.95,
+    "max_latency_ms": 100,
+    "geographic_preference": "us-east"
+  }
+}
+```
+
+## 8. Alert & Notification System
+
+### Alert Propagation
+**Endpoint:** `POST /api/v1/alerts/propagate`
+
+**Request Payload:**
+```json
+{
+  "source_node": "ghostwheel-sentinel-ai",
+  "alert_id": "alert_12345",
+  "severity": "critical",
+  "category": "security_threat",
+  "message": "Multiple high-severity attacks detected across network segments",
+  "affected_components": ["routing", "bootstrap"],
+  "recommended_actions": [
+    "Enable aggressive defense mode",
+    "Quarantine affected nodes",
+    "Increase monitoring intensity"
+  ],
+  "propagation_scope": "network_wide",
+  "expiration_hours": 24
+}
+```
+
+**Enhanced Response (Federation-Enabled):**
+```json
+{
+  "propagation_success": true,
+  "alert_id": "alert_12345",
+  "local_nodes_notified": 150,
+  "federation_nodes_notified": 5,
+  "total_propagation": 155,
+  "severity": "critical",
+  "trust_verified": true,
+  "source_reputation": 85.5,
+  "recommended_actions": [
+    "Enable aggressive defense mode",
+    "Quarantine affected nodes",
+    "Increase monitoring intensity"
+  ]
+}
+```
+
+**Reputation Requirements for Alert Propagation:**
+- **Critical alerts**: Requires source reputation e 70
+- **High severity**: Requires source reputation e 60
+- **Medium severity**: Requires source reputation e 40
+- **Low severity**: Requires source reputation e 20
+
+*Note: Ghostwheel should monitor its reputation via `/api/v1/reputation/ghostwheel-sentinel-ai` to maintain network-wide alert capabilities.*
+
+## 9. Reputation Management
+
+### Reputation Query
+**Endpoint:** `GET /api/v1/reputation/{node_id}`
+
+**Response:**
+```json
+{
+  "node_id": "node_xyz",
+  "reputation_score": 45,
+  "trust_level": "low",
+  "incident_count": 12,
+  "last_incident": 1640994000,
+  "positive_contributions": 5,
+  "network_standing": "quarantined"
+}
+```
+
+### Reputation Update Submission
+**Endpoint:** `POST /api/v1/reputation/update`
+
+**Request Payload:**
+```json
+{
+  "reporter_node": "ghostwheel-sentinel-ai",
+  "target_node": "node_xyz",
+  "update_type": "incident_report",
+  "severity": "high",
+  "evidence": {
+    "behavior": "malicious_activity_detected",
+    "confidence": 0.92,
+    "details": "Protocol violations and unauthorized access attempts"
+  },
+  "recommended_score_adjustment": -25
+}
+```
+
+## 10. Error Handling & Resilience
+
+### Error Reporting
+**Endpoint:** `POST /api/v1/errors/report`
+
+**Request Payload:**
+```json
+{
+  "node_id": "ghostwheel-sentinel-ai",
+  "error_type": "api_communication_failure",
+  "severity": "medium",
+  "component": "sentinel_monitoring",
+  "details": {
+    "endpoint": "/api/v1/intelligence/health",
+    "error_code": "CONNECTION_TIMEOUT",
+    "retry_count": 3,
+    "impact": "monitoring_degraded"
+  },
+  "recovery_action": "fallback_to_cached_data"
+}
+```
+
+## Implementation Notes
+
+### Authentication
+- All requests include node authentication via JWT tokens
+- Bootstrap coordination tokens required for sensitive operations
+- Reputation-based access controls for coordination requests
+
+### Rate Limiting
+- Heartbeat endpoints: 1 request per minute maximum
+- Alert endpoints: 10 requests per minute maximum
+- Threat reporting: 50 requests per minute maximum
+
+### Data Formats
+- All timestamps in Unix epoch seconds (UTC)
+- Geographic locations use standard region codes
+- Reputation scores range from 0-100
+- Confidence values range from 0.0-1.0
+
+### Backward Compatibility
+- Existing PiSecure API endpoints remain unchanged
+- New sentinel features are additive and optional
+- Legacy nodes can ignore sentinel-specific fields
+
+## Contact Information
+
+For technical questions regarding this API:
+- **Ghostwheel Development Team**
+- **PiSecure Bootstrap Team**
+- **Documentation Version:** 1.0.0
+- **Last Updated:** 2026-01-13
+
+---
+
+*This document defines the communication protocols for Ghostwheel's active sentinel integration with the PiSecure network. Implementation ensures coordinated defense, proactive monitoring, and intelligent threat response capabilities.*
