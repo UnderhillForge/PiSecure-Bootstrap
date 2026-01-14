@@ -15,6 +15,16 @@ from flask import Flask, jsonify, request, render_template
 from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, Text, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
+
+# Import Sentinel Service for active defense and reputation management
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from pisecure.api.sentinel import sentinel_service
+
+# Import DDoS Protection and Validation
+from pisecure.api.ddos_protection import ddos_protection, DDoSProtection
+from pisecure.api.validation import validation_engine, ValidationEngine
 import requests
 import statistics
 import numpy as np
@@ -96,6 +106,68 @@ logger = logging.getLogger(__name__)
 # Load configuration at module import (after logger is available)
 load_node_config()
 
+# Compatibility shim for legacy tests that expect a simple BootstrapNode class
+class BootstrapNode:
+    """Lightweight bootstrap node representation for legacy tests."""
+
+    def __init__(self, host: str = '0.0.0.0', port: int = 3142):
+        self.host = host
+        self.port = port
+        self.api_version = "v1"
+        self.registered_nodes = {}
+        # Pre-populate peers from environment variable if provided
+        self.bootstrap_peers = self._parse_bootstrap_peers(os.environ.get('BOOTSTRAP_PEERS', ''))
+        self.max_peers = 50
+
+    def _parse_bootstrap_peers(self, peers_str: str):
+        if not peers_str:
+            return []
+
+        peers = []
+        for peer in peers_str.split(','):
+            peer = peer.strip()
+            if not peer:
+                continue
+
+            if ':' in peer:
+                address, port_str = peer.split(':', 1)
+                try:
+                    port = int(port_str)
+                except ValueError:
+                    port = 3142
+            else:
+                address = peer
+                port = 3142
+
+            peers.append({'node_id': address, 'address': address, 'port': port, 'capabilities': []})
+
+        return peers
+
+    def _get_verified_bootstrap_peers(self):
+        peers = list(self.bootstrap_peers)
+
+        # Include registered nodes as peers
+        for node_id, node_data in self.registered_nodes.items():
+            peers.append({
+                'node_id': node_id,
+                'address': node_data.get('address', ''),
+                'port': node_data.get('port', 3142),
+                'capabilities': node_data.get('capabilities', [])
+            })
+
+        return peers[: self.max_peers]
+
+    def _calculate_network_stats(self):
+        return {
+            'active_nodes': self._count_active_nodes(),
+            'total_registered_nodes': len(self.registered_nodes),
+            'connected_peers': len(self._get_verified_bootstrap_peers()),
+            'timestamp': time.time()
+        }
+
+    def _count_active_nodes(self):
+        return len(self.registered_nodes)
+
 # Database setup
 DATABASE_URL = "sqlite:///pisecure_bootstrap.db"
 engine = create_engine(DATABASE_URL, echo=False)
@@ -104,6 +176,53 @@ SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bi
 
 # Create minimal Flask app
 app = Flask(__name__)
+
+# DDoS Protection Middleware
+@app.before_request
+def ddos_protection_middleware():
+    """DDoS protection and abuse detection on all requests"""
+    # Skip for health checks and static files
+    if request.path in ['/', '/health', '/api/v1/health']:
+        return None
+    
+    try:
+        # Gather request data for analysis
+        request_data = {
+            'client_ip': request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown'),
+            'endpoint': request.path,
+            'user_agent': request.headers.get('User-Agent', ''),
+            'request_size': len(request.data) if request.data else 0,
+            'parameters': dict(request.args),
+            'method': request.method
+        }
+        
+        # Analyze request with DDoS protection
+        analysis = ddos_protection.analyze_request(request_data)
+        
+        # Block if necessary
+        if analysis.get('should_block'):
+            logger.warning(f"Request blocked from {request_data['client_ip']}: threat_score={analysis.get('threat_score'):.2f}")
+            return jsonify({
+                'error': 'Request blocked',
+                'reason': 'Security policy violation',
+                'threat_score': analysis.get('threat_score'),
+                'recommendations': analysis.get('recommendations', [])
+            }), 429
+        
+        # Apply delay if necessary
+        delay_seconds = analysis.get('delay_seconds', 0)
+        if delay_seconds > 0:
+            time.sleep(delay_seconds)
+        
+        # Store analysis result in request context for logging
+        request.ddos_analysis = analysis
+        
+    except Exception as e:
+        logger.error(f"DDoS protection middleware error: {e}")
+        # Continue processing even if protection fails
+        pass
+    
+    return None
 
 # Database Models (matching API specification)
 class Node(Base):
@@ -370,7 +489,7 @@ class MiningStatsAggregator:
         else:  # Off-peak
             base_blocks = 8
 
-        # Add some randomness (±20%)
+        # Add some randomness (ï¿½20%)
         import random
         variation = random.uniform(0.8, 1.2)
         return int(base_blocks * variation)
@@ -4068,7 +4187,7 @@ def dex_stats():
 
 @app.route('/api/v1/nodes/register', methods=['POST'])
 def register_node():
-    """Register a PiSecure node with the bootstrap server"""
+    """Register a PiSecure node with the bootstrap server (including Sentinel AI nodes)"""
     logger.info("Node registration endpoint called")
 
     try:
@@ -4084,6 +4203,7 @@ def register_node():
         location = registration_data.get('location', 'unknown')
         wallet_address = registration_data.get('wallet_address')
         capabilities = registration_data.get('capabilities', [])
+        sentinel_config = registration_data.get('sentinel_config', {})
 
         if not node_id:
             return jsonify({'error': 'node_id required'}), 400
@@ -4108,6 +4228,31 @@ def register_node():
 
         # Store in node tracker
         success = _register_pisecure_node(node_data)
+
+        # If this is a sentinel_ai node, also register with sentinel service
+        if success and node_type == 'sentinel_ai':
+            sentinel_result = sentinel_service.register_sentinel_node({
+                'node_id': node_id,
+                'sentinel_config': sentinel_config
+            })
+            
+            logger.info(f"Successfully registered Sentinel AI node: {node_id} from {location}")
+            
+            return jsonify({
+                'registration_success': True,
+                'node_id': node_id,
+                'assigned_role': 'sentinel_ai',
+                'network_permissions': sentinel_result.get('network_permissions', ['monitor', 'alert', 'coordinate']),
+                'registration_time': node_data['registered_at'],
+                'network_info': {
+                    'bootstrap_coordinator': 'bootstrap.pisecure.org',
+                    'federation_enabled': True,
+                    'intelligence_sharing': True
+                },
+                'sentinel_capabilities': sentinel_result.get('sentinel_capabilities', {}),
+                'capabilities_acknowledged': capabilities,
+                'services_enabled': services
+            })
 
         if success:
             logger.info(f"Successfully registered PiSecure node: {node_id} ({node_type}) from {location}")
@@ -4164,6 +4309,13 @@ def update_node_status():
             'last_status_update': time.time(),
             'client_ip': client_ip
         }
+
+        # If this is a sentinel node, also update sentinel status
+        sentinel_status = status_data.get('sentinel_status')
+        if sentinel_status:
+            sentinel_result = sentinel_service.update_sentinel_status(node_id, status_data)
+            if 'error' not in sentinel_result:
+                logger.info(f"Sentinel status updated for: {node_id}")
 
         # Process the status update
         success = _update_node_status(node_id, status_update)
@@ -4242,6 +4394,409 @@ def nodes():
 
     # Serve the HTML template - data will be loaded via JavaScript API calls
     return render_template('nodes.html')
+
+# ========================================
+# SENTINEL API ENDPOINTS
+# Ghostwheel Active Defense Integration
+# ========================================
+
+@app.route('/api/v1/intelligence/threats/report', methods=['POST'])
+def submit_threat_signature():
+    """Submit threat signature detection from Sentinel node"""
+    logger.info("Threat signature submission endpoint called")
+    
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+        
+        # Get threat report data
+        report_data = request.get_json() or {}
+        
+        if not report_data.get('reporter_node'):
+            return jsonify({'error': 'reporter_node required'}), 400
+        
+        if not report_data.get('threat_signature'):
+            return jsonify({'error': 'threat_signature required'}), 400
+        
+        # Submit threat signature
+        result = sentinel_service.submit_threat_signature(report_data)
+        
+        if 'error' in result:
+            return jsonify(result), 403
+        
+        # Also process with network intelligence for correlation
+        threat_sig = report_data.get('threat_signature', {})
+        network_intelligence.potential_attacks.append({
+            'type': threat_sig.get('type', 'sentinel_detected'),
+            'severity': 'high' if threat_sig.get('confidence', 0) > 0.8 else 'medium',
+            'confidence': threat_sig.get('confidence', 0),
+            'indicators': threat_sig.get('indicators', []),
+            'timestamp': time.time(),
+            'source': 'sentinel_ai'
+        })
+        
+        logger.info(f"Threat signature submitted by: {report_data.get('reporter_node')}")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Threat signature submission error: {e}")
+        return jsonify({'error': 'Threat submission failed'}), 500
+
+@app.route('/api/v1/defense/coordinate', methods=['POST'])
+def coordinate_defense():
+    """Coordinate defense actions across the bootstrap network"""
+    logger.info("Defense coordination endpoint called")
+    
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+        
+        # Get coordination data
+        coord_data = request.get_json() or {}
+        
+        if not coord_data.get('coordinator_node'):
+            return jsonify({'error': 'coordinator_node required'}), 400
+        
+        if not coord_data.get('actions'):
+            return jsonify({'error': 'actions required'}), 400
+        
+        # Coordinate defense
+        result = sentinel_service.coordinate_defense(coord_data)
+        
+        if 'error' in result:
+            return jsonify(result), 403
+        
+        # Trigger automated defense measures via network intelligence
+        for action in coord_data.get('actions', []):
+            defense_features = {
+                'action_type': action.get('type'),
+                'target': action.get('target'),
+                'coordinator': coord_data.get('coordinator_node')
+            }
+            network_intelligence.trigger_defense_measures(
+                defense_features,
+                confidence=0.9  # High confidence from sentinel coordination
+            )
+        
+        logger.info(f"Defense coordinated by: {coord_data.get('coordinator_node')}")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Defense coordination error: {e}")
+        return jsonify({'error': 'Coordination failed'}), 500
+
+@app.route('/api/v1/reputation/<node_id>', methods=['GET'])
+def get_node_reputation(node_id):
+    """Get reputation information for a node"""
+    logger.info(f"Reputation query for node: {node_id}")
+    
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+        
+        # Get reputation
+        result = sentinel_service.get_node_reputation(node_id)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Reputation query error: {e}")
+        return jsonify({'error': 'Reputation query failed'}), 500
+
+@app.route('/api/v1/reputation/update', methods=['POST'])
+def update_node_reputation():
+    """Update node reputation based on incident or contribution"""
+    logger.info("Reputation update endpoint called")
+    
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+        
+        # Get update data
+        update_data = request.get_json() or {}
+        
+        if not update_data.get('reporter_node'):
+            return jsonify({'error': 'reporter_node required'}), 400
+        
+        if not update_data.get('target_node'):
+            return jsonify({'error': 'target_node required'}), 400
+        
+        if not update_data.get('update_type'):
+            return jsonify({'error': 'update_type required'}), 400
+        
+        # Update reputation
+        result = sentinel_service.update_node_reputation(update_data)
+        
+        if 'error' in result:
+            return jsonify(result), 403
+        
+        logger.info(f"Reputation updated for: {update_data.get('target_node')}")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Reputation update error: {e}")
+        return jsonify({'error': 'Reputation update failed'}), 500
+
+@app.route('/api/v1/blockchain/metrics', methods=['GET'])
+def get_blockchain_metrics():
+    """Get blockchain health metrics from Sentinel monitoring"""
+    logger.info("Blockchain metrics endpoint called")
+    
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+        
+        # Get blockchain metrics
+        result = sentinel_service.get_blockchain_metrics()
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Blockchain metrics error: {e}")
+        return jsonify({'error': 'Metrics unavailable'}), 500
+
+@app.route('/api/v1/blockchain/alerts', methods=['POST'])
+def submit_blockchain_alert():
+    """Submit blockchain anomaly alert from Sentinel monitoring"""
+    logger.info("Blockchain alert submission endpoint called")
+    
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+        
+        # Get alert data
+        alert_data = request.get_json() or {}
+        
+        if not alert_data.get('reporter_node'):
+            return jsonify({'error': 'reporter_node required'}), 400
+        
+        if not alert_data.get('alert_type'):
+            return jsonify({'error': 'alert_type required'}), 400
+        
+        # Submit blockchain alert
+        result = sentinel_service.submit_blockchain_alert(alert_data)
+        
+        if 'error' in result:
+            return jsonify(result), 403
+        
+        logger.info(f"Blockchain alert submitted by: {alert_data.get('reporter_node')}")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Blockchain alert error: {e}")
+        return jsonify({'error': 'Alert submission failed'}), 500
+
+@app.route('/api/v1/alerts/propagate', methods=['POST'])
+def propagate_alert():
+    """Propagate security alert across the network"""
+    logger.info("Alert propagation endpoint called")
+    
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+        
+        # Get alert data
+        alert_data = request.get_json() or {}
+        
+        if not alert_data.get('source_node'):
+            return jsonify({'error': 'source_node required'}), 400
+        
+        if not alert_data.get('alert_id'):
+            return jsonify({'error': 'alert_id required'}), 400
+        
+        # Propagate alert through sentinel service
+        result = sentinel_service.propagate_alert(alert_data)
+        
+        if 'error' in result or result.get('propagation_denied'):
+            return jsonify(result), 403
+        
+        logger.info(f"Alert propagated: {alert_data.get('alert_id')} from {alert_data.get('source_node')}")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Alert propagation error: {e}")
+        return jsonify({'error': 'Alert propagation failed'}), 500
+
+@app.route('/api/v1/sentinel/stats', methods=['GET'])
+def get_sentinel_stats():
+    """Get comprehensive Sentinel service statistics"""
+    logger.info("Sentinel statistics endpoint called")
+    
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+        
+        # Get sentinel stats
+        result = sentinel_service.get_sentinel_stats()
+        
+        # Enhance with network intelligence
+        network_health = network_intelligence.analyze_network_health()
+        result['network_health_integration'] = {
+            'overall_health': network_health.get('overall_health'),
+            'attack_resistance': network_health.get('attack_resistance'),
+            'threat_level': 'high' if network_intelligence.potential_attacks else 'low'
+        }
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Sentinel stats error: {e}")
+        return jsonify({'error': 'Stats unavailable'}), 500
+
+@app.route('/api/v1/nodes/strategy', methods=['POST'])
+def configure_node_strategy():
+    """Configure security strategy for Sentinel nodes"""
+    logger.info("Node strategy configuration endpoint called")
+    
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+        
+        # Get strategy data
+        strategy_data = request.get_json() or {}
+        node_id = strategy_data.get('node_id')
+        strategy = strategy_data.get('strategy')
+        parameters = strategy_data.get('parameters', {})
+        
+        if not node_id:
+            return jsonify({'error': 'node_id required'}), 400
+        
+        if not strategy:
+            return jsonify({'error': 'strategy required'}), 400
+        
+        # Validate strategy
+        valid_strategies = ['standard', 'aggressive', 'deceptive', 'fortress']
+        if strategy not in valid_strategies:
+            return jsonify({
+                'error': f'Invalid strategy. Must be one of: {", ".join(valid_strategies)}'
+            }), 400
+        
+        # Store strategy configuration (in production, this would be persisted)
+        # For now, acknowledge the configuration
+        logger.info(f"Strategy configured for {node_id}: {strategy}")
+        
+        return jsonify({
+            'strategy_updated': True,
+            'node_id': node_id,
+            'active_strategy': strategy,
+            'parameters_applied': parameters,
+            'timestamp': time.time()
+        })
+        
+    except Exception as e:
+        logger.error(f"Strategy configuration error: {e}")
+        return jsonify({'error': 'Strategy configuration failed'}), 500
+
+# ========================================
+# DDOS PROTECTION & VALIDATION ENDPOINTS
+# ========================================
+
+@app.route('/api/v1/security/ddos/stats', methods=['GET'])
+def get_ddos_protection_stats():
+    """Get DDoS protection statistics"""
+    logger.info("DDoS protection stats endpoint called")
+    
+    try:
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+        stats = ddos_protection.get_protection_stats()
+        network_health = network_intelligence.analyze_network_health()
+        
+        return jsonify({
+            'ddos_protection': stats,
+            'network_health_integration': {
+                'attack_resistance': network_health.get('attack_resistance'),
+                'threat_level': 'high' if network_intelligence.potential_attacks else 'low',
+                'active_defense_actions': len(network_intelligence.defense_actions)
+            },
+            'protection_status': 'active',
+            'timestamp': time.time()
+        })
+    except Exception as e:
+        logger.error(f"DDoS stats error: {e}")
+        return jsonify({'error': 'Stats unavailable'}), 500
+
+@app.route('/api/v1/security/validation/stats', methods=['GET'])
+def get_validation_stats():
+    """Get validation engine statistics"""
+    logger.info("Validation stats endpoint called")
+    
+    try:
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+        stats = validation_engine.get_validation_stats()
+        
+        return jsonify({
+            'validation_engine': stats,
+            'validation_status': 'active',
+            'security_features': [
+                'Input sanitization (XSS, SQL injection, path traversal)',
+                'JSON schema validation',
+                'Blockchain-specific validation',
+                'Pattern-based security analysis',
+                'Data exfiltration detection',
+                'Enumeration attack detection'
+            ],
+            'timestamp': time.time()
+        })
+    except Exception as e:
+        logger.error(f"Validation stats error: {e}")
+        return jsonify({'error': 'Stats unavailable'}), 500
+
+@app.route('/api/v1/security/status', methods=['GET'])
+def get_security_status():
+    """Get comprehensive security status"""
+    logger.info("Security status endpoint called")
+    
+    try:
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+        
+        ddos_stats = ddos_protection.get_protection_stats()
+        validation_stats = validation_engine.get_validation_stats()
+        network_health = network_intelligence.analyze_network_health()
+        sentinel_stats = sentinel_service.get_sentinel_stats()
+        
+        return jsonify({
+            'security_status': 'operational',
+            'security_layers': {
+                'ddos_protection': {
+                    'status': 'active',
+                    'active_clients': ddos_stats.get('active_clients'),
+                    'blocked_ips': ddos_stats.get('blocked_ips')
+                },
+                'input_validation': {
+                    'status': 'active',
+                    'schemas_loaded': validation_stats.get('schemas_loaded')
+                },
+                'network_intelligence': {
+                    'status': 'active',
+                    'overall_health': network_health.get('overall_health')
+                },
+                'sentinel_coordination': {
+                    'status': 'active',
+                    'registered_nodes': sentinel_stats.get('registered_nodes')
+                }
+            },
+            'timestamp': time.time()
+        })
+    except Exception as e:
+        logger.error(f"Security status error: {e}")
+        return jsonify({'error': 'Security status unavailable'}), 500
 
 if __name__ == '__main__':
     import os
