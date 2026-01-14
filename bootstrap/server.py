@@ -40,6 +40,12 @@ import time as time_module
 # Load node configuration
 NODE_CONFIG = None
 NODE_IDENTITY = None
+PRIMARY_REGISTRY_CACHE = {'data': None, 'timestamp': 0.0}
+
+try:
+    PRIMARY_REGISTRY_CACHE_TTL = int(os.getenv('PRIMARY_REGISTRY_CACHE_TTL', '120'))
+except ValueError:
+    PRIMARY_REGISTRY_CACHE_TTL = 120
 
 
 def _normalize_hostname(value):
@@ -159,6 +165,113 @@ def _is_valid_node_address(address: str) -> bool:
         return True
     except ValueError:
         return bool(re.match(r'^[a-zA-Z0-9.-]+$', candidate)) and '.' in candidate
+
+
+def _build_local_bootstrap_descriptor(trust_level: str = None) -> dict:
+    node_section = NODE_CONFIG.get('node', {}) if NODE_CONFIG else {}
+    network_section = node_section.get('network', {})
+    federation_section = node_section.get('federation', {})
+    operations_section = node_section.get('operations', {})
+    ports = network_section.get('ports', {})
+    capabilities = _get_enabled_capabilities() or []
+
+    descriptor = {
+        'node_id': NODE_IDENTITY.get('node_id', 'bootstrap-unknown'),
+        'name': NODE_IDENTITY.get('name', 'PiSecure Bootstrap'),
+        'role': NODE_IDENTITY.get('role', 'primary'),
+        'operator': NODE_IDENTITY.get('operator', node_section.get('operator', 'PiSecure Foundation')),
+        'address': network_section.get('domain') or network_section.get('ip_address', '0.0.0.0'),
+        'port': ports.get('bootstrap', 3142),
+        'status': 'active',
+        'services': capabilities,
+        'capabilities': capabilities,
+        'region': network_section.get('region', 'unknown'),
+        'version': NODE_IDENTITY.get('version', '1.0.0'),
+        'trust_level': trust_level or ('foundation_verified' if NODE_IDENTITY.get('role') == 'primary' else 'community_trusted'),
+        'uptime_target': operations_section.get('uptime_target_percentage', 99.9),
+        'intelligence_sharing': federation_section.get('intelligence_sharing', True)
+    }
+
+    return descriptor
+
+
+def _get_local_federation_config() -> dict:
+    node_section = NODE_CONFIG.get('node', {}) if NODE_CONFIG else {}
+    federation_section = node_section.get('federation', {})
+    return {
+        'enabled': federation_section.get('enabled', True),
+        'trust_model': federation_section.get('trust_model', 'hierarchical'),
+        'max_secondary_nodes': federation_section.get('max_secondary_nodes', 10),
+        'intelligence_sharing': federation_section.get('intelligence_sharing', True)
+    }
+
+
+def _build_primary_env_descriptor() -> dict:
+    try:
+        port = int(os.getenv('PRIMARY_BOOTSTRAP_PORT', '3142'))
+    except ValueError:
+        port = 3142
+
+    descriptor = {
+        'node_id': os.getenv('PRIMARY_BOOTSTRAP_NODE_ID', 'bootstrap-primary'),
+        'name': os.getenv('PRIMARY_BOOTSTRAP_NAME', 'PiSecure Bootstrap Primary'),
+        'role': 'primary',
+        'operator': os.getenv('PRIMARY_BOOTSTRAP_OPERATOR', 'PiSecure Foundation'),
+        'address': os.getenv('PRIMARY_BOOTSTRAP_DOMAIN', 'bootstrap.pisecure.org'),
+        'port': port,
+        'status': 'active',
+        'services': ['bootstrap_coordination', 'peer_discovery', 'network_health_monitoring', 'federation_management'],
+        'capabilities': ['bootstrap_coordination', 'peer_discovery', 'network_health_monitoring', 'federation_management'],
+        'region': os.getenv('PRIMARY_BOOTSTRAP_REGION', 'us-east'),
+        'version': os.getenv('PRIMARY_BOOTSTRAP_VERSION', '1.0.0'),
+        'trust_level': 'foundation_verified',
+        'uptime_target': float(os.getenv('PRIMARY_BOOTSTRAP_UPTIME_TARGET', '99.9')),
+        'intelligence_sharing': True
+    }
+
+    return descriptor
+
+
+def _build_default_network_info(total_nodes: int) -> dict:
+    return {
+        'coordination_status': 'active',
+        'federation_active': intelligence_federation.federation_enabled,
+        'intelligence_nodes': total_nodes
+    }
+
+
+def _get_primary_registry_url() -> str:
+    explicit_url = os.getenv('PRIMARY_BOOTSTRAP_REGISTRY_URL')
+    if explicit_url:
+        return explicit_url
+
+    domain = os.getenv('PRIMARY_BOOTSTRAP_DOMAIN', 'bootstrap.pisecure.org')
+    scheme = os.getenv('PRIMARY_BOOTSTRAP_SCHEME', 'https')
+    return f"{scheme}://{domain}/api/v1/bootstrap/registry"
+
+
+def _fetch_primary_registry_snapshot(force_refresh: bool = False):
+    if NODE_IDENTITY.get('role') != 'secondary':
+        return None
+
+    now = time.time()
+    cache_age = now - PRIMARY_REGISTRY_CACHE['timestamp']
+    if not force_refresh and PRIMARY_REGISTRY_CACHE['data'] and cache_age < PRIMARY_REGISTRY_CACHE_TTL:
+        return PRIMARY_REGISTRY_CACHE['data']
+
+    registry_url = _get_primary_registry_url()
+    timeout = float(os.getenv('PRIMARY_BOOTSTRAP_TIMEOUT', '6'))
+
+    try:
+        response = requests.get(registry_url, timeout=timeout)
+        response.raise_for_status()
+        registry_data = response.json()
+        PRIMARY_REGISTRY_CACHE['data'] = registry_data
+        PRIMARY_REGISTRY_CACHE['timestamp'] = now
+        return registry_data
+    except (requests.RequestException, ValueError) as exc:
+        logger.warning("Primary registry fetch failed: %s", exc)
+        return PRIMARY_REGISTRY_CACHE['data']
 
 
 def load_node_config():
@@ -3584,44 +3697,58 @@ def bootstrap_registry():
     logger.info("Bootstrap registry endpoint called")
 
     try:
-        # Only allow access from registered bootstrap nodes or with auth
-        # For now, allow public access but could add authentication later
+        local_descriptor = _build_local_bootstrap_descriptor(
+            'community_trusted' if NODE_IDENTITY.get('role') == 'secondary' else 'foundation_verified'
+        )
+        local_federation_config = _get_local_federation_config()
 
-        # Build primary node info from configuration
-        primary_node = {
-            'node_id': NODE_IDENTITY['node_id'],
-            'name': NODE_IDENTITY['name'],
-            'role': NODE_IDENTITY['role'],
-            'operator': NODE_IDENTITY['operator'],
-            'address': NODE_CONFIG['node']['network']['domain'],
-            'port': NODE_CONFIG['node']['network']['ports']['bootstrap'],
-            'status': 'active',
-            'services': NODE_CONFIG['node']['capabilities'],
-            'capabilities': NODE_CONFIG['node']['capabilities'],
-            'region': NODE_CONFIG['node']['network']['region'],
-            'version': NODE_IDENTITY['version'],
-            'trust_level': 'foundation_verified',
-            'uptime_target': NODE_CONFIG['node']['operations']['uptime_target_percentage'],
-            'intelligence_sharing': NODE_CONFIG['node']['federation']['intelligence_sharing']
-        }
+        if NODE_IDENTITY.get('role') == 'secondary':
+            upstream_registry = _fetch_primary_registry_snapshot()
+
+            if upstream_registry:
+                primary_node = upstream_registry.get('primary_node') or _build_primary_env_descriptor()
+                secondary_nodes = upstream_registry.get('secondary_nodes', [])
+                local_node_id = local_descriptor.get('node_id')
+                if all(node.get('node_id') != local_node_id for node in secondary_nodes):
+                    secondary_nodes.append(local_descriptor)
+
+                total_nodes = upstream_registry.get('total_nodes') or (len(secondary_nodes) + 1)
+                federation_config = upstream_registry.get('federation_config', local_federation_config)
+
+                upstream_network_info = upstream_registry.get('network_info')
+                default_network_info = _build_default_network_info(total_nodes)
+                if isinstance(upstream_network_info, dict):
+                    network_info = {**default_network_info, **upstream_network_info}
+                else:
+                    network_info = default_network_info
+
+                last_updated = upstream_registry.get('last_updated', time.time())
+                config_version = upstream_registry.get('config_version', NODE_IDENTITY.get('version', '1.0.0'))
+            else:
+                primary_node = _build_primary_env_descriptor()
+                secondary_nodes = [local_descriptor]
+                total_nodes = len(secondary_nodes) + 1
+                federation_config = local_federation_config
+                network_info = _build_default_network_info(total_nodes)
+                last_updated = time.time()
+                config_version = NODE_IDENTITY.get('version', '1.0.0')
+        else:
+            primary_node = local_descriptor
+            secondary_nodes = _get_registered_bootstrap_nodes()
+            total_nodes = len(secondary_nodes) + 1
+            federation_config = local_federation_config
+            network_info = _build_default_network_info(total_nodes)
+            last_updated = time.time()
+            config_version = NODE_IDENTITY.get('version', '1.0.0')
 
         registry = {
             'primary_node': primary_node,
-            'secondary_nodes': _get_registered_bootstrap_nodes(),
-            'total_nodes': len(_get_registered_bootstrap_nodes()) + 1,
-            'federation_config': {
-                'enabled': NODE_CONFIG['node']['federation']['enabled'],
-                'trust_model': NODE_CONFIG['node']['federation']['trust_model'],
-                'max_secondary_nodes': NODE_CONFIG['node']['federation']['max_secondary_nodes'],
-                'intelligence_sharing': NODE_CONFIG['node']['federation']['intelligence_sharing']
-            },
-            'network_info': {
-                'coordination_status': 'active',
-                'federation_active': intelligence_federation.federation_enabled,
-                'intelligence_nodes': len(_get_registered_bootstrap_nodes()) + 1
-            },
-            'last_updated': time.time(),
-            'config_version': NODE_IDENTITY['version']
+            'secondary_nodes': secondary_nodes,
+            'total_nodes': total_nodes,
+            'federation_config': federation_config,
+            'network_info': network_info,
+            'last_updated': last_updated,
+            'config_version': config_version
         }
 
         return jsonify(registry)

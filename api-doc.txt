@@ -40,16 +40,18 @@ Register secondary bootstrap nodes with the primary node for coordinated operati
 ```json
 {
   "node_id": "bootstrap-secondary-01",
-  "address": "192.168.1.100",
+  "address": "pisecure-bootstrap2-production.up.railway.app",
   "port": 8081,
-  "services": ["peer_discovery", "network_health"],
-  "capabilities": ["bootstrap_coordination", "peer_discovery", "network_health"],
+  "services": ["peer_discovery", "bootstrap_coordination", "network_health_monitoring"],
+  "capabilities": ["bootstrap_coordination", "peer_discovery", "network_health_monitoring", "federation_management"],
   "region": "us-east",
   "version": "1.0.0",
   "reliability_score": 0.95,
   "load_factor": 0.2
 }
 ```
+
+`address` may be an IPv4/IPv6 literal or a DNS host name. Nodes must advertise at least `peer_discovery` in `services` and one of the bootstrap-related capabilities (e.g., `bootstrap_coordination`, `network_health_monitoring`, `federation_management`).
 
 **Response:**
 ```json
