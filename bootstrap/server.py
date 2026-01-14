@@ -41,28 +41,54 @@ NODE_CONFIG = None
 NODE_IDENTITY = None
 
 def load_node_config():
-    """Load node configuration from config.json"""
+    """Load node configuration with environment override"""
     global NODE_CONFIG, NODE_IDENTITY
-    config_path = os.path.join(os.path.dirname(__file__), 'config.json')
 
-    try:
-        with open(config_path, 'r') as f:
-            NODE_CONFIG = json.load(f)
+    # Load base config
+    config_paths = [
+        os.path.join(os.getcwd(), 'config.json'),
+        os.path.join(os.path.dirname(__file__), 'config.json'),
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config.json')
+    ]
+    config_data = None
 
-        NODE_IDENTITY = NODE_CONFIG['node']['identity']
-        print(f"Loaded configuration for node: {NODE_IDENTITY['name']} (role: {NODE_IDENTITY['role']})")
-        return NODE_CONFIG
+    for path in config_paths:
+        try:
+            with open(path, 'r') as f:
+                config_data = json.load(f)
+                break
+        except FileNotFoundError:
+            continue
+        except Exception as e:
+            print(f"Failed to load config.json from {path}: {e}")
+            continue
 
-    except FileNotFoundError:
-        print("config.json not found, using default configuration")
-        NODE_CONFIG = get_default_config()
-        NODE_IDENTITY = NODE_CONFIG['node']['identity']
-        return NODE_CONFIG
-    except Exception as e:
-        print(f"Failed to load config.json: {e}")
-        NODE_CONFIG = get_default_config()
-        NODE_IDENTITY = NODE_CONFIG['node']['identity']
-        return NODE_CONFIG
+    if not config_data:
+        print("config.json not found in known locations, using default configuration")
+        config_data = get_default_config()
+
+    NODE_CONFIG = config_data
+
+    node_section = NODE_CONFIG.setdefault('node', {})
+    identity_section = node_section.setdefault('identity', {})
+    network_section = node_section.setdefault('network', {})
+
+    # Override role from environment (Railway deployment-specific)
+    env_role = os.getenv('BOOTSTRAP_ROLE')  # 'primary' or 'secondary'
+    if env_role:
+        identity_section['role'] = env_role
+        # Update name/location based on role
+        if env_role == 'secondary':
+            region = os.getenv('BOOTSTRAP_REGION', 'unknown')
+            identity_section['name'] = f"PiSecure Bootstrap {region.title()}"
+            network_section['region'] = region
+
+    NODE_IDENTITY = identity_section
+    role = NODE_IDENTITY.get('role', 'unknown')
+    region = network_section.get('region', 'unknown')
+    print(f"Loaded configuration: {identity_section.get('name', 'PiSecure Bootstrap')} (role: {role}, region: {region})")
+
+    return NODE_CONFIG
 
 def get_default_config():
     """Get default configuration when config.json is not available"""
@@ -99,12 +125,70 @@ def get_default_config():
         }
     }
 
+def _get_enabled_capabilities() -> list:
+    """Translate node capabilities into a list for service advertisements"""
+    if not NODE_CONFIG:
+        return []
+
+    capabilities = NODE_CONFIG.get('node', {}).get('capabilities', [])
+    if isinstance(capabilities, dict):
+        return [name for name, enabled in capabilities.items() if enabled]
+    if isinstance(capabilities, list):
+        return capabilities
+
+    return []
+
+def register_with_primary_bootstrap():
+    """Register this node with the primary bootstrap during startup"""
+    if not NODE_CONFIG or not NODE_IDENTITY:
+        logger.warning("Configuration not loaded; skipping bootstrap registration")
+        return
+
+    if NODE_IDENTITY.get('role') != 'secondary':
+        return
+
+    primary_url = os.getenv('PRIMARY_BOOTSTRAP_URL')
+    if not primary_url:
+        primary_domain = os.getenv('PRIMARY_BOOTSTRAP_DOMAIN', 'bootstrap.pisecure.org')
+        primary_scheme = os.getenv('PRIMARY_BOOTSTRAP_SCHEME', 'https')
+        primary_url = f"{primary_scheme}://{primary_domain}/api/v1/bootstrap/handshake"
+
+    node_network = NODE_CONFIG.get('node', {}).get('network', {})
+    ports = node_network.get('ports', {})
+    capabilities = _get_enabled_capabilities() or ['peer_discovery']
+
+    handshake_payload = {
+        'node_id': NODE_IDENTITY.get('node_id', ''),
+        'address': node_network.get('domain') or node_network.get('ip_address', '0.0.0.0'),
+        'port': ports.get('bootstrap', 3142),
+        'services': capabilities,
+        'capabilities': capabilities,
+        'region': node_network.get('region', 'unknown'),
+        'version': NODE_IDENTITY.get('version', 'unknown'),
+        'reliability_score': float(os.getenv('BOOTSTRAP_RELIABILITY', '0.95')),
+        'load_factor': float(os.getenv('BOOTSTRAP_LOAD_FACTOR', '0.0')),
+        'supported_protocols': node_network.get('supported_protocols', ['p2p_sync'])
+    }
+
+    try:
+        response = requests.post(primary_url, json=handshake_payload, timeout=10)
+        if response.ok:
+            logger.info("Registered secondary bootstrap with primary at %s", primary_url)
+        else:
+            logger.warning("Bootstrap registration failed (%s): %s", response.status_code, response.text)
+    except requests.RequestException as exc:
+        logger.warning("Bootstrap registration error: %s", exc)
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Load configuration at module import (after logger is available)
 load_node_config()
+
+# Automatic primary registration for Railway secondary deployments
+if NODE_IDENTITY.get('role') == 'secondary':
+    register_with_primary_bootstrap()
 
 # Compatibility shim for legacy tests that expect a simple BootstrapNode class
 class BootstrapNode:
@@ -1865,8 +1949,9 @@ class IntelligenceFederation:
 # Bootstrap Node Registry (Global state for secondary bootstrap nodes)
 bootstrap_node_registry = {}
 
-# Initialize intelligence federation
-intelligence_federation = IntelligenceFederation(network_intelligence, bootstrap_node_registry)
+# Initialize intelligence federation after app creation
+intelligence_federation = None
+federation_sync_manager = None
 
 # 314ST Bootstrap Operator Rewards System
 class BootstrapOperatorRewards:
@@ -2464,6 +2549,10 @@ class PiSecureDEXCoordinator:
         """Calculate 24-hour trading volume"""
         # Simplified - would track actual volume
         return sum(pool['volume_24h'] for pool in self.liquidity_pools.values())
+
+# Initialize intelligence federation and sync manager after app creation
+intelligence_federation = IntelligenceFederation(network_intelligence, bootstrap_node_registry)
+federation_sync_manager = None  # Initialize later if needed
 
 # PiSecure Node Registry for managing registered nodes
 pisecure_node_registry = {}
