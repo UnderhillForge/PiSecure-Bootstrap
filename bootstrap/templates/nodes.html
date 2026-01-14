@@ -626,6 +626,16 @@
             </div>
         </div>
 
+        <!-- Service Status -->
+        <div class="card" id="serviceStatusCard">
+            <h3>⚙️ Service Status</h3>
+            <div id="serviceStatusContent">
+                <div class="metric">
+                    <span class="metric-value status-initializing">Loading services...</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Sentinel Intelligence -->
         <div class="card" id="sentinelIntelligenceCard">
             <h3>🛡️ Sentinel Intelligence</h3>
@@ -921,6 +931,17 @@
             }
         }
 
+        async function fetchServiceStatus() {
+            try {
+                const response = await fetch('/api/v1/services/status');
+                const data = await response.json();
+                updateServiceStatus(data);
+            } catch (error) {
+                console.error('Failed to fetch service status:', error);
+                updateServiceStatus({});
+            }
+        }
+
         async function fetchRegisteredNodes() {
             try {
                 const response = await fetch('/api/v1/nodes/list');
@@ -1063,6 +1084,38 @@
             }
         }
 
+        function updateServiceStatus(data) {
+            const content = document.getElementById('serviceStatusContent');
+
+            if (data.services && data.services.length > 0) {
+                let html = '';
+                
+                data.services.forEach(service => {
+                    // Determine status class
+                    let statusClass = 'status-healthy';
+                    if (service.status === 'running' || service.status === 'active') {
+                        statusClass = 'status-healthy';
+                    } else if (service.status === 'warning') {
+                        statusClass = 'status-warning';
+                    } else if (service.status === 'error') {
+                        statusClass = 'status-error';
+                    }
+
+                    html += `
+                        <div class="metric">
+                            <span class="metric-label">${service.name}</span>
+                            <span class="metric-value ${statusClass}">Port ${service.port}</span>
+                        </div>
+                    `;
+                });
+
+                content.innerHTML = html;
+                console.log(`✅ Service status: ${data.services.length} services on primary port ${data.primary_port}`);
+            } else {
+                content.innerHTML = '<div class="metric"><span class="metric-value status-initializing">Loading services...</span></div>';
+            }
+        }
+
         function updateRecentBlocks(data) {
             const tbody = document.getElementById('blocksTableBody');
 
@@ -1171,6 +1224,7 @@
                     fetchBlockchainInfo(),
                     fetchMiningStatus(),
                     fetchBootstrapRegistry(),
+                    fetchServiceStatus(),
                     fetchSentinelIntelligence()
                 ]);
 
