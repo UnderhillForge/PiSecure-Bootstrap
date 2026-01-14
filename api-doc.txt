@@ -103,6 +103,66 @@ Get current attack detection analysis using ML algorithms.
 }
 ```
 
+#### GET /api/v1/services/status
+Get the status of all PiSecure services with port information and health monitoring.
+
+**Response:**
+```json
+{
+  "services": {
+    "bootstrap_coordination": {
+      "status": "active",
+      "health": "healthy",
+      "port": 3142,
+      "description": "Primary bootstrap coordination service"
+    },
+    "peer_discovery": {
+      "status": "active",
+      "health": "healthy",
+      "port": 3142,
+      "description": "Peer discovery and connection management"
+    },
+    "network_health_monitoring": {
+      "status": "active",
+      "health": "healthy",
+      "port": 8080,
+      "description": "Real-time network health monitoring"
+    },
+    "intelligence_sharing": {
+      "status": "active",
+      "health": "healthy",
+      "port": 8080,
+      "description": "Federated intelligence sharing between nodes"
+    },
+    "token_economics_coordination": {
+      "status": "active",
+      "health": "healthy",
+      "port": 8080,
+      "description": "314ST token economics and rewards system"
+    },
+    "dex_coordination": {
+      "status": "active",
+      "health": "healthy",
+      "port": 8080,
+      "description": "Decentralized exchange coordination"
+    }
+  },
+  "overall_status": "healthy",
+  "timestamp": 1704379200.0
+}
+```
+
+**Service Health Status Values:**
+- `healthy`: Service operating normally
+- `warning`: Service experiencing minor issues
+- `error`: Service has critical issues
+- `critical`: Service is down or unavailable
+
+**Service Status Values:**
+- `active`: Service is running and operational
+- `inactive`: Service is disabled or not running
+- `not_implemented`: Service is planned but not yet implemented
+
 #### GET /api/v1/intelligence/health
 Get comprehensive network intelligence and health analysis.
 
