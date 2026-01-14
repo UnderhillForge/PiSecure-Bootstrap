@@ -9,6 +9,14 @@ An intelligent, ML-powered bootstrap node for the PiSecure P2P network with adva
 - Railway Service: Active and running
 - Builder: Metal (optimized for performance)
 
+**🆕 Latest Updates (Deployed 2026-01-13)**
+- ✅ **Services Status API**: New `/api/v1/services/status` endpoint with real-time port information
+- ✅ **Ghostwheel Support**: Added `sentinel_ai` node type for Ghostwheel registration
+- ✅ **Dashboard Enhancements**: Service Status card now displays actual running ports
+- ✅ **API Documentation**: Complete documentation for all endpoints
+- ✅ **Intelligence Federation**: Cross-bootstrap threat sharing active
+- ✅ **DEX Coordination**: Bootstrap-level token swap orchestration ready
+
 **✅ Raspberry Pi 5 Support**
 - Automated installation script available
 - Optimized for 64-bit Raspberry Pi OS Lite
