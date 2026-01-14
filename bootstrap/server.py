@@ -10,6 +10,7 @@ import hashlib
 import ipaddress
 import json
 import os
+import re
 from collections import deque, defaultdict
 from flask import Flask, jsonify, request, render_template
 from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, Text, DateTime
@@ -145,6 +146,21 @@ def _generate_secondary_node_id(hostname, region):
     return f"bootstrap-{region_slug}-{host_slug}-{digest}"
 
 
+def _is_valid_node_address(address: str) -> bool:
+    if not address:
+        return False
+
+    candidate = address.strip()
+    if not candidate:
+        return False
+
+    try:
+        ipaddress.ip_address(candidate)
+        return True
+    except ValueError:
+        return bool(re.match(r'^[a-zA-Z0-9.-]+$', candidate)) and '.' in candidate
+
+
 def load_node_config():
     """Load node configuration with environment override"""
     global NODE_CONFIG, NODE_IDENTITY
@@ -198,9 +214,15 @@ def load_node_config():
         region = network_section.get('region') or os.getenv('RAILWAY_REGION') or 'unknown'
         network_section['region'] = region
 
-        current_name = identity_section.get('name')
-        if not current_name or current_name == 'PiSecure Bootstrap Node':
-            identity_section['name'] = _build_secondary_name(region, runtime_domain)
+        env_name = (os.getenv('BOOTSTRAP_NAME') or os.getenv('BOOTSTRAP_LABEL') or '').strip()
+        if env_name:
+            identity_section['name'] = env_name
+        else:
+            current_name = identity_section.get('name', '')
+            if (not current_name or
+                    current_name in ('PiSecure Bootstrap Node', 'PiSecure Bootstrap Primary') or
+                    'Primary' in current_name):
+                identity_section['name'] = _build_secondary_name(region, runtime_domain)
 
     env_node_id = (os.getenv('BOOTSTRAP_NODE_ID') or '').strip()
     if env_node_id:
@@ -3118,7 +3140,13 @@ def _validate_bootstrap_node(handshake_data: dict) -> bool:
     capabilities = handshake_data.get('capabilities', [])
 
     # Must have bootstrap-related capabilities
-    bootstrap_capabilities = ['bootstrap_coordination', 'peer_discovery', 'network_health']
+    bootstrap_capabilities = [
+        'bootstrap_coordination',
+        'peer_discovery',
+        'network_health',
+        'network_health_monitoring',
+        'federation_management'
+    ]
     has_bootstrap_capability = any(cap in capabilities for cap in bootstrap_capabilities)
 
     # Must offer basic bootstrap services
@@ -3126,11 +3154,7 @@ def _validate_bootstrap_node(handshake_data: dict) -> bool:
     has_required_services = all(service in services for service in required_services)
 
     # Basic address validation
-    try:
-        ipaddress.ip_address(address)
-        valid_address = True
-    except ValueError:
-        valid_address = False
+    valid_address = _is_valid_node_address(address)
 
     # Node ID should be unique and not already registered as primary
     valid_node_id = (node_id and
