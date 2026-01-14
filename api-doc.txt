@@ -598,6 +598,143 @@ Get DEX statistics and market data.
 }
 ```
 
+### Node Registry API
+
+#### POST /api/v1/nodes/register
+**[IMPORTANT: POST METHOD REQUIRED]**
+
+Register a PiSecure node with the bootstrap coordinator. This endpoint accepts ONLY POST requests.
+
+**Request:**
+```json
+{
+  "node_id": "ghostwheel-sentinel-ai",
+  "node_type": "sentinel_ai",
+  "services": ["threat_detection", "intelligence_sharing"],
+  "capabilities": ["ml_attack_detection", "automated_defense"],
+  "location": "us-east",
+  "wallet_address": "pisecure_wallet_node",
+  "version": "1.0.0"
+}
+```
+
+**Valid Node Types:**
+- `miner`: Mining nodes
+- `validator`: Validation nodes
+- `wallet`: Wallet nodes
+- `bootstrap`: Bootstrap coordination nodes
+- `sentinel_ai`: Sentinel AI security nodes (e.g., Ghostwheel)
+- `standard`: Standard network nodes
+
+**Response (Success):**
+```json
+{
+  "registration_success": true,
+  "node_id": "ghostwheel-sentinel-ai",
+  "registration_time": 1704379200.0,
+  "network_info": {
+    "bootstrap_coordinator": "bootstrap.pisecure.org",
+    "federation_enabled": true,
+    "intelligence_sharing": true
+  },
+  "capabilities_acknowledged": ["ml_attack_detection", "automated_defense"],
+  "services_enabled": ["threat_detection", "intelligence_sharing"]
+}
+```
+
+**Response (Error - Wrong Method):**
+```json
+{
+  "error": "Registration requires POST method",
+  "example": "POST /api/v1/nodes/register",
+  "required_fields": ["node_id", "node_type", "services", "capabilities"],
+  "documentation": "https://github.com/UnderhillForge/PiSecure-Bootstrap/blob/main/api-doc.txt"
+}
+```
+
+**Example cURL:**
+```bash
+curl -X POST https://pisecure-bootstrap-production.up.railway.app/api/v1/nodes/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "node_id": "ghostwheel-sentinel-ai",
+    "node_type": "sentinel_ai",
+    "services": ["threat_detection", "intelligence_sharing"],
+    "capabilities": ["ml_attack_detection", "automated_defense"],
+    "location": "us-east",
+    "wallet_address": "pisecure_wallet_node"
+  }'
+```
+
+#### POST /api/v1/nodes/status
+Update node status with periodic heartbeat.
+
+**Request:**
+```json
+{
+  "node_id": "ghostwheel-sentinel-ai",
+  "status": "active",
+  "mining_active": false,
+  "peers_connected": 12,
+  "uptime_percentage": 99.5,
+  "threat_detections": 5,
+  "intelligence_contributions": 150
+}
+```
+
+**Response:**
+```json
+{
+  "status_update_accepted": true,
+  "node_id": "ghostwheel-sentinel-ai",
+  "intelligence_processed": true,
+  "network_recommendations": [
+    "Continue monitoring threat patterns",
+    "Consider increasing peer connections"
+  ],
+  "timestamp": 1704379200.0
+}
+```
+
+#### GET /api/v1/nodes/list
+Get list of registered nodes with filtering options.
+
+**Query Parameters:**
+- `type`: Filter by node type (e.g., `sentinel_ai`, `miner`)
+- `location`: Filter by geographic location
+- `service`: Filter by offered service
+
+**Response:**
+```json
+{
+  "total_registered_nodes": 150,
+  "nodes": [
+    {
+      "node_id": "ghostwheel-sentinel-ai",
+      "node_type": "sentinel_ai",
+      "services": ["threat_detection", "intelligence_sharing"],
+      "capabilities": ["ml_attack_detection", "automated_defense"],
+      "location": "us-east",
+      "status": "active",
+      "last_seen": 1704379200.0,
+      "performance_score": 95.5,
+      "intelligence_insights": {
+        "uptime_percentage": 99.5,
+        "avg_peer_connections": 12,
+        "threat_detection_rate": 95.5
+      }
+    }
+  ],
+  "filters_applied": {
+    "type": "sentinel_ai",
+    "location": null,
+    "service": null
+  },
+  "intelligence_enhanced": true,
+  "timestamp": 1704379200.0
+}
+```
+
 ### Endpoints
 
 #### GET /blockchain/info
