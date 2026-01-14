@@ -1610,6 +1610,23 @@ class NetworkIntelligence:
 # Initialize network intelligence engine
 network_intelligence = NetworkIntelligence()
 
+
+def _local_intelligence_provider(endpoint: str):
+    """Provide network intelligence without making HTTP calls."""
+    predictions = network_intelligence.predict_network_load()
+    return {
+        'predictions': predictions,
+        'confidence_level': predictions.get('confidence', 'unknown'),
+        'prediction_horizon': '1-24_hours',
+        'data_points_used': len(network_intelligence.connection_timestamps),
+        'model_type': 'statistical_time_series',
+        'timestamp': time.time(),
+        'requested_endpoint': endpoint
+    }
+
+
+ddos_protection.set_intelligence_provider(_local_intelligence_provider)
+
 # Intelligence Federation for Bootstrap Node Coordination
 class IntelligenceFederation:
     """Federated intelligence sharing between bootstrap nodes"""

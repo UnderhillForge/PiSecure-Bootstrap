@@ -8,7 +8,7 @@ import hashlib
 import json
 import threading
 from collections import defaultdict, deque
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, Callable
 from dataclasses import dataclass, field
 import ipaddress
 import requests
@@ -57,7 +57,8 @@ class DDoSProtection:
     - Bootstrap intelligence integration for adaptive protection
     """
 
-    def __init__(self, bootstrap_url: str = None):
+    def __init__(self, bootstrap_url: str = None,
+                 intelligence_provider: Optional[Callable[[str], Optional[Dict[str, Any]]]] = None):
         self.clients = {}  # IP -> ClientProfile
         self.fingerprints = deque(maxlen=10000)  # Recent request fingerprints
         self.blocked_ips = set()
@@ -72,6 +73,7 @@ class DDoSProtection:
 
         # Bootstrap integration
         self.bootstrap_url = bootstrap_url or 'http://localhost:8080'
+        self.intelligence_provider = intelligence_provider
         self.intelligence_cache = {}
         self.cache_timeout = 300  # 5 minutes
 
@@ -81,6 +83,10 @@ class DDoSProtection:
         # Initialize cleanup thread
         self.cleanup_thread = threading.Thread(target=self._periodic_cleanup, daemon=True)
         self.cleanup_thread.start()
+
+    def set_intelligence_provider(self, provider: Optional[Callable[[str], Optional[Dict[str, Any]]]]):
+        """Set callable used to fetch intelligence data without HTTP."""
+        self.intelligence_provider = provider
 
     def analyze_request(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -460,16 +466,30 @@ class DDoSProtection:
         client.reputation_score = max(0.0, min(1.0, client.reputation_score + delta))
 
     def _get_bootstrap_intelligence(self, endpoint: str) -> Optional[Dict]:
-        """Get intelligence data from bootstrap server for adaptive protection"""
-        try:
-            # Check cache first
-            cache_key = f"intelligence_{endpoint}"
-            if cache_key in self.intelligence_cache:
-                cached_data, cache_time = self.intelligence_cache[cache_key]
-                if time.time() - cache_time < self.cache_timeout:
-                    return cached_data
+        """Get intelligence data for adaptive protection"""
+        cache_key = f"intelligence_{endpoint}"
 
-            # Fetch from bootstrap intelligence API
+        # Check cache first
+        if cache_key in self.intelligence_cache:
+            cached_data, cache_time = self.intelligence_cache[cache_key]
+            if time.time() - cache_time < self.cache_timeout:
+                return cached_data
+
+        # Prefer local intelligence provider if configured
+        if self.intelligence_provider:
+            try:
+                data = self.intelligence_provider(endpoint)
+                if data:
+                    self.intelligence_cache[cache_key] = (data, time.time())
+                    return data
+            except Exception as e:
+                self._log_error(f"Intelligence provider error: {e}")
+
+        # Fallback to HTTP fetch if URL is available
+        if not self.bootstrap_url:
+            return None
+
+        try:
             intelligence_url = f"{self.bootstrap_url}/api/v1/intelligence/predict"
             response = requests.get(intelligence_url, timeout=5)
 
