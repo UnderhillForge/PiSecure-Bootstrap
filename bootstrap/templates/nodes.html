@@ -1087,30 +1087,38 @@
         function updateServiceStatus(data) {
             const content = document.getElementById('serviceStatusContent');
 
-            if (data.services && data.services.length > 0) {
+            if (data.services && typeof data.services === 'object') {
                 let html = '';
                 
-                data.services.forEach(service => {
+                // Convert the services object to array entries
+                Object.entries(data.services).forEach(([serviceName, serviceData]) => {
                     // Determine status class
                     let statusClass = 'status-healthy';
-                    if (service.status === 'running' || service.status === 'active') {
+                    if (serviceData.status === 'active' || serviceData.health === 'healthy') {
                         statusClass = 'status-healthy';
-                    } else if (service.status === 'warning') {
+                    } else if (serviceData.status === 'disabled' || serviceData.health === 'disabled') {
+                        statusClass = 'status-initializing';
+                    } else if (serviceData.status === 'not_implemented' || serviceData.health === 'awaiting_integration') {
                         statusClass = 'status-warning';
-                    } else if (service.status === 'error') {
+                    } else if (serviceData.status === 'error' || serviceData.health === 'error') {
                         statusClass = 'status-error';
                     }
 
+                    // Format the service name nicely
+                    const displayName = serviceName.split('_').map(word => 
+                        word.charAt(0).toUpperCase() + word.slice(1)
+                    ).join(' ');
+
                     html += `
                         <div class="metric">
-                            <span class="metric-label">${service.name}</span>
-                            <span class="metric-value ${statusClass}">Port ${service.port}</span>
+                            <span class="metric-label">${displayName}</span>
+                            <span class="metric-value ${statusClass}">${serviceData.health || serviceData.status}</span>
                         </div>
                     `;
                 });
 
                 content.innerHTML = html;
-                console.log(`✅ Service status: ${data.services.length} services on primary port ${data.primary_port}`);
+                console.log(`✅ Service status: ${Object.keys(data.services).length} services, overall: ${data.overall_status}`);
             } else {
                 content.innerHTML = '<div class="metric"><span class="metric-value status-initializing">Loading services...</span></div>';
             }
