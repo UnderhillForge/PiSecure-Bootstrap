@@ -315,7 +315,8 @@ def load_node_config():
         network_section['region'] = region_override
 
     primary_domains = _get_primary_domains()
-    env_role = os.getenv('BOOTSTRAP_ROLE')
+    raw_env_role = os.getenv('BOOTSTRAP_ROLE')
+    env_role = raw_env_role.strip().lower() if raw_env_role else None
     assigned_role = env_role or identity_section.get('role') or 'primary'
 
     if not env_role and runtime_domain:
