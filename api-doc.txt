@@ -1,21 +1,24 @@
-ps# PiSecure Complete API Documentation
+# PiSecure Complete API Documentation
 # Comprehensive API reference for PiSecure blockchain platform and 314ST token system
 
 ## Table of Contents
 1. Core Blockchain API
 2. Bootstrap Node Intelligence APIs
-3. Wallet Management API
-4. PiNS (Pi Name System) API
-5. Mining API
-6. Network & Discovery API
-7. Update Management API
-8. System Administration API
-9. Real Blockchain Data Source API
-10. PiSecure P2P Protocol API
-11. Consensus Mechanism API
-12. Mining Syndicate API
-13. Token Economics API
-14. Integration APIs
+3. Sentinel AI Integration API (Ghostwheel)
+4. Node Registry API
+5. Wallet Management API
+6. PiNS (Pi Name System) API
+7. Mining API
+8. Network & Discovery API
+9. Update Management API
+10. System Administration API
+11. Real Blockchain Data Source API
+12. PiSecure P2P Protocol API
+13. Consensus Mechanism API
+14. Mining Syndicate API
+15. Token Economics API
+16. Integration APIs
+17. Advanced Cryptographic Features
 
 ---
 
@@ -100,6 +103,37 @@ Get current attack detection analysis using ML algorithms.
 }
 ```
 
+#### GET /api/v1/intelligence/health
+Get comprehensive network intelligence and health analysis.
+
+**Response:**
+```json
+{
+  "intelligence_analysis": {
+    "network_health": {
+      "connectivity_score": 95.5,
+      "geographic_diversity": 85.0,
+      "attack_resistance": 92.0,
+      "performance_score": 88.5,
+      "overall_health": 90.25
+    },
+    "active_attacks": [],
+    "geographic_insights": {
+      "top_locations": [["us-east", 450], ["eu-west", 320]],
+      "total_locations": 5,
+      "most_active_location": "us-east"
+    },
+    "performance_insights": {
+      "hourly_connections": 150,
+      "latency_trend": "stable",
+      "avg_latency_ms": 45.2
+    }
+  },
+  "analysis_timestamp": 1704379200.0,
+  "data_quality": "good"
+}
+```
+
 #### GET /api/v1/intelligence/defense
 Get comprehensive automated defense intelligence and status.
 
@@ -174,447 +208,69 @@ Get intelligent routing optimization for peer connections.
       "score": 0.875,
       "geo_score": 0.9,
       "load_score": 0.95,
-      "reliability_score": 0.98,
-      "route_score": 0.8,
-      "threat_adjusted": false
+      "reliability_score": 0.98
     }
   ],
   "total_candidates": 2,
   "optimization_method": "statistical_scoring",
-  "scoring_weights": {
-    "geographic_diversity": 0.3,
-    "load_balancing": 0.4,
-    "reliability": 0.3
-  },
   "timestamp": 1704379200.0
 }
 ```
 
-#### GET /api/v1/intelligence/clusters
-Get geographic clustering analysis for routing optimization.
+---
 
-**Response:**
-```json
-{
-  "geographic_clusters": {
-    "0": {
-      "locations": ["us-east", "us-central"],
-      "total_traffic": 450,
-      "centroid": [-95.7129, 37.0902]
-    },
-    "1": {
-      "locations": ["eu-west", "eu-central"],
-      "total_traffic": 320,
-      "centroid": [10.4515, 51.1657]
-    }
-  },
-  "clustering_method": "kmeans",
-  "total_regions_analyzed": 5,
-  "cluster_count": 2,
-  "routing_optimization_available": true,
-  "timestamp": 1704379200.0
-}
-```
+## 3. Sentinel AI Integration API (Ghostwheel)
 
-#### GET /api/v1/intelligence/predict
-Get network load predictions for capacity planning.
+### Overview
+Ghostwheel serves as an active sentinel within the PiSecure network, providing real-time monitoring, intelligent alerting, and coordinated defense responses.
 
-**Query Parameters:**
-- `hours_ahead`: Hours to predict ahead (default: 1, max: 24)
-
-**Response:**
-```json
-{
-  "predictions": {
-    "predicted_connections": 1500,
-    "confidence": "medium",
-    "timeframe_hours": 1,
-    "method": "moving_average"
-  },
-  "confidence_level": "medium",
-  "prediction_horizon": "1-24_hours",
-  "data_points_used": 1000,
-  "model_type": "statistical_time_series",
-  "timestamp": 1704379200.0
-}
-```
-
-#### POST /api/v1/bootstrap/coordinate
-Coordinate service distribution among bootstrap nodes.
-
-**Request:**
-```json
-{
-  "requesting_node": "node-client-001",
-  "service": "peer_discovery"
-}
-```
-
-**Response:**
-```json
-{
-  "coordination_success": true,
-  "service": "peer_discovery",
-  "assigned_node": "bootstrap-secondary-02",
-  "endpoint": "http://192.168.1.101:8082",
-  "capabilities": ["bootstrap_coordination", "peer_discovery"],
-  "load_factor": 0.15
-}
-```
-
-#### GET /api/v1/bootstrap/registry
-Get the current bootstrap node registry.
-
-**Response:**
-```json
-{
-  "primary_node": {
-    "node_id": "bootstrap-primary",
-    "address": "bootstrap.pisecure.org",
-    "port": 3142,
-    "status": "active",
-    "services": ["coordination", "peer_discovery", "health_monitoring"]
-  },
-  "secondary_nodes": [
-    {
-      "node_id": "bootstrap-secondary-01",
-      "address": "192.168.1.100",
-      "port": 8081,
-      "services": ["peer_discovery", "network_health"],
-      "capabilities": ["bootstrap_coordination", "peer_discovery"],
-      "region": "us-east",
-      "status": "active",
-      "load_factor": 0.2,
-      "last_seen": 1704379200.0
-    }
-  ],
-  "total_nodes": 4,
-  "last_updated": 1704379200.0,
-  "coordination_status": "active"
-}
-```
-
-#### POST /api/v1/bootstrap/advertise
-Advertise current services and status.
-
-**Request:**
-```json
-{
-  "node_id": "bootstrap-secondary-01",
-  "services": ["peer_discovery", "network_health", "attack_detection"],
-  "status": "active",
-  "load_factor": 0.25,
-  "current_connections": 150,
-  "health_metrics": {
-    "cpu_usage": 0.45,
-    "memory_usage": 0.67,
-    "network_latency": 12.5
-  },
-  "service_endpoints": {
-    "peer_discovery": "/api/v1/peers",
-    "health_check": "/api/v1/health"
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "advertisement_accepted": true,
-  "node_id": "bootstrap-secondary-01",
-  "timestamp": 1704379200.0,
-  "services_acknowledged": ["peer_discovery", "network_health", "attack_detection"]
-}
-```
-
-#### POST /api/v1/operator/configure-wallet
-Configure operator reward wallet.
-
-**Request:**
-```json
-{
-  "wallet_address": "pisecure_wallet_operator_abc123"
-}
-```
-
-**Response:**
-```json
-{
-  "configuration_success": true,
-  "wallet_address": "pisecure_wallet_operator_abc123",
-  "reward_percentage": 0.05,
-  "minimum_payout_314st": 10,
-  "timestamp": 1704379200.0
-}
-```
-
-#### GET /api/v1/operator/314st-analytics
-Get comprehensive 314ST reward analytics.
-
-**Response:**
-```json
-{
-  "operator_analytics": {
-    "operator_wallet": "pisecure_wallet_operator_abc123",
-    "pending_rewards_314st": 25,
-    "total_distributed_314st": 150,
-    "recent_distributions": [...],
-    "performance_score": 87.5,
-    "daily_average_earnings": 8.5,
-    "reward_configuration": {
-      "percentage": 0.05,
-      "minimum_payout": 10,
-      "daily_budget": 1000
-    }
-  },
-  "network_reward_info": {
-    "daily_budget_314st": 1000,
-    "intelligence_fee_percentage": 0.05,
-    "active_bootstrap_nodes": 4,
-    "reward_token": "314ST"
-  }
-}
-```
-
-#### POST /api/v1/operator/314st-payout
-Trigger manual 314ST payout.
-
-**Response:**
-```json
-{
-  "payout_success": true,
-  "distributed_amount_314st": 25,
-  "operator_wallet": "pisecure_wallet_operator_abc123",
-  "distribution_timestamp": 1704379200.0
-}
-```
-
-#### GET /api/v1/operator/rewards-status
-Get operator rewards status.
-
-**Response:**
-```json
-{
-  "operator_wallet_configured": true,
-  "operator_wallet": "pisecure_wallet_operator_abc123",
-  "reward_configuration": {
-    "percentage": 0.05,
-    "minimum_payout_314st": 10,
-    "daily_budget_314st": 1000,
-    "reward_token": "314ST"
-  },
-  "pending_rewards_314st": 25,
-  "total_distributed_314st": 150,
-  "last_payout_timestamp": 1704378200.0,
-  "reward_eligibility": {
-    "has_pending_rewards": true,
-    "uptime_bonus_eligible": true,
-    "federation_bonus_eligible": true
-  }
-}
-```
-
-#### GET /api/v1/dex/pools
-Get available liquidity pools for DEX trading.
-
-**Response:**
-```json
-{
-  "liquidity_pools": [
-    {
-      "pool_id": "314ST_wBTC_1704379200",
-      "token_a": "314ST",
-      "token_b": "wBTC",
-      "liquidity_a": 50000,
-      "liquidity_b": 25,
-      "fee_percentage": 0.003,
-      "trade_count": 150,
-      "volume_24h": 5000,
-      "pool_health_score": 85,
-      "exchange_rate": 0.0005
-    }
-  ],
-  "total_pools": 3,
-  "dex_health_score": 87,
-  "intelligence_enabled": true,
-  "timestamp": 1704379200.0
-}
-```
-
-#### POST /api/v1/dex/pool/create
-Create a new liquidity pool.
-
-**Request:**
-```json
-{
-  "token_a": "314ST",
-  "token_b": "wBTC",
-  "creator_wallet": "pisecure_wallet_creator"
-}
-```
-
-**Response:**
-```json
-{
-  "pool_created": true,
-  "pool_details": {
-    "pool_id": "314ST_wBTC_1704379200",
-    "token_a": "314ST",
-    "token_b": "wBTC",
-    "fee_percentage": 0.003
-  },
-  "intelligence_optimized": true,
-  "timestamp": 1704379200.0
-}
-```
-
-#### POST /api/v1/dex/pool/add-liquidity
-Add liquidity to an existing pool.
-
-**Request:**
-```json
-{
-  "pool_id": "314ST_wBTC_1704379200",
-  "provider_wallet": "pisecure_wallet_provider",
-  "amount_a": 10000,
-  "amount_b": 5
-}
-```
-
-**Response:**
-```json
-{
-  "liquidity_added": true,
-  "liquidity_details": {
-    "pool_id": "314ST_wBTC_1704379200",
-    "liquidity_added": {"amount_a": 10000, "amount_b": 5},
-    "reward_314st": 25
-  },
-  "intelligence_rewards_earned": 25,
-  "timestamp": 1704379200.0
-}
-```
-
-#### POST /api/v1/dex/swap
-Execute intelligent token swap with ML optimization.
-
-**Request:**
-```json
-{
-  "token_in": "314ST",
-  "token_out": "wBTC",
-  "amount_in": 1000,
-  "user_wallet": "pisecure_wallet_user",
-  "max_slippage": 0.01
-}
-```
-
-**Response:**
-```json
-{
-  "swap_coordinated": true,
-  "swap_details": {
-    "swap_id": "swap_1704379200_12345",
-    "expected_out": 0.5,
-    "min_out": 0.495,
-    "pool_id": "314ST_wBTC_1704379200",
-    "fee_amount": 3,
-    "recommended_slippage": 0.01,
-    "intelligence_optimized": true
-  },
-  "network_conditions": {
-    "threat_level": "low",
-    "recommended_approach": "standard"
-  },
-  "estimated_completion": "30_seconds",
-  "timestamp": 1704379200.0
-}
-```
-
-#### GET /api/v1/dex/intelligence
-Get comprehensive DEX intelligence and analytics.
-
-**Response:**
-```json
-{
-  "dex_intelligence": {
-    "dex_health_score": 87,
-    "active_pools": 3,
-    "total_liquidity_314st": 150000,
-    "trading_volume_24h": 25000,
-    "pool_health_analysis": {
-      "total_pools": 3,
-      "healthy_pools": 3,
-      "health_percentage": 100
-    },
-    "trading_patterns": {
-      "peak_trading_hours": ["14:00-16:00 UTC"],
-      "popular_pairs": ["314ST/wBTC", "314ST/wETH"],
-      "average_trade_size": 500
-    },
-    "recommendations": [
-      "Consider adding incentives for new liquidity pools"
-    ],
-    "intelligence_benefits": [
-      "Optimal trade routing based on network conditions",
-      "Threat-aware slippage limits",
-      "Pool health monitoring and recommendations"
-    ]
-  },
-  "intelligence_source": "bootstrap_coordinator",
-  "network_intelligence_integrated": true,
-  "timestamp": 1704379200.0
-}
-```
-
-#### GET /api/v1/dex/stats
-Get DEX statistics and market data.
-
-**Response:**
-```json
-{
-  "dex_stats": {
-    "total_pools": 3,
-    "total_liquidity_314st": 150000,
-    "trading_volume_24h": 25000,
-    "popular_pairs": [
-      {
-        "pair": "314ST/wBTC",
-        "pool_id": "314ST_wBTC_1704379200",
-        "liquidity": 100000,
-        "volume_24h": 15000,
-        "trade_count": 200
-      }
-    ],
-    "dex_health_score": 87
-  },
-  "intelligence_features": [
-    "ML-optimized trade routing",
-    "Threat-aware liquidity selection",
-    "Network condition adaptation",
-    "Real-time pool health monitoring"
-  ],
-  "timestamp": 1704379200.0
-}
-```
-
-### Node Registry API
+### Authentication & Registration
 
 #### POST /api/v1/nodes/register
 **[IMPORTANT: POST METHOD REQUIRED]**
 
-Register a PiSecure node with the bootstrap coordinator. This endpoint accepts ONLY POST requests.
+Register Sentinel AI node with the bootstrap coordinator.
 
 **Request:**
 ```json
 {
   "node_id": "ghostwheel-sentinel-ai",
   "node_type": "sentinel_ai",
-  "services": ["threat_detection", "intelligence_sharing"],
-  "capabilities": ["ml_attack_detection", "automated_defense"],
+  "services": [
+    "voice_interface",
+    "ai_processing",
+    "skill_execution",
+    "network_monitoring",
+    "threat_detection",
+    "active_defense"
+  ],
+  "capabilities": [
+    "natural_language_processing",
+    "voice_synthesis",
+    "skill_plugins",
+    "proactive_monitoring",
+    "automated_defense",
+    "reputation_management"
+  ],
   "location": "us-east",
-  "wallet_address": "pisecure_wallet_node",
-  "version": "1.0.0"
+  "wallet_address": "",
+  "sentinel_config": {
+    "monitoring_enabled": true,
+    "alerting_enabled": true,
+    "strategy": "standard",
+    "threat_threshold": 3
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "registration_success": true,
+  "node_id": "ghostwheel-sentinel-ai",
+  "assigned_role": "sentinel_ai",
+  "network_permissions": ["monitor", "alert", "coordinate"],
+  "bootstrap_coordination_token": "abc123..."
 }
 ```
 
@@ -625,32 +281,6 @@ Register a PiSecure node with the bootstrap coordinator. This endpoint accepts O
 - `bootstrap`: Bootstrap coordination nodes
 - `sentinel_ai`: Sentinel AI security nodes (e.g., Ghostwheel)
 - `standard`: Standard network nodes
-
-**Response (Success):**
-```json
-{
-  "registration_success": true,
-  "node_id": "ghostwheel-sentinel-ai",
-  "registration_time": 1704379200.0,
-  "network_info": {
-    "bootstrap_coordinator": "bootstrap.pisecure.org",
-    "federation_enabled": true,
-    "intelligence_sharing": true
-  },
-  "capabilities_acknowledged": ["ml_attack_detection", "automated_defense"],
-  "services_enabled": ["threat_detection", "intelligence_sharing"]
-}
-```
-
-**Response (Error - Wrong Method):**
-```json
-{
-  "error": "Registration requires POST method",
-  "example": "POST /api/v1/nodes/register",
-  "required_fields": ["node_id", "node_type", "services", "capabilities"],
-  "documentation": "https://github.com/UnderhillForge/PiSecure-Bootstrap/blob/main/api-doc.txt"
-}
-```
 
 **Example cURL:**
 ```bash
@@ -666,19 +296,28 @@ curl -X POST https://pisecure-bootstrap-production.up.railway.app/api/v1/nodes/r
   }'
 ```
 
+### Heartbeat & Status Updates
+
 #### POST /api/v1/nodes/status
-Update node status with periodic heartbeat.
+Update Sentinel status with periodic heartbeat.
 
 **Request:**
 ```json
 {
   "node_id": "ghostwheel-sentinel-ai",
   "status": "active",
-  "mining_active": false,
-  "peers_connected": 12,
-  "uptime_percentage": 99.5,
-  "threat_detections": 5,
-  "intelligence_contributions": 150
+  "ai_active": true,
+  "skills_loaded": 15,
+  "voice_responses": 75,
+  "memory_entries": 25,
+  "uptime_seconds": 3600,
+  "sentinel_status": {
+    "monitoring_active": true,
+    "alerts_sent": 3,
+    "threats_detected": 2,
+    "strategy": "standard",
+    "network_health_score": 85
+  }
 }
 ```
 
@@ -693,6 +332,338 @@ Update node status with periodic heartbeat.
     "Consider increasing peer connections"
   ],
   "timestamp": 1704379200.0
+}
+```
+
+### Threat Intelligence
+
+#### POST /api/v1/intelligence/threats/report
+Submit threat signature to network.
+
+**Request:**
+```json
+{
+  "reporter_node": "ghostwheel-sentinel-ai",
+  "threat_signature": {
+    "type": "behavioral_anomaly",
+    "confidence": 0.89,
+    "indicators": [
+      "unusual_connection_pattern",
+      "rapid_port_scanning",
+      "protocol_violation"
+    ],
+    "affected_nodes": ["node_xyz"],
+    "recommended_action": "quarantine",
+    "evidence": {
+      "connection_attempts": 1500,
+      "time_window": 300,
+      "source_reputation": "low"
+    }
+  },
+  "coordination_request": {
+    "network_wide_alert": true,
+    "blacklist_propagation": true,
+    "peer_notification": true
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "report_accepted": true,
+  "threat_id": "threat_12345",
+  "propagation_status": "network_wide",
+  "affected_nodes_notified": 150,
+  "timestamp": 1704379200.0
+}
+```
+
+### Defense Coordination
+
+#### POST /api/v1/defense/coordinate
+Request coordinated defense action.
+
+**Request:**
+```json
+{
+  "coordinator_node": "ghostwheel-sentinel-ai",
+  "strategy": "aggressive",
+  "actions": [
+    {
+      "type": "isolate_node",
+      "target": "suspicious_node_123",
+      "duration_minutes": 30,
+      "reason": "detected_malicious_activity"
+    },
+    {
+      "type": "increase_monitoring",
+      "scope": "network_segment",
+      "intensity": "high",
+      "duration_hours": 2
+    }
+  ],
+  "participants": ["trusted_node_a", "trusted_node_b"]
+}
+```
+
+**Response:**
+```json
+{
+  "coordination_accepted": true,
+  "action_id": "defense_action_12345",
+  "participating_nodes": 2,
+  "estimated_completion": 1800,
+  "timestamp": 1704379200.0
+}
+```
+
+### Security Strategies
+
+#### POST /api/v1/nodes/strategy
+Configure security strategy for Sentinel node.
+
+**Request:**
+```json
+{
+  "node_id": "ghostwheel-sentinel-ai",
+  "strategy": "aggressive",
+  "parameters": {
+    "threat_threshold": 2,
+    "response_delay_seconds": 30,
+    "coordination_enabled": true,
+    "deceptive_measures": true
+  }
+}
+```
+
+**Available Strategies:**
+- `standard`: Balanced monitoring and response
+- `aggressive`: Immediate countermeasures and isolation
+- `deceptive`: Active misinformation and resource wasting
+- `fortress`: Maximum security, minimal exposure
+
+**Response:**
+```json
+{
+  "strategy_updated": true,
+  "node_id": "ghostwheel-sentinel-ai",
+  "active_strategy": "aggressive",
+  "parameters_applied": {
+    "threat_threshold": 2,
+    "response_delay_seconds": 30
+  },
+  "timestamp": 1704379200.0
+}
+```
+
+### Blockchain Intelligence
+
+#### GET /api/v1/blockchain/metrics
+Get blockchain metrics for anomaly detection.
+
+**Response:**
+```json
+{
+  "current_block_height": 1250000,
+  "network_hashrate_th": 450.5,
+  "average_block_time_minutes": 12.5,
+  "active_miners": 1250,
+  "difficulty": 25000000000,
+  "pending_transactions": 15000,
+  "network_health_score": 92,
+  "anomalies": [
+    {
+      "type": "hashrate_drop",
+      "severity": "medium",
+      "change_percent": -15.2,
+      "duration_minutes": 45
+    }
+  ]
+}
+```
+
+#### POST /api/v1/blockchain/alerts
+Report blockchain anomaly alert.
+
+**Request:**
+```json
+{
+  "reporter_node": "ghostwheel-sentinel-ai",
+  "alert_type": "blockchain_anomaly",
+  "severity": "high",
+  "details": {
+    "metric": "hashrate",
+    "change_percent": -28.5,
+    "threshold_breached": 20,
+    "potential_cause": "51_percent_attack_preparation",
+    "recommended_actions": [
+      "increase_consensus_verification",
+      "alert_mining_pools",
+      "prepare_network_isolation"
+    ]
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "alert_accepted": true,
+  "alert_id": "blockchain_alert_12345",
+  "severity": "high",
+  "nodes_notified": 150,
+  "federation_propagated": true,
+  "timestamp": 1704379200.0
+}
+```
+
+### Alert Propagation
+
+#### POST /api/v1/alerts/propagate
+Propagate security alert across network.
+
+**Request:**
+```json
+{
+  "source_node": "ghostwheel-sentinel-ai",
+  "alert_id": "alert_12345",
+  "severity": "critical",
+  "category": "security_threat",
+  "message": "Multiple high-severity attacks detected across network segments",
+  "affected_components": ["routing", "bootstrap"],
+  "recommended_actions": [
+    "Enable aggressive defense mode",
+    "Quarantine affected nodes",
+    "Increase monitoring intensity"
+  ],
+  "propagation_scope": "network_wide",
+  "expiration_hours": 24
+}
+```
+
+**Response:**
+```json
+{
+  "propagation_success": true,
+  "alert_id": "alert_12345",
+  "local_nodes_notified": 150,
+  "federation_nodes_notified": 5,
+  "total_propagation": 155,
+  "severity": "critical",
+  "trust_verified": true,
+  "source_reputation": 85.5
+}
+```
+
+**Reputation Requirements:**
+- **Critical alerts**: Requires source reputation e 70
+- **High severity**: Requires source reputation e 60
+- **Medium severity**: Requires source reputation e 40
+- **Low severity**: Requires source reputation e 20
+
+### Reputation Management
+
+#### GET /api/v1/reputation/{node_id}
+Query node reputation score.
+
+**Response:**
+```json
+{
+  "node_id": "ghostwheel-sentinel-ai",
+  "reputation_score": 85.5,
+  "trust_level": "high",
+  "incident_count": 0,
+  "last_incident": null,
+  "positive_contributions": 150,
+  "network_standing": "trusted_sentinel",
+  "alert_propagation_enabled": true
+}
+```
+
+#### POST /api/v1/reputation/update
+Submit reputation update for a node.
+
+**Request:**
+```json
+{
+  "reporter_node": "ghostwheel-sentinel-ai",
+  "target_node": "node_xyz",
+  "update_type": "incident_report",
+  "severity": "high",
+  "evidence": {
+    "behavior": "malicious_activity_detected",
+    "confidence": 0.92,
+    "details": "Protocol violations and unauthorized access attempts"
+  },
+  "recommended_score_adjustment": -25
+}
+```
+
+**Response:**
+```json
+{
+  "update_accepted": true,
+  "target_node": "node_xyz",
+  "previous_score": 70,
+  "new_score": 45,
+  "trust_level": "low",
+  "timestamp": 1704379200.0
+}
+```
+
+### Error Reporting
+
+#### POST /api/v1/errors/report
+Report operational errors or issues.
+
+**Request:**
+```json
+{
+  "node_id": "ghostwheel-sentinel-ai",
+  "error_type": "api_communication_failure",
+  "severity": "medium",
+  "component": "sentinel_monitoring",
+  "details": {
+    "endpoint": "/api/v1/intelligence/health",
+    "error_code": "CONNECTION_TIMEOUT",
+    "retry_count": 3,
+    "impact": "monitoring_degraded"
+  },
+  "recovery_action": "fallback_to_cached_data"
+}
+```
+
+**Response:**
+```json
+{
+  "report_accepted": true,
+  "error_id": "error_12345",
+  "support_notified": true,
+  "timestamp": 1704379200.0
+}
+```
+
+---
+
+## 4. Node Registry API
+
+#### POST /api/v1/nodes/register
+**[IMPORTANT: POST METHOD REQUIRED]**
+
+Register a PiSecure node with the bootstrap coordinator. This endpoint accepts ONLY POST requests.
+
+**GET Request Response (Error):**
+```json
+{
+  "error": "Method Not Allowed",
+  "message": "Node registration requires POST method",
+  "required_method": "POST",
+  "endpoint": "/api/v1/nodes/register",
+  "documentation": "https://github.com/UnderhillForge/PiSecure-Bootstrap/blob/main/api-doc.txt",
+  "required_fields": ["node_id", "node_type", "services", "capabilities"],
+  "example_curl": "curl -X POST https://bootstrap.pisecure.org/api/v1/nodes/register -H \"Content-Type: application/json\" -d '{\"node_id\":\"sentinel-001\",\"node_type\":\"sentinel_ai\",\"services\":[\"intelligence\",\"monitoring\"],\"capabilities\":[\"ml_analysis\",\"threat_detection\"]}'",
+  "valid_node_types": ["miner", "validator", "wallet", "bootstrap", "sentinel_ai", "standard"]
 }
 ```
 
@@ -735,144 +706,9 @@ Get list of registered nodes with filtering options.
 }
 ```
 
-### Endpoints
-
-#### GET /blockchain/info
-Get comprehensive blockchain information.
-
-**Response:**
-```json
-{
-  "blocks": 10492,
-  "pending_transactions": 15,
-  "difficulty": 4.0,
-  "is_valid": true,
-  "network_health": {
-    "active_nodes": 45,
-    "sync_status": "healthy",
-    "avg_block_time": 600.0,
-    "forks_detected": 0
-  },
-  "latest_block": {
-    "index": 10491,
-    "hash": "abc123...",
-    "timestamp": 1700000000.0,
-    "transactions": 3,
-    "miner": "wallet_123"
-  }
-}
-```
-
-#### GET /blockchain/block/{block_index}
-Get specific block by index.
-
-**Parameters:**
-- `block_index`: Integer block index
-
-**Response:**
-```json
-{
-  "index": 1000,
-  "timestamp": 1700000000.0,
-  "transactions": [
-    {
-      "type": "transfer",
-      "data": {
-        "from": "wallet_from",
-        "to": "wallet_to",
-        "amount": 10.0
-      },
-      "signature": "sig123...",
-      "hash": "tx123..."
-    }
-  ],
-  "previous_hash": "prev123...",
-  "nonce": 12345,
-  "hash": "block123...",
-  "miner": "wallet_miner"
-}
-```
-
-#### GET /blockchain/blocks
-Get latest blocks with pagination.
-
-**Query Parameters:**
-- `limit`: Number of blocks (default: 10, max: 100)
-- `offset`: Starting block index (default: 0)
-
-**Response:**
-```json
-{
-  "blocks": [
-    {
-      "index": 10492,
-      "hash": "hash123...",
-      "timestamp": 1700000000.0,
-      "transactions": 2,
-      "miner": "wallet_123"
-    }
-  ],
-  "total": 10493,
-  "limit": 10,
-  "offset": 0
-}
-```
-
-#### GET /blockchain/transaction/{tx_hash}
-Get transaction by hash.
-
-**Parameters:**
-- `tx_hash`: Transaction hash
-
-**Response:**
-```json
-{
-  "hash": "tx123...",
-  "type": "transfer",
-  "data": {
-    "from": "wallet_from",
-    "to": "wallet_to",
-    "amount": 10.0,
-    "memo": "Payment for services"
-  },
-  "signature": "sig123...",
-  "timestamp": 1700000000.0,
-  "block_index": 10492,
-  "confirmations": 1
-}
-```
-
-#### POST /transaction
-Submit new transaction to network.
-
-**Request:**
-```json
-{
-  "type": "transfer",
-  "data": {
-    "from": "wallet_from",
-    "to": "wallet_to",
-    "amount": 10.0,
-    "memo": "Payment for services"
-  },
-  "signature": "wallet_signature",
-  "timestamp": 1700000000.0
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "transaction_hash": "tx123...",
-  "status": "submitted",
-  "estimated_confirmation": 600
-}
-```
-
 ---
 
-## 2. Wallet Management API
+## 5. Wallet Management API
 
 #### POST /wallet
 Create new wallet.
@@ -896,24 +732,6 @@ Create new wallet.
 }
 ```
 
-#### GET /wallets
-List all available wallets.
-
-**Response:**
-```json
-{
-  "wallets": [
-    {
-      "wallet_id": "wallet_123",
-      "name": "My Wallet",
-      "address": "pisecure_address",
-      "balance": 150.5,
-      "created_at": 1700000000.0
-    }
-  ]
-}
-```
-
 #### GET /wallet/{address}/balance
 Get wallet balance.
 
@@ -927,1995 +745,27 @@ Get wallet balance.
 }
 ```
 
-#### GET /wallet/{address}/transactions
-Get wallet transaction history.
+---
 
-**Query Parameters:**
-- `limit`: Number of transactions (default: 20, max: 100)
-- `offset`: Starting offset (default: 0)
+## Rate Limiting & Authentication
 
-**Response:**
-```json
-{
-  "address": "pisecure_address",
-  "transactions": [
-    {
-      "hash": "tx123...",
-      "type": "transfer",
-      "amount": 10.0,
-      "direction": "received",
-      "timestamp": 1700000000.0,
-      "confirmations": 5,
-      "block_index": 10492
-    }
-  ],
-  "total_count": 45,
-  "limit": 20,
-  "offset": 0
-}
-```
+### Sentinel API Rate Limits
+- Heartbeat endpoints: 1 request per minute maximum
+- Alert endpoints: 10 requests per minute maximum
+- Threat reporting: 50 requests per minute maximum
+- Intelligence queries: 100 requests per minute maximum
 
-#### POST /wallet/sign-transaction
-Sign transaction with wallet.
+### Authentication
+- All requests include node authentication via JWT tokens
+- Bootstrap coordination tokens required for sensitive operations
+- Reputation-based access controls for coordination requests
 
-**Request:**
-```json
-{
-  "wallet_id": "wallet_123",
-  "transaction": {
-    "type": "transfer",
-    "data": {
-      "from": "wallet_from",
-      "to": "wallet_to",
-      "amount": 10.0
-    },
-    "timestamp": 1700000000.0
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "transaction": {
-    "type": "transfer",
-    "data": {...},
-    "signature": "signed_transaction_sig",
-    "timestamp": 1700000000.0
-  }
-}
-```
-
-#### GET /wallet/{wallet_id}/export
-Export wallet public information.
-
-**Response:**
-```json
-{
-  "wallet_id": "wallet_123",
-  "name": "My Wallet",
-  "address": "pisecure_address",
-  "balance": 150.5,
-  "created_at": 1700000000.0,
-  "transaction_count": 45,
-  "public_key": "pub_key_123..."
-}
-```
+### Data Formats
+- All timestamps in Unix epoch seconds (UTC)
+- Geographic locations use standard region codes
+- Reputation scores range from 0-100
+- Confidence values range from 0.0-1.0
 
 ---
 
-## 3. PiNS (Pi Name System) API
-
-#### GET /names/check/{name}
-Check if name is available.
-
-**Response:**
-```json
-{
-  "name": "alice",
-  "available": true,
-  "registration_fee": 5.0,
-  "estimated_confirmation": 600
-}
-```
-
-#### GET /names/{name}
-Resolve name to address.
-
-**Response:**
-```json
-{
-  "name": "alice",
-  "address": "pisecure_wallet_address",
-  "registered_at": 1700000000.0,
-  "block_index": 10492,
-  "tx_hash": "tx123...",
-  "expires_at": 1730000000.0
-}
-```
-
-#### POST /names/register
-Register new PiNS name.
-
-**Request:**
-```json
-{
-  "name": "alice",
-  "wallet_address": "pisecure_address",
-  "years": 1
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "name": "alice",
-  "address": "pisecure_address",
-  "transaction_hash": "tx123...",
-  "fee_deducted": 5.0,
-  "expires_at": 1730000000.0,
-  "status": "pending_mining"
-}
-```
-
-#### GET /names/wallet/{wallet_address}
-Get all names registered to wallet.
-
-**Response:**
-```json
-{
-  "wallet_address": "pisecure_address",
-  "names": [
-    {
-      "name": "alice",
-      "registered_at": 1700000000.0,
-      "expires_at": 1730000000.0,
-      "status": "active"
-    }
-  ],
-  "count": 1
-}
-```
-
-#### GET /names
-List registered names with pagination.
-
-**Query Parameters:**
-- `limit`: Number of names (default: 50, max: 200)
-- `offset`: Starting offset (default: 0)
-- `search`: Search term for name filtering
-
-**Response:**
-```json
-{
-  "names": [
-    {
-      "name": "alice",
-      "address": "pisecure_address",
-      "registered_at": 1700000000.0,
-      "block_index": 10492
-    }
-  ],
-  "total_count": 1250,
-  "limit": 50,
-  "offset": 0
-}
-```
-
----
-
-## 4. Mining API
-
-#### GET /mining/status
-Get current mining status.
-
-**Response:**
-```json
-{
-  "is_mining": true,
-  "blocks_mined": 15,
-  "current_difficulty": 4.0,
-  "network_hashrate": 1250.5,
-  "miner_hashrate": 5.2,
-  "shares_submitted": 1250,
-  "efficiency": 0.85,
-  "temperature": 45.2,
-  "power_consumption": 15.5,
-  "uptime": 3600,
-  "last_block_time": 1700000000.0,
-  "next_block_estimate": 600
-}
-```
-
-#### POST /mining/start
-Start mining operation.
-
-**Request:**
-```json
-{
-  "wallet_address": "miner_wallet",
-  "threads": 4,
-  "max_temperature": 70
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Mining started",
-  "wallet_address": "miner_wallet",
-  "threads": 4,
-  "estimated_hashrate": 5.2
-}
-```
-
-#### POST /mining/stop
-Stop mining operation.
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Mining stopped",
-  "total_mined": 16,
-  "session_duration": 7200
-}
-```
-
-#### GET /mining/work
-Get mining work package.
-
-**Response:**
-```json
-{
-  "block_template": {
-    "index": 10493,
-    "previous_hash": "prev123...",
-    "difficulty": 4.0,
-    "transactions": [...],
-    "timestamp": 1700000000.0
-  },
-  "target": "0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-  "expires": 1700000600.0
-}
-```
-
-#### POST /mining/submit
-Submit mined block.
-
-**Request:**
-```json
-{
-  "block": {
-    "index": 10493,
-    "timestamp": 1700000000.0,
-    "transactions": [...],
-    "previous_hash": "prev123...",
-    "nonce": 12345678,
-    "hash": "block123..."
-  },
-  "miner_address": "miner_wallet"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "block_hash": "block123...",
-  "block_index": 10493,
-  "reward": 25.0,
-  "confirmations": 1
-}
-```
-
----
-
-## 5. Network & Discovery API
-
-#### GET /network/status
-Get network status.
-
-**Response:**
-```json
-{
-  "connected_peers": 12,
-  "known_peers": 45,
-  "node_id": "node_12345",
-  "listening_port": 3142,
-  "network_type": "mainnet",
-  "sync_status": "synced",
-  "last_sync_time": 1700000000.0
-}
-```
-
-#### GET /network/peers
-Get known network peers.
-
-**Query Parameters:**
-- `status`: Filter by status (connected, known, all)
-
-**Response:**
-```json
-{
-  "peers": [
-    {
-      "node_id": "peer_123",
-      "address": "192.168.1.100",
-      "port": 3142,
-      "connected": true,
-      "last_seen": 1700000000.0,
-      "version": "1.0.0",
-      "capabilities": ["p2p_sync", "mining"]
-    }
-  ],
-  "count": 12,
-  "connected_count": 8
-}
-```
-
-#### POST /network/discover
-Trigger network peer discovery.
-
-**Response:**
-```json
-{
-  "success": true,
-  "peers_discovered": 5,
-  "total_known_peers": 50,
-  "discovery_methods": [
-    "bootstrap_nodes",
-    "peer_exchange",
-    "dns_seeds"
-  ]
-}
-```
-
-#### GET /network/bootstrap
-Get bootstrap node information.
-
-**Response:**
-```json
-{
-  "bootstrap_nodes": [
-    {
-      "url": "https://bootstrap.pisecure.org",
-      "status": "active",
-      "last_seen": 1700000000.0,
-      "peers_served": 1250
-    }
-  ],
-  "recommended_bootstrap": "https://bootstrap.pisecure.org/api/v1/bootstrap/peers"
-}
-```
-
----
-
-## 6. Update Management API
-
-#### POST /update/verify
-Verify update package signatures.
-
-**Request:**
-```json
-{
-  "manifest": {
-    "version": "1.1.0",
-    "files": ["pisecure.exe", "libraries.dll"],
-    "checksums": {
-      "pisecure.exe": "sha256_hash",
-      "libraries.dll": "sha256_hash"
-    }
-  },
-  "signatures": [
-    {
-      "key_id": "authority_1",
-      "signature": "sig123..."
-    }
-  ]
-}
-```
-
-**Response:**
-```json
-{
-  "is_valid": true,
-  "verified_by": ["authority_1", "authority_2"],
-  "manifest_valid": true,
-  "signatures_valid": true,
-  "can_install": true
-}
-```
-
-#### GET /update/status
-Get update status.
-
-**Response:**
-```json
-{
-  "current_version": "1.0.0",
-  "latest_version": "1.1.0",
-  "update_available": true,
-  "update_size": 52428800,
-  "release_notes": "Bug fixes and performance improvements",
-  "download_url": "https://updates.pisecure.org/v1.1.0/",
-  "released_at": 1700000000.0
-}
-```
-
-#### POST /update/download
-Download and install update.
-
-**Request:**
-```json
-{
-  "version": "1.1.0",
-  "install_after_download": true
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "download_id": "download_123",
-  "status": "downloading",
-  "progress": 0.0,
-  "estimated_time": 300
-}
-```
-
----
-
-## 7. System Administration API
-
-#### GET /system/info
-Get system information.
-
-**Response:**
-```json
-{
-  "hostname": "pisecure-node-01",
-  "platform": "Linux-5.15.0",
-  "architecture": "x86_64",
-  "python_version": "3.11.0",
-  "cpu_count": 4,
-  "cpu_percent": 15.2,
-  "memory": {
-    "total": 8589934592,
-    "available": 4294967296,
-    "percent": 50.0
-  },
-  "disk": {
-    "total": 107374182400,
-    "free": 53687091200,
-    "percent": 50.0
-  },
-  "uptime": 86400,
-  "pisecure_version": "1.0.0",
-  "network_interfaces": [
-    {
-      "name": "eth0",
-      "address": "192.168.1.100",
-      "netmask": "255.255.255.0"
-    }
-  ]
-}
-```
-
-#### GET /system/logs
-Get system logs.
-
-**Query Parameters:**
-- `level`: Log level filter (DEBUG, INFO, WARNING, ERROR)
-- `limit`: Number of log entries (default: 100, max: 1000)
-- `since`: Unix timestamp to get logs since
-
-**Response:**
-```json
-{
-  "logs": [
-    {
-      "timestamp": 1700000000.0,
-      "level": "INFO",
-      "message": "Block mined successfully",
-      "module": "mining",
-      "data": {
-        "block_hash": "hash123...",
-        "reward": 25.0
-      }
-    }
-  ],
-  "total_count": 500,
-  "level": "INFO",
-  "limit": 100
-}
-```
-
-#### POST /system/shutdown
-Shutdown PiSecure node gracefully.
-
-**Request:**
-```json
-{
-  "reason": "maintenance",
-  "force": false,
-  "timeout": 30
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Shutdown initiated",
-  "shutdown_at": 1700000300.0,
-  "reason": "maintenance"
-}
-```
-
-#### GET /system/config
-Get current configuration.
-
-**Response:**
-```json
-{
-  "network": {
-    "port": 3142,
-    "max_peers": 50,
-    "sync_interval": 30
-  },
-  "mining": {
-    "enabled": true,
-    "threads": 4,
-    "max_temperature": 70
-  },
-  "database": {
-    "type": "sqlite",
-    "path": "/var/lib/pisecure/blockchain.db"
-  },
-  "logging": {
-    "level": "INFO",
-    "file": "/var/log/pisecure/pisecure.log",
-    "max_size": 10485760
-  }
-}
-```
-
-#### POST /system/config
-Update configuration (requires restart).
-
-**Request:**
-```json
-{
-  "network": {
-    "max_peers": 100
-  },
-  "mining": {
-    "threads": 8
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "changes_applied": ["network.max_peers", "mining.threads"],
-  "restart_required": true,
-  "message": "Configuration updated, restart required"
-}
-```
-
----
-
-## 8. Real Blockchain Data Source API
-
-### StatsAggregator Integration
-
-#### GET /api/v1/network/stats (Enhanced)
-Real blockchain data integration with live metrics.
-
-**Response:**
-```json
-{
-  "active_nodes": 45,
-  "total_registered_nodes": 150,
-  "connected_peers": 42,
-  "estimated_hashrate": 1250.5,
-  "participation_score": 0.72,
-  "health_score": 78.5,
-  "active_miners": 23,
-  "total_known_peers": 89,
-  "blockchain_data": {
-    "total_blocks": 10492,
-    "pending_transactions": 15,
-    "difficulty": 4.0,
-    "is_valid": true,
-    "network_health": {
-      "participation": 0.8,
-      "avg_block_time": 600.0,
-      "health_score": 85.0
-    },
-    "latest_block": {
-      "index": 10491,
-      "hash": "abc123...",
-      "timestamp": 1700000000.0,
-      "transactions": 3,
-      "miner": "wallet_123"
-    }
-  }
-}
-```
-
-#### GET /api/v1/blockchain/real-info
-Get comprehensive real blockchain information.
-
-**Response:**
-```json
-{
-  "blocks": 10492,
-  "pending_transactions": 15,
-  "difficulty": 4.0,
-  "is_valid": true,
-  "storage_type": "hybrid",
-  "network_health": {
-    "participation": 0.8,
-    "avg_block_time": 600.0,
-    "health_score": 85.0
-  },
-  "latest_block": {
-    "index": 10491,
-    "hash": "abc123...",
-    "timestamp": 1700000000.0,
-    "transactions": 3,
-    "miner": "wallet_123"
-  },
-  "validation_cache": {
-    "last_validation": 1700000000.0,
-    "cache_timeout": 30,
-    "cached_valid": true
-  }
-}
-```
-
----
-
-## 9. PiSecure P2P Protocol API
-
-### PiSecureP2P Class
-
-#### Initialization
-```python
-from pisecure.core.p2p_protocol import PiSecureP2P
-
-p2p = PiSecureP2P(
-    node_id="node_12345",
-    listen_port=3142,
-    blockchain=SignChain(),
-    p2p_sync=P2PSyncManager()
-)
-```
-
-#### Methods
-
-##### start()
-Start P2P protocol and all background services.
-```python
-p2p.start()
-```
-
-##### stop()
-Stop P2P protocol and close all connections.
-```python
-p2p.stop()
-```
-
-##### connect_to_peer(peer_id, address, port)
-Connect to a specific peer.
-```python
-success = p2p.connect_to_peer("peer_123", "192.168.1.100", 3142)
-# Returns: True/False
-```
-
-##### broadcast_message(message, exclude_peer)
-Broadcast message to all connected peers.
-```python
-from pisecure.core.p2p_protocol import P2PMessage, MessageType
-
-message = P2PMessage(
-    message_id="msg_123",
-    message_type=MessageType.BLOCK_ANNOUNCE,
-    sender_id="node_12345",
-    receiver_id=None,  # Broadcast
-    timestamp=time.time(),
-    ttl=5,
-    payload={
-        "block_hash": "hash123...",
-        "block_height": 10492,
-        "transactions": 3
-    }
-)
-
-p2p.broadcast_message(message)
-```
-
-##### send_message_to_peer(peer_id, message)
-Send message to specific peer.
-```python
-p2p.send_message_to_peer("peer_123", message)
-```
-
-##### announce_new_block(block_data)
-Announce newly mined block to network.
-```python
-p2p.announce_new_block({
-    "index": 10492,
-    "hash": "hash123...",
-    "transactions": [...],
-    "miner": "wallet_123"
-})
-```
-
-##### announce_transaction(tx_data)
-Announce new transaction to network.
-```python
-p2p.announce_transaction({
-    "type": "transfer",
-    "from": "wallet_from",
-    "to": "wallet_to",
-    "amount": 10.0,
-    "signature": "sig123..."
-})
-```
-
-##### get_network_stats()
-Get P2P network statistics.
-```python
-stats = p2p.get_network_stats()
-# Returns: {
-#   "node_id": "node_12345",
-#   "connections": 12,
-#   "consensus_state": "following",
-#   "leader_id": "leader_node",
-#   "term": 5,
-#   "messages_sent": 1500,
-#   "messages_received": 1450,
-#   "bytes_sent": 125000,
-#   "bytes_received": 118000,
-#   "blocks_propagated": 45,
-#   "transactions_propagated": 1200
-# }
-```
-
-### P2P Message Types
-
-#### MessageType Enum
-```python
-from pisecure.core.p2p_protocol import MessageType
-
-# Available message types:
-MessageType.HANDSHAKE           # Initial connection handshake
-MessageType.PEER_LIST          # Peer discovery information
-MessageType.BLOCK_ANNOUNCE     # New block announcement
-MessageType.BLOCK_REQUEST      # Request block data
-MessageType.BLOCK_RESPONSE     # Block data response
-MessageType.TRANSACTION_ANNOUNCE # New transaction announcement
-MessageType.MINING_SHARE       # Mining share submission
-MessageType.TEAM_UPDATE        # Team mining updates
-MessageType.CONSENSUS_VOTE     # Consensus voting
-MessageType.HEARTBEAT          # Connection heartbeat
-MessageType.DISCONNECT         # Connection termination
-```
-
-#### P2PMessage Structure
-```python
-@dataclass
-class P2PMessage:
-    message_id: str
-    message_type: MessageType
-    sender_id: str
-    receiver_id: Optional[str]  # None for broadcasts
-    timestamp: float
-    ttl: int  # Time to live in hops
-    payload: Dict[str, Any]
-    signature: Optional[str] = None
-```
-
----
-
-## 10. Consensus Mechanism API
-
-### PiSecureConsensus Class
-
-#### Initialization
-```python
-from pisecure.core.consensus import PiSecureConsensus
-
-consensus = PiSecureConsensus(
-    blockchain=SignChain(),
-    p2p_protocol=PiSecureP2P(),
-    p2p_sync=P2PSyncManager()
-)
-```
-
-#### Block Validation Methods
-
-##### validate_block_consensus(block_data, miner_wallet)
-Validate block using full consensus rules.
-```python
-is_valid, reason = consensus.validate_block_consensus(block_data, "miner_wallet")
-# Returns: (True, "Block validated successfully") or (False, "Error message")
-```
-
-##### _validate_basic_block_structure(block_data)
-Validate basic block structure and chain linkage.
-```python
-is_valid = consensus._validate_basic_block_structure(block_data)
-```
-
-##### _validate_proof_of_work(block_data)
-Validate proof-of-work meets difficulty requirements.
-```python
-is_valid = consensus._validate_proof_of_work(block_data)
-```
-
-##### _validate_hardware_requirements(miner_wallet)
-Validate miner hardware meets security requirements.
-```python
-is_valid = consensus._validate_hardware_requirements("miner_wallet")
-```
-
-##### _validate_mining_syndicate_rules(block_data, miner_wallet)
-Validate mining syndicate rules.
-```python
-is_valid, reason = consensus._validate_mining_syndicate_rules(block_data, miner_wallet)
-```
-
-##### _validate_p2p_consensus(block_data)
-Validate block through P2P network consensus.
-```python
-is_valid, reason = consensus._validate_p2p_consensus(block_data)
-```
-
-#### Mining Syndicate Methods
-
-##### create_mining_syndicate(syndicate_id, founder_wallet)
-Create a new mining syndicate.
-```python
-syndicate = consensus.create_mining_syndicate("power_miners", "founder_wallet")
-# Returns: Syndicate instance
-```
-
-##### join_mining_syndicate(syndicate_id, miner_wallet, hashrate, hardware_score, location)
-Join a mining syndicate.
-```python
-success = consensus.join_mining_syndicate(
-    "power_miners",
-    "miner_wallet",
-    5.2,  # hashrate MH/s
-    2.5,  # hardware score
-    "us-west"  # location
-)
-```
-
-##### submit_syndicate_share(syndicate_id, miner_wallet, share_data)
-Submit mining share to syndicate.
-```python
-success = consensus.submit_syndicate_share("power_miners", "miner_wallet", {
-    "nonce": 12345678,
-    "timestamp": time.time(),
-    "block_hash": "hash123...",
-    "hash": "share_hash..."
-})
-```
-
-##### distribute_syndicate_rewards(syndicate_id, block_data, block_reward)
-Distribute block reward to syndicate participants.
-```python
-rewards = consensus.distribute_syndicate_rewards("power_miners", block_data, 25.0)
-# Returns: {"wallet1": 15.0, "wallet2": 10.0, ...}
-```
-
-#### Difficulty Adjustment
-
-##### adjust_difficulty()
-Adjust mining difficulty based on network conditions.
-```python
-new_difficulty = consensus.adjust_difficulty()
-# Returns: new difficulty level (integer)
-```
-
-#### Fork Resolution
-
-##### resolve_fork(competing_chains)
-Resolve blockchain fork using consensus.
-```python
-winning_chain = consensus.resolve_fork(competing_chains)
-# Returns: winning chain segment or None
-```
-
-#### Statistics
-
-##### get_consensus_stats()
-Get consensus engine statistics.
-```python
-stats = consensus.get_consensus_stats()
-# Returns: {
-#   "algorithm": "pow_sha256",
-#   "current_difficulty": 4,
-#   "mining_syndicates": 5,
-#   "pending_votes": 12,
-#   "consensus_threshold": 0.67,
-#   "total_blocks_validated": 10492,
-#   "forks_resolved": 3,
-#   "mining_syndicates_active": 5,
-#   "total_syndicate_rewards": 1250.0
-# }
-```
-
-##### get_syndicate_stats(syndicate_id)
-Get mining syndicate statistics.
-```python
-syndicate_stats = consensus.get_syndicate_stats("power_miners")
-# Returns: {
-#   "syndicate_id": "power_miners",
-#   "founder_wallet": "founder_wallet",
-#   "participant_count": 25,
-#   "active_miners": 20,
-#   "total_hashrate": 125.5,
-#   "total_shares": 50000,
-#   "blocks_found": 45,
-#   "total_rewards": 1125.0
-# }
-```
-
----
-
-## 11. Mining Syndicate API
-
-### Syndicate Class
-
-#### Initialization
-```python
-from pisecure.core.consensus import Syndicate
-
-syndicate = Syndicate("syndicate_id", "founder_wallet")
-```
-
-#### Syndicate Management Methods
-
-##### add_participant(miner_wallet, hashrate, hardware_score, location)
-Add miner to syndicate.
-```python
-success = syndicate.add_participant(
-    "miner_wallet",
-    5.2,  # MH/s
-    2.5,  # hardware score
-    "us-west"
-)
-```
-
-##### remove_participant(miner_wallet)
-Remove miner from syndicate.
-```python
-success = syndicate.remove_participant("miner_wallet")
-```
-
-##### submit_share(miner_wallet, share_data)
-Submit mining share.
-```python
-success = syndicate.submit_share("miner_wallet", {
-    "nonce": 12345678,
-    "timestamp": time.time(),
-    "block_hash": "hash123...",
-    "hash": "share_hash..."
-})
-```
-
-##### create_block_template(blockchain)
-Create block template for syndicate mining.
-```python
-template = syndicate.create_block_template(blockchain)
-# Returns: {
-#   "version": 1,
-#   "previous_hash": "prev123...",
-#   "timestamp": 1700000000,
-#   "difficulty": 4,
-#   "transactions": [...],
-#   "syndicate_id": "syndicate_id",
-#   "expires": 1700000600
-# }
-```
-
-##### distribute_block_reward(block_data, block_reward)
-Distribute block reward to participants.
-```python
-rewards = syndicate.distribute_block_reward(block_data, 25.0)
-# Returns: {"wallet1": 15.0, "wallet2": 10.0}
-```
-
-##### get_syndicate_stats()
-Get comprehensive syndicate statistics.
-```python
-stats = syndicate.get_syndicate_stats()
-# Returns: {
-#   "syndicate_id": "syndicate_id",
-#   "founder_wallet": "founder_wallet",
-#   "participant_count": 25,
-#   "active_miners": 20,
-#   "total_hashrate": 125.5,
-#   "total_shares": 50000,
-#   "blocks_found": 45,
-#   "total_rewards": 1125.0,
-#   "current_template": {...},
-#   "pending_shares": 5,
-#   "reward_distribution": "proportional"
-# }
-```
-
----
-
-## 12. Token Economics API
-
-### TokenEconomicsEngine Class
-
-#### Initialization
-```python
-from pisecure.core.token_economics import TokenEconomicsEngine, TrustType
-
-economics = TokenEconomicsEngine(blockchain=SignChain())
-economics.start()  # Start background processing
-```
-
-#### Trust Fund Methods
-
-##### create_trust_fund(developer_address, trust_type, initial_funding, metadata)
-Create developer trust fund.
-```python
-trust_id = economics.create_trust_fund(
-    "dev_wallet",
-    TrustType.PUBLIC,
-    1000.0,
-    {"description": "Developer tooling"}
-)
-```
-
-##### fund_trust(trust_id, amount, funder_address)
-Fund a trust account.
-```python
-success = economics.fund_trust("trust_123", 500.0, "funder_wallet")
-```
-
-##### create_subscription_plan(trust_id, plan_data)
-Create subscription plan.
-```python
-plan_id = economics.create_subscription_plan("trust_123", {
-    "name": "Premium API",
-    "price": 10.0,
-    "billing_cycle": "monthly",
-    "features": ["api_access", "support"]
-})
-```
-
-##### subscribe_to_plan(trust_id, user_address, plan_id)
-Subscribe to plan.
-```python
-subscription_id = economics.subscribe_to_plan("trust_123", "user_wallet", "plan_123")
-```
-
-#### Foundation Methods
-
-##### create_foundation_grant(title, description, amount, duration_months, milestones)
-Create foundation grant proposal.
-```python
-grant_id = economics.create_foundation_grant(
-    "Developer Tooling",
-    "Build PiSecure developer tools",
-    10000.0,
-    6,
-    ["Design", "Implementation", "Testing", "Deployment"]
-)
-```
-
-##### vote_on_grant(grant_id, voter_address, vote)
-Vote on grant proposal.
-```python
-success = economics.vote_on_grant("grant_123", "voter_wallet", True)
-```
-
-##### fund_approved_grant(grant_id)
-Fund approved grant.
-```python
-success = economics.fund_approved_grant("grant_123")
-```
-
-#### Cross-Exchange Settlement
-
-##### create_cross_exchange_settlement(from_exchange, to_exchange, amount, user_from, user_to)
-Create cross-exchange settlement.
-```python
-settlement_id = economics.create_cross_exchange_settlement(
-    "exchange_a",
-    "exchange_b",
-    1000.0,
-    "user_wallet_a",
-    "user_wallet_b"
-)
-```
-
-#### Economic Data Methods
-
-##### get_economic_overview()
-Get comprehensive economic overview.
-```python
-overview = economics.get_economic_overview()
-# Returns: {
-#   "market_data": {...},
-#   "trust_funds": {
-#     "total": 15,
-#     "by_type": {"public": 10, "private": 3, "foundation": 2},
-#     "total_balance": 50000.0,
-#     "monthly_revenue": 2500.0
-#   },
-#   "subscriptions": {
-#     "total": 150,
-#     "active": 120,
-#     "monthly_revenue": 1200.0
-#   },
-#   "foundation": {
-#     "balance": 10000000.0,
-#     "grants": 25,
-#     "active_grants": 8,
-#     "total_grants_value": 500000.0
-#   },
-#   "fee_distribution": {...},
-#   "fee_structure": {...}
-# }
-```
-
-##### get_trust_fund_details(trust_id)
-Get detailed trust fund information.
-```python
-details = economics.get_trust_fund_details("trust_123")
-# Returns: {
-#   "trust": {...},
-#   "subscriptions": [...],
-#   "revenue_trends": {
-#     "daily": 25.0,
-#     "weekly": 175.0,
-#     "monthly": 750.0,
-#     "average_daily": 25.0
-#   }
-# }
-```
-
-#### Economic Metrics
-
-##### update_price_data(price_usd, volume_24h)
-Update market price data.
-```python
-economics.economic_metrics.update_price_data(0.12, 50000.0)
-```
-
-##### get_market_data()
-Get current market data.
-```python
-market_data = economics.economic_metrics.get_market_data()
-# Returns: {
-#   "current_price_usd": 0.12,
-#   "volume_24h": 50000.0,
-#   "market_cap": 3000000.0,
-#   "circulating_supply": 25000000.0,
-#   "total_supply": 100000000.0,
-#   "exchange_rates": {"usd": 0.12, "eur": 0.11, "btc": 0.000001}
-# }
-```
-
-##### calculate_transaction_fee(amount, tx_type)
-Calculate transaction fee.
-```python
-fee = economics.economic_metrics.calculate_transaction_fee(100.0, "transfer")
-# Returns: 0.1 (0.1% of 100.0)
-```
-
----
-
-## 13. Integration APIs
-
-### Global Instance Access
-
-#### get_consensus_engine()
-Get global consensus engine instance.
-```python
-from pisecure.core.consensus import get_consensus_engine
-
-consensus = get_consensus_engine(blockchain, p2p_protocol, p2p_sync)
-```
-
-#### get_token_economics()
-Get global token economics instance.
-```python
-from pisecure.core.token_economics import get_token_economics
-
-economics = get_token_economics(blockchain)
-```
-
-#### get_p2p_protocol()
-Get global P2P protocol instance.
-```python
-from pisecure.core.p2p_protocol import get_p2p_protocol
-
-p2p = get_p2p_protocol()
-```
-
-### Convenience Functions
-
-#### start_p2p_protocol()
-Start PiSecure P2P protocol.
-```python
-from pisecure.core.p2p_protocol import start_p2p_protocol
-
-p2p = start_p2p_protocol("node_123", 3142, blockchain, p2p_sync)
-```
-
-#### stop_p2p_protocol()
-Stop PiSecure P2P protocol.
-```python
-from pisecure.core.p2p_protocol import stop_p2p_protocol
-```
-
-#### validate_block_with_consensus()
-Validate block using consensus engine.
-```python
-from pisecure.core.consensus import validate_block_with_consensus
-
-is_valid, reason = validate_block_with_consensus(block_data, "miner_wallet", blockchain)
-```
-
-### TrustType Enum
-
-```python
-from pisecure.core.token_economics import TrustType
-
-# Available trust types:
-TrustType.PUBLIC      # Open to all funders
-TrustType.PRIVATE     # Invite-only
-TrustType.FOUNDATION  # Foundation-managed
-TrustType.EXCHANGE    # Exchange-operated
-```
-
-### ConsensusAlgorithm Enum
-
-```python
-from pisecure.core.consensus import ConsensusAlgorithm
-
-# Available algorithms:
-ConsensusAlgorithm.PROOF_OF_WORK_SHA256
-ConsensusAlgorithm.PROOF_OF_WORK_SHA3
-ConsensusAlgorithm.PROOF_OF_WORK_PI_OPTIMIZED
-ConsensusAlgorithm.PROOF_OF_STAKE  # Future
-```
-
----
-
-## 14. Error Handling
-
-### HTTP Status Codes
-- `200`: Success
-- `201`: Created
-- `400`: Bad Request
-- `401`: Unauthorized
-- `403`: Forbidden
-- `404`: Not Found
-- `409`: Conflict
-- `422`: Unprocessable Entity
-- `429`: Too Many Requests
-- `500`: Internal Server Error
-- `503`: Service Unavailable
-
-### Error Response Format
-```json
-{
-  "error": {
-    "code": "INSUFFICIENT_FUNDS",
-    "message": "Wallet balance insufficient for transaction",
-    "details": {
-      "required": 10.0,
-      "available": 5.0,
-      "shortfall": 5.0
-    },
-    "timestamp": 1700000000.0,
-    "request_id": "req_12345"
-  }
-}
-```
-
-### Common Error Codes
-- `INSUFFICIENT_FUNDS`: Not enough balance for transaction
-- `INVALID_SIGNATURE`: Transaction signature invalid
-- `DOUBLE_SPEND`: Transaction already spent
-- `BLOCK_NOT_FOUND`: Block index out of range
-- `WALLET_NOT_FOUND`: Wallet address not found
-- `NAME_NOT_AVAILABLE`: PiNS name already registered
-- `TRUST_INSUFFICIENT`: Trust fund has insufficient balance
-- `MINING_NOT_ACTIVE`: Mining operation not running
-
----
-
-## 15. Rate Limiting
-
-### Rate Limits by Endpoint
-- Health checks: 1000/minute
-- Transaction submission: 50/minute per wallet
-- Balance queries: 500/minute per wallet
-- Network stats: 100/minute
-- Mining operations: 200/minute
-- Administrative operations: 10/minute
-
-### Rate Limit Headers
-```http
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1700000100
-X-RateLimit-Retry-After: 60
-```
-
-### Rate Limit Exceeded Response
-```json
-{
-  "error": {
-    "code": "RATE_LIMIT_EXCEEDED",
-    "message": "Too many requests",
-    "retry_after": 60,
-    "limit": 100,
-    "window": 60
-  }
-}
-```
-
-### Dynamic Rate Limiting (Bootstrap Intelligence)
-PiSecure implements intelligent rate limiting that adapts based on network conditions and threat intelligence:
-
-#### Intelligent Rate Adjustment
-- **Network Load Prediction**: Uses bootstrap server intelligence to predict traffic patterns
-- **Dynamic Scaling**: Automatically adjusts rate limits based on predicted connections
-- **Geographic Optimization**: Different rate limits for different geographic regions
-- **Threat-Based Adjustment**: Higher restrictions during detected attack patterns
-
-#### Rate Limit Intelligence
-```json
-{
-  "dynamic_rate_limiting": {
-    "enabled": true,
-    "current_limit": 75,
-    "base_limit": 100,
-    "adjustment_factor": 0.75,
-    "prediction_source": "bootstrap_intelligence",
-    "last_update": 1700000000.0,
-    "next_update": 1700000300.0
-  },
-  "network_conditions": {
-    "predicted_connections": 1500,
-    "confidence": "high",
-    "threat_level": "low"
-  }
-}
-```
-
----
-
-## 16. Authentication & Security
-
-### API Key Authentication
-```bash
-curl -H "X-API-Key: your_api_key" \
-     https://pisecure-bootstrap-production.up.railway.app/api/v1/wallet/balance
-```
-
-### Wallet Signature Authentication
-```json
-{
-  "transaction": {...},
-  "signature": "wallet_signature",
-  "timestamp": 1700000000.0
-}
-```
-
-### SSL/TLS Requirements
-- All production endpoints require HTTPS
-- SSL certificates must be valid and current
-- TLS 1.3 preferred, TLS 1.2 minimum
-- Certificate pinning recommended for mobile apps
-
----
-
-## 17. WebSocket API (Real-time Updates)
-
-### Connection
-```javascript
-const ws = new WebSocket('wss://pisecure-bootstrap-production.up.railway.app/ws/v1');
-```
-
-ws.onopen = () => {
-  ws.send(JSON.stringify({
-    type: 'subscribe',
-    channels: ['blocks', 'transactions', 'network']
-  }));
-};
-```
-
-### Message Types
-
-#### Block Notifications
-```json
-{
-  "type": "block",
-  "data": {
-    "index": 10492,
-    "hash": "block123...",
-    "transactions": 3,
-    "miner": "wallet_miner",
-    "timestamp": 1700000000.0
-  }
-}
-```
-
-#### Transaction Notifications
-```json
-{
-  "type": "transaction",
-  "data": {
-    "hash": "tx123...",
-    "type": "transfer",
-    "amount": 10.0,
-    "from": "wallet_from",
-    "to": "wallet_to",
-    "timestamp": 1700000000.0
-  }
-}
-```
-
-#### Network Updates
-```json
-{
-  "type": "network",
-  "data": {
-    "active_nodes": 46,
-    "hashrate": 1260.5,
-    "difficulty": 4.0
-  }
-}
-```
-
----
-
-## 18. SDK Examples
-
-### JavaScript SDK
-```javascript
-import { PiSecure } from 'pisecure-js';
-
-// Initialize client
-const client = new PiSecure({
-  apiUrl: 'https://pisecure-bootstrap-production.up.railway.app',
-  apiKey: 'your_api_key'
-});
-
-// Get wallet balance
-const balance = await client.getWalletBalance('wallet_address');
-
-// Create transaction
-const tx = await client.createTransaction({
-  from: 'wallet_from',
-  to: 'wallet_to',
-  amount: 10.0,
-  memo: 'Payment'
-});
-
-// Submit transaction
-const result = await client.submitTransaction(tx);
-```
-
-### Python SDK
-```python
-from pisecure import PiSecureClient
-
-# Initialize client
-client = PiSecureClient(
-    api_url='https://pisecure-bootstrap-production.up.railway.app',
-    api_key='your_api_key'
-)
-
-# Get blockchain info
-info = client.get_blockchain_info()
-
-# Create and fund trust
-trust = client.create_trust(
-    developer_address='dev_wallet',
-    trust_type='public',
-    initial_funding=100.0
-)
-
-# Register PiNS name
-name_tx = client.register_name(
-    name='myproject',
-    wallet_address='wallet_address'
-)
-```
-
----
-
-## 19. CLI Commands
-
-### Wallet Operations
-```bash
-# Create wallet
-pisecure wallet create --name "My Wallet"
-
-# Get balance
-pisecure wallet balance wallet_address
-
-# Send transaction
-pisecure wallet send --from wallet_from --to wallet_to --amount 10.0
-```
-
-### Mining Operations
-```bash
-# Start mining
-pisecure mine start --wallet wallet_address --threads 4
-
-# Check mining status
-pisecure mine status
-
-# Join mining syndicate
-pisecure syndicate join "PowerSyndicate"
-```
-
-### Network Operations
-```bash
-# Get network status
-pisecure network status
-
-# Discover peers
-pisecure network discover
-
-# Get bootstrap peers
-pisecure network bootstrap
-```
-
-### Token Economics
-```bash
-# Create developer trust
-pisecure trust create --developer dev_wallet --type public --funding 100.0
-
-# Subscribe to plan
-pisecure trust subscribe --trust trust_id --plan plan_id
-
-# Check access
-pisecure trust access --trust trust_id --operation "api_call"
-```
-
-### Syndicate Operations
-```bash
-# Create syndicate
-pisecure syndicate create "MySyndicate"
-
-# Join syndicate
-pisecure syndicate join "MySyndicate"
-
-# Syndicate stats
-pisecure syndicate stats "MySyndicate"
-```
-
----
-
-## 20. Integration Patterns
-
-### Webhook Notifications
-```json
-// Configure webhook URL
-{
-  "webhook_url": "https://your-app.com/webhooks/pisecure",
-  "events": ["block_mined", "transaction_received", "trust_funded"],
-  "secret": "webhook_secret"
-}
-
-// Webhook payload
-{
-  "event": "block_mined",
-  "data": {
-    "block_index": 10492,
-    "miner": "wallet_miner",
-    "reward": 25.0,
-    "transactions": 3
-  },
-  "timestamp": 1700000000.0,
-  "signature": "webhook_signature"
-}
-```
-
-### Batch Operations
-```json
-// Multiple transactions
-{
-  "transactions": [
-    {
-      "type": "transfer",
-      "data": {"from": "wallet1", "to": "wallet2", "amount": 5.0}
-    },
-    {
-      "type": "transfer",
-      "data": {"from": "wallet1", "to": "wallet3", "amount": 3.0}
-    }
-  ],
-  "atomic": true,
-  "signature": "batch_signature"
-}
-```
-
----
-
-## 21. Usage Examples
-
-### Complete Node Setup
-```python
-from pisecure.core.blockchain import SignChain
-from pisecure.core.p2p_protocol import start_p2p_protocol
-from pisecure.core.consensus import get_consensus_engine
-from pisecure.core.token_economics import get_token_economics
-
-# Initialize components
-blockchain = SignChain()
-p2p = start_p2p_protocol("node_123", 3142, blockchain)
-consensus = get_consensus_engine(blockchain, p2p)
-economics = get_token_economics(blockchain)
-
-# Start background services
-consensus.p2p_protocol.start()
-economics.start()
-
-# Create mining syndicate
-syndicate = consensus.create_mining_syndicate("my_syndicate", "founder_wallet")
-
-# Create developer trust
-trust_id = economics.create_trust_fund("dev_wallet", TrustType.PUBLIC, 1000.0)
-
-print("PiSecure production node ready!")
-```
-
-### Mining Syndicate Operations
-```python
-# Join syndicate
-success = consensus.join_mining_syndicate("my_syndicate", "miner_wallet", 5.2, 2.5, "us-west")
-
-# Submit shares
-consensus.submit_syndicate_share("my_syndicate", "miner_wallet", {
-    "nonce": 12345678,
-    "timestamp": time.time(),
-    "block_hash": "hash123...",
-    "hash": "share_hash..."
-})
-
-# Get syndicate stats
-stats = consensus.get_syndicate_stats("my_syndicate")
-print(f"Syndicate hashrate: {stats['total_hashrate']} MH/s")
-```
-
-### Economic Operations
-```python
-# Create subscription plan
-plan_id = economics.create_subscription_plan(trust_id, {
-    "name": "Premium API",
-    "price": 10.0,
-    "billing_cycle": "monthly"
-})
-
-# Subscribe user
-subscription_id = economics.subscribe_to_plan(trust_id, "user_wallet", plan_id)
-
-# Get economic overview
-overview = economics.get_economic_overview()
-print(f"Total trust funds: {overview['trust_funds']['total']}")
-print(f"Monthly revenue: ${overview['trust_funds']['monthly_revenue']}")
-```
-
----
-
-## 23. Advanced Cryptographic Features
-
-### Zero-Knowledge Token Authenticity Proofs
-
-PiSecure implements advanced zero-knowledge proofs for token authenticity that prove token legitimacy without revealing sensitive hardware information.
-
-#### POST /api/v1/transaction/submit-zk
-Submit transaction with zero-knowledge authenticity proof.
-
-**Request:**
-```json
-{
-  "transaction": {
-    "type": "token_transfer",
-    "sender_address": "wallet_from",
-    "recipient_address": "wallet_to",
-    "amount": 100.0,
-    "timestamp": 1700000000.0
-  },
-  "zk_proof": {
-    "proof_type": "zk_token_authenticity",
-    "token_id": "token_123",
-    "statement": "This token was legitimately created on verified hardware",
-    "proof": {
-      "commitment": "sha256_commitment",
-      "challenge_response": "proof_response",
-      "range_proof": {...},
-      "consistency_proof": {...}
-    },
-    "public_inputs": {
-      "token_id": "token_123",
-      "transaction_hash": "tx_hash",
-      "timestamp": 1700000000.0,
-      "amount": 100.0
-    },
-    "security_level": 128
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "transaction_hash": "tx123...",
-  "zk_verification": {
-    "proof_valid": true,
-    "security_level": 128,
-    "verification_time": 0.023
-  },
-  "status": "submitted"
-}
-```
-
-#### GET /api/v1/zk/proof-status/{proof_id}
-Check zero-knowledge proof verification status.
-
-**Response:**
-```json
-{
-  "proof_id": "proof_123",
-  "status": "verified",
-  "verification_result": {
-    "is_valid": true,
-    "confidence": 0.999,
-    "verification_time": 0.023,
-    "security_level": 128
-  },
-  "cache_hit": true,
-  "timestamp": 1700000000.0
-}
-```
-
-### Quantum-Resistant Signature Schemes
-
-PiSecure supports XMSS (eXtended Merkle Signature Scheme) for post-quantum cryptographic security.
-
-#### POST /api/v1/wallet/create-xmss
-Create wallet with quantum-resistant XMSS signatures.
-
-**Request:**
-```json
-{
-  "wallet_id": "secure_wallet",
-  "name": "Quantum-Secure Wallet",
-  "key_size": 32,
-  "tree_height": 10
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "wallet_id": "secure_wallet",
-  "xmss_keypair": {
-    "key_id": "xmss_key_123",
-    "algorithm": "XMSS",
-    "parameters": {
-      "key_size": 32,
-      "tree_height": 10,
-      "max_signatures": 1024
-    },
-    "public_key": "xmss_public_key_hex",
-    "generated_at": 1700000000.0
-  },
-  "remaining_signatures": 1024
-}
-```
-
-#### POST /api/v1/wallet/sign-xmss
-Sign transaction with XMSS quantum-resistant signature.
-
-**Request:**
-```json
-{
-  "wallet_id": "secure_wallet",
-  "key_id": "xmss_key_123",
-  "transaction": {
-    "type": "token_transfer",
-    "sender_address": "wallet_from",
-    "recipient_address": "wallet_to",
-    "amount": 100.0,
-    "timestamp": 1700000000.0
-  }
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "transaction": {
-    "type": "token_transfer",
-    "sender_address": "wallet_from",
-    "recipient_address": "wallet_to",
-    "amount": 100.0,
-    "timestamp": 1700000000.0,
-    "xmss_signature": {
-      "signature_type": "XMSS",
-      "key_id": "xmss_key_123",
-      "signature": "xmss_signature_hex",
-      "signature_index": 0,
-      "message_hash": "sha256_hash",
-      "timestamp": 1700000000.0,
-      "remaining_signatures": 1023
-    }
-  }
-}
-```
-
-#### GET /api/v1/wallet/xmss-status/{key_id}
-Get XMSS key status and signature usage.
-
-**Response:**
-```json
-{
-  "key_id": "xmss_key_123",
-  "algorithm": "XMSS",
-  "used_signatures": 5,
-  "remaining_signatures": 1019,
-  "max_signatures": 1024,
-  "usage_percentage": 0.49,
-  "is_exhausted": false,
-  "key_status": "active",
-  "last_used": 1700000000.0
-}
-```
-
-#### POST /api/v1/wallet/rotate-xmss
-Rotate to new XMSS key when current key is exhausted.
-
-**Request:**
-```json
-{
-  "old_key_id": "xmss_key_123",
-  "new_wallet_id": "secure_wallet_rotated"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "rotation_complete": true,
-  "old_key_status": {
-    "key_id": "xmss_key_123",
-    "used_signatures": 1024,
-    "is_exhausted": true
-  },
-  "new_keypair": {
-    "key_id": "xmss_key_456",
-    "algorithm": "XMSS",
-    "remaining_signatures": 1024
-  },
-  "rotation_timestamp": 1700000000.0
-}
-```
-
-### Hardware-Verified Block Seals
-
-PiSecure implements hardware-verified block seals for enhanced mining authenticity.
-
-#### GET /api/v1/blockchain/seal-info/{block_index}
-Get hardware seal information for a block.
-
-**Response:**
-```json
-{
-  "block_index": 10492,
-  "has_hardware_seal": true,
-  "seal_info": {
-    "seal_type": "pi_hardware_verified",
-    "hardware_fingerprint": "pi4_2gb_verified",
-    "security_level": 2,
-    "verification_status": "valid",
-    "seal_timestamp": 1700000000.0
-  },
-  "mining_authenticity": {
-    "hardware_verified": true,
-    "asic_resistant": true,
-    "miner_type": "raspberry_pi_4",
-    "mining_algorithm": "sha3"
-  }
-}
-```
-
-### Cryptographic Security Features
-
-#### GET /api/v1/security/crypto-status
-Get comprehensive cryptographic security status.
-
-**Response:**
-```json
-{
-  "zk_proofs": {
-    "enabled": true,
-    "security_level": 128,
-    "proof_cache_size": 1000,
-    "average_verification_time": 0.023
-  },
-  "quantum_resistance": {
-    "xmss_enabled": true,
-    "active_keys": 5,
-    "total_signatures_used": 2500,
-    "keys_exhausted": 1,
-    "key_rotations": 2
-  },
-  "hardware_verification": {
-    "enabled": true,
-    "supported_models": ["pi3", "pi4", "pi5", "pi400", "pi_zero_2_w"],
-    "active_verifications": 12,
-    "verification_success_rate": 0.98
-  },
-  "advanced_security": {
-    "multi_layer_authenticity": true,
-    "temporal_anchoring": true,
-    "cross_validation": false,
-    "quantum_threat_level": "low"
-  },
-  "performance_impact": {
-    "zk_verification_overhead": "3-5x slower",
-    "xmss_signature_overhead": "2-4x slower",
-    "hardware_verification_overhead": "minimal",
-    "overall_security_benefit": "quantum-resistant"
-  }
-}
-```
-
----
-
-## 22. Performance Metrics
-
-### Scalability Targets
-- **P2P Connections**: 1000+ concurrent peers
-- **Block Propagation**: <2 seconds network-wide
-- **Consensus Validation**: <5 seconds
-- **Mining Syndicate Shares**: 10000+ shares/minute
-- **Economic Transactions**: 1000+ tx/minute
-
-### Memory Usage
-- **Base Node**: ~50MB RAM
-- **Full Node**: ~200MB RAM
-- **Mining Syndicate**: ~100MB RAM + hashrate scaling
-
-### Network Bandwidth
-- **Block Propagation**: ~1KB per block
-- **Transaction Announcements**: ~0.5KB per transaction
-- **Consensus Messages**: ~0.2KB per message
-- **Heartbeat Traffic**: ~50KB/hour per connection
-
----
-
-This comprehensive API documentation covers all aspects of the PiSecure blockchain platform and 314ST token economics system. The APIs are designed for high performance, security, and developer experience with real blockchain data integration and production-ready syndicate mining.
+*This documentation combines PiSecure blockchain platform APIs with Ghostwheel Sentinel AI integration for comprehensive network security and monitoring capabilities.*
