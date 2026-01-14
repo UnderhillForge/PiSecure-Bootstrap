@@ -626,6 +626,35 @@
             </div>
         </div>
 
+        <!-- Sentinel Intelligence -->
+        <div class="card" id="sentinelIntelligenceCard">
+            <h3>🛡️ Sentinel Intelligence</h3>
+            <div class="metric">
+                <span class="metric-label">Threat Level</span>
+                <span class="metric-value" id="threatLevel">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Active Attacks</span>
+                <span class="metric-value status-warning" id="activeAttacks">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Defense Effectiveness</span>
+                <span class="metric-value status-healthy" id="defenseEffectiveness">--%</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Blocked IPs</span>
+                <span class="metric-value" id="blockedIPs">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Active Threat Zones</span>
+                <span class="metric-value" id="threatZones">--</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Ghostwheel Status</span>
+                <span class="metric-value status-healthy" id="ghostwheelStatus">--</span>
+            </div>
+        </div>
+
         <!-- Recent Blocks -->
         <div class="card recent-blocks-card" id="recentBlocksCard">
             <h3>📦 Recent Blocks</h3>
@@ -903,6 +932,26 @@
             }
         }
 
+        async function fetchSentinelIntelligence() {
+            try {
+                // Fetch both attack detection and defense status data
+                const [attacksResponse, defenseResponse, nodesResponse] = await Promise.all([
+                    fetch('/api/v1/intelligence/attacks'),
+                    fetch('/api/v1/intelligence/defense'),
+                    fetch('/api/v1/nodes/list')
+                ]);
+
+                const attacksData = attacksResponse.ok ? await attacksResponse.json() : {};
+                const defenseData = defenseResponse.ok ? await defenseResponse.json() : {};
+                const nodesData = nodesResponse.ok ? await nodesResponse.json() : {};
+
+                updateSentinelIntelligence({ attacksData, defenseData, nodesData });
+            } catch (error) {
+                console.error('Failed to fetch sentinel intelligence:', error);
+                updateSentinelIntelligence({});
+            }
+        }
+
         // Update functions
         function updateNetworkOverview(data) {
             // Use real registered node data for total/active counts
@@ -1030,6 +1079,90 @@
             console.log(`✅ Registered nodes data: ${totalRegistered} total, ${activeNodes} active`);
         }
 
+        function updateSentinelIntelligence(data) {
+            const { attacksData, defenseData, nodesData } = data;
+
+            // Get attacks intelligence
+            const attacks = attacksData?.detected_attacks || [];
+            const threatLevel = attacksData?.threat_level || 'unknown';
+            
+            // Get defense intelligence
+            const defenseStatus = defenseData?.defense_status || {};
+            const defenseEffectiveness = defenseStatus.effectiveness_score || 0;
+            const blockedIPs = defenseStatus.blocked_ips?.length || 0;
+            const threatZones = defenseStatus.threat_zones || [];
+            
+            // Check if Ghostwheel is registered and active
+            const allNodes = nodesData?.nodes || [];
+            const ghostwheelNode = allNodes.find(node => 
+                node.node_id === 'ghostwheel-sentinel-ai' || 
+                node.node_type === 'sentinel_ai'
+            );
+            
+            // Update threat level with color coding
+            const threatLevelEl = document.getElementById('threatLevel');
+            if (threatLevel === 'low') {
+                threatLevelEl.textContent = '🟢 Low';
+                threatLevelEl.className = 'metric-value status-healthy';
+            } else if (threatLevel === 'medium') {
+                threatLevelEl.textContent = '🟡 Medium';
+                threatLevelEl.className = 'metric-value status-warning';
+            } else if (threatLevel === 'high') {
+                threatLevelEl.textContent = '🔴 High';
+                threatLevelEl.className = 'metric-value status-error';
+            } else if (threatLevel === 'critical') {
+                threatLevelEl.textContent = '🔴 CRITICAL';
+                threatLevelEl.className = 'metric-value status-error';
+            } else {
+                threatLevelEl.textContent = '⚪ Unknown';
+                threatLevelEl.className = 'metric-value status-initializing';
+            }
+            
+            // Update active attacks count
+            const activeAttacksEl = document.getElementById('activeAttacks');
+            activeAttacksEl.textContent = attacks.length;
+            if (attacks.length === 0) {
+                activeAttacksEl.className = 'metric-value status-healthy';
+            } else if (attacks.length < 5) {
+                activeAttacksEl.className = 'metric-value status-warning';
+            } else {
+                activeAttacksEl.className = 'metric-value status-error';
+            }
+            
+            // Update defense effectiveness
+            const defenseEffectivenessEl = document.getElementById('defenseEffectiveness');
+            defenseEffectivenessEl.textContent = `${Math.round(defenseEffectiveness)}%`;
+            if (defenseEffectiveness >= 80) {
+                defenseEffectivenessEl.className = 'metric-value status-healthy';
+            } else if (defenseEffectiveness >= 60) {
+                defenseEffectivenessEl.className = 'metric-value status-warning';
+            } else {
+                defenseEffectivenessEl.className = 'metric-value status-error';
+            }
+            
+            // Update blocked IPs
+            document.getElementById('blockedIPs').textContent = blockedIPs;
+            
+            // Update threat zones
+            document.getElementById('threatZones').textContent = 
+                threatZones.length > 0 ? threatZones.join(', ') : 'None';
+            
+            // Update Ghostwheel status
+            const ghostwheelStatusEl = document.getElementById('ghostwheelStatus');
+            if (ghostwheelNode && ghostwheelNode.status === 'active') {
+                ghostwheelStatusEl.textContent = '🟢 Active';
+                ghostwheelStatusEl.className = 'metric-value status-healthy';
+            } else if (ghostwheelNode) {
+                ghostwheelStatusEl.textContent = '🟡 Registered';
+                ghostwheelStatusEl.className = 'metric-value status-warning';
+            } else {
+                ghostwheelStatusEl.textContent = '⚪ Not Connected';
+                ghostwheelStatusEl.className = 'metric-value status-initializing';
+            }
+            
+            console.log(`✅ Sentinel Intelligence: ${attacks.length} attacks, ${threatLevel} threat level, ${Math.round(defenseEffectiveness)}% effective`);
+        }
+
         // Main update function
         async function updateAllData() {
             try {
@@ -1037,7 +1170,8 @@
                     fetchNetworkStats(),
                     fetchBlockchainInfo(),
                     fetchMiningStatus(),
-                    fetchBootstrapRegistry()
+                    fetchBootstrapRegistry(),
+                    fetchSentinelIntelligence()
                 ]);
 
                 lastUpdate = Date.now();
