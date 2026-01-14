@@ -105,6 +105,108 @@ def get_default_config():
             },
             "network": {
                 "domain": "bootstrap.pisecure.org",
+                def _normalize_hostname(value):
+                    """Normalize host/domain strings pulled from config or env."""
+                    if not value:
+                        return ''
+
+                    host = value.strip()
+                    if not host:
+                        return ''
+
+                    if '://' in host:
+                        host = host.split('://', 1)[1]
+
+                    host = host.split('/', 1)[0]
+                    host = host.split(':', 1)[0]
+                    return host.lower()
+
+
+                def _discover_runtime_domain(existing_network):
+                    """Best-effort detection of the hostname this instance will advertise."""
+                    candidates = [
+                        os.getenv('BOOTSTRAP_DOMAIN'),
+                        os.getenv('RAILWAY_PUBLIC_DOMAIN'),
+                        os.getenv('RAILWAY_STATIC_URL'),
+                        os.getenv('RENDER_EXTERNAL_URL')
+                    ]
+
+                    if existing_network:
+                        candidates.append(existing_network.get('domain'))
+
+                    for candidate in candidates:
+                        normalized = _normalize_hostname(candidate)
+                        if normalized:
+                            return normalized
+
+                    return ''
+
+
+                def _get_primary_domains():
+                    """Return the list of domains that should be treated as primary nodes."""
+                    domains = []
+                    for raw in (
+                        os.getenv('PRIMARY_BOOTSTRAP_DOMAIN'),
+                        os.getenv('PRIMARY_BOOTSTRAP_DOMAINS'),
+                        os.getenv('PRIMARY_DOMAINS')
+                    ):
+                        if not raw:
+                            continue
+                        domains.extend([entry.strip() for entry in raw.split(',') if entry.strip()])
+
+                    if not domains:
+                        domains = [
+                            'bootstrap.pisecure.org',
+                            'pisecure-bootstrap-production.up.railway.app'
+                        ]
+
+                    normalized = []
+                    for domain in domains:
+                        host = _normalize_hostname(domain)
+                        if host:
+                            normalized.append(host)
+
+                    return normalized
+
+
+                def _safe_slug(value, fallback):
+                    if not value:
+                        return fallback
+
+                    sanitized = ''.join(char if char.isalnum() else '-' for char in value.lower())
+                    sanitized = '-'.join(filter(None, sanitized.split('-')))
+                    return sanitized or fallback
+
+
+                def _build_secondary_name(region, hostname):
+                    if region and region not in ('unknown',):
+                        pretty_region = region.replace('-', ' ').title()
+                        return f"PiSecure Bootstrap {pretty_region}"
+
+                    if hostname:
+                        prefix = hostname.split('.', 1)[0]
+                        pretty_prefix = prefix.replace('-', ' ').title()
+                        return f"PiSecure Bootstrap {pretty_prefix}"
+
+                    return "PiSecure Bootstrap Secondary"
+
+
+                def _generate_secondary_node_id(hostname, region):
+                    region_slug = _safe_slug(region, 'global')
+                    host_slug = _safe_slug(hostname, 'secondary')
+                    entropy_source = '-'.join(filter(None, [
+                        os.getenv('RAILWAY_ENVIRONMENT_ID'),
+                        os.getenv('RAILWAY_ENVIRONMENT_NAME'),
+                        os.getenv('RAILWAY_PROJECT_ID'),
+                        hostname,
+                        os.getenv('HOSTNAME')
+                    ]))
+
+                    if not entropy_source:
+                        entropy_source = host_slug
+
+                    digest = hashlib.sha256(entropy_source.encode('utf-8')).hexdigest()[:8]
+                    return f"bootstrap-{region_slug}-{host_slug}-{digest}"
                 "ip_address": "0.0.0.0",
                 "ports": {"bootstrap": 3142, "api": 8080},
                 "region": "us-east"
