@@ -2953,7 +2953,17 @@ def _validate_node_registration(registration_data: dict) -> bool:
         return False
 
     # Validate node_type
-    valid_types = ['miner', 'validator', 'wallet', 'bootstrap', 'standard']
+    valid_types = [
+        'miner',
+        'validator',
+        'wallet',
+        'bootstrap',
+        'standard',
+        'sentinel',
+        'sentinel_ai',
+        'sentinel_ai_v2',
+        'observer'
+    ]
     if registration_data.get('node_type') not in valid_types:
         return False
 
@@ -4264,6 +4274,56 @@ def intelligence_federation_status():
     except Exception as e:
         logger.error(f"Intelligence federation status error: {e}")
         return jsonify({'error': 'Federation status unavailable'}), 500
+
+
+@app.route('/api/v1/intelligence/cache', methods=['GET'])
+def intelligence_cache_metadata_endpoint():
+    """Expose cache metadata for intelligence and registry layers."""
+    logger.info("Intelligence cache metadata endpoint called")
+
+    try:
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip, request.headers.get('User-Agent', ''))
+
+        refresh_insights = request.args.get('fresh', 'false').lower() == 'true'
+
+        insights_meta = network_intelligence.get_insights_cache_metadata()
+        if refresh_insights:
+            network_intelligence.get_network_insights(force_refresh=True)
+            insights_meta = network_intelligence.get_insights_cache_metadata()
+
+        registry_data = PRIMARY_REGISTRY_CACHE.get('data')
+        registry_timestamp = PRIMARY_REGISTRY_CACHE.get('timestamp', 0.0)
+        registry_age = time.time() - registry_timestamp if registry_timestamp else None
+
+        registry_meta = {
+            'has_snapshot': registry_data is not None,
+            'last_refresh': registry_timestamp,
+            'age_seconds': registry_age,
+            'cache_ttl_seconds': PRIMARY_REGISTRY_CACHE_TTL,
+            'cached_secondary_nodes': len(registry_data.get('secondary_nodes', [])) if isinstance(registry_data, dict) else 0,
+            'cached_primary_node': registry_data.get('primary_node', {}).get('node_id') if isinstance(registry_data, dict) else None
+        }
+
+        bootstrap_registry_meta = {
+            'registered_secondary_nodes': len(_get_registered_bootstrap_nodes()),
+            'intelligence_peers': len(intelligence_federation.intelligence_peers),
+            'last_sync_times': intelligence_federation.last_sync_times,
+            'shared_intelligence_keys': list(intelligence_federation.shared_intelligence.keys())
+        }
+
+        response = {
+            'insights_cache': insights_meta,
+            'primary_registry_cache': registry_meta,
+            'bootstrap_registry': bootstrap_registry_meta,
+            'timestamp': time.time()
+        }
+
+        return jsonify(response)
+
+    except Exception as e:
+        logger.error(f"Intelligence cache metadata error: {e}")
+        return jsonify({'error': 'Cache metadata unavailable'}), 500
 
 @app.route('/api/v1/intelligence/share', methods=['POST'])
 def share_intelligence():
