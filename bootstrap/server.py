@@ -3586,30 +3586,49 @@ def bootstrap_peers():
         dex_config = NODE_CONFIG.get('dex', {}) if NODE_CONFIG else {}
         node_capabilities = NODE_CONFIG.get('node', {}).get('capabilities', []) if NODE_CONFIG else []
 
-        # Build primary bootstrap peer with safe access
+        is_secondary = NODE_IDENTITY.get('role') == 'secondary' if NODE_IDENTITY else False
+
+        if is_secondary:
+            upstream_registry = _fetch_primary_registry_snapshot()
+            if upstream_registry:
+                primary_descriptor = upstream_registry.get('primary_node') or _build_primary_env_descriptor()
+                secondary_bootstraps = upstream_registry.get('secondary_nodes', [])
+
+                # Ensure this node is represented in the secondary list
+                local_descriptor = _build_local_bootstrap_descriptor('community_trusted')
+                local_id = local_descriptor.get('node_id')
+                if local_id and all(node.get('node_id') != local_id for node in secondary_bootstraps):
+                    secondary_bootstraps.append(local_descriptor)
+            else:
+                primary_descriptor = _build_primary_env_descriptor()
+                secondary_bootstraps = [_build_local_bootstrap_descriptor('community_trusted')]
+        else:
+            primary_descriptor = _build_local_bootstrap_descriptor('foundation_verified')
+            secondary_bootstraps = _get_registered_bootstrap_nodes()
+
+        # Build primary bootstrap peer using descriptor data
         primary_peer = {
-            'node_id': NODE_IDENTITY.get('node_id', 'bootstrap-primary') if NODE_IDENTITY else 'bootstrap-primary',
-            'address': network_config.get('domain', 'bootstrap.pisecure.org'),
-            'port': network_config.get('ports', {}).get('bootstrap', 3142),
-            'services': node_capabilities,
-            'capabilities': node_capabilities,
-            'location': network_config.get('region', 'us-east'),
-            'operator': NODE_IDENTITY.get('operator', 'PiSecure Foundation') if NODE_IDENTITY else 'PiSecure Foundation',
-            'trust_level': 'foundation_verified',
-            'version': NODE_IDENTITY.get('version', '1.0.0') if NODE_IDENTITY else '1.0.0',
-            'federation_enabled': federation_config.get('enabled', True),
-            'intelligence_capable': True,
-            'dex_coordination': dex_config.get('coordination_enabled', False),
+            'node_id': primary_descriptor.get('node_id', 'bootstrap-primary'),
+            'address': primary_descriptor.get('address') or network_config.get('domain', 'bootstrap.pisecure.org'),
+            'port': primary_descriptor.get('port', network_config.get('ports', {}).get('bootstrap', 3142)),
+            'services': primary_descriptor.get('services', node_capabilities),
+            'capabilities': primary_descriptor.get('capabilities', node_capabilities),
+            'location': primary_descriptor.get('region', network_config.get('region', 'us-east')),
+            'operator': primary_descriptor.get('operator', NODE_IDENTITY.get('operator', 'PiSecure Foundation') if NODE_IDENTITY else 'PiSecure Foundation'),
+            'trust_level': primary_descriptor.get('trust_level', 'foundation_verified'),
+            'version': primary_descriptor.get('version', NODE_IDENTITY.get('version', '1.0.0') if NODE_IDENTITY else '1.0.0'),
+            'federation_enabled': primary_descriptor.get('intelligence_sharing', federation_config.get('intelligence_sharing', True)),
+            'intelligence_capable': 'intelligence_sharing' in primary_descriptor.get('capabilities', []),
+            'dex_coordination': primary_descriptor.get('dex_coordination', dex_config.get('coordination_enabled', False)),
             'last_seen': time.time(),
-            'reliability_score': 1.0,  # Primary is always 100% reliable
-            'load_factor': 0.0,  # Primary has minimal load
-            'intelligence_sharing': federation_config.get('intelligence_sharing', True)
+            'reliability_score': 1.0,
+            'load_factor': 0.0,
+            'intelligence_sharing': primary_descriptor.get('intelligence_sharing', True)
         }
 
         peers = [primary_peer]
 
         # Add active secondary bootstrap nodes
-        secondary_bootstraps = _get_registered_bootstrap_nodes()
         for bootstrap in secondary_bootstraps:
             # Apply intelligent filtering if requested
             if intelligence_enabled and requesting_location:
@@ -3638,13 +3657,13 @@ def bootstrap_peers():
                 'port': bootstrap['port'],
                 'services': bootstrap['services'],
                 'capabilities': bootstrap['capabilities'],
-                'location': bootstrap['region'],
-                'operator': 'Community Operator',  # Secondary bootstraps are community-operated
-                'trust_level': 'community_trusted',
+                'location': bootstrap.get('region', 'unknown'),
+                'operator': bootstrap.get('operator', 'Community Operator'),
+                'trust_level': bootstrap.get('trust_level', 'community_trusted'),
                 'version': bootstrap.get('version', 'unknown'),
-                'federation_enabled': True,  # All secondary bootstraps support federation
+                'federation_enabled': bootstrap.get('intelligence_sharing', True),
                 'intelligence_capable': 'intelligence_sharing' in bootstrap.get('capabilities', []),
-                'dex_coordination': False,  # Secondary bootstraps don't coordinate DEX by default
+                'dex_coordination': bootstrap.get('dex_coordination', False),
                 'last_seen': last_seen,
                 'reliability_score': reliability_score,
                 'load_factor': bootstrap.get('load_factor', 0.5),
