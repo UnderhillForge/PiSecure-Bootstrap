@@ -47,6 +47,18 @@ try:
 except ValueError:
     PRIMARY_REGISTRY_CACHE_TTL = 120
 
+PRIMARY_NODELIST_CACHE = {}
+
+try:
+    PRIMARY_NODELIST_CACHE_TTL = float(os.getenv('PRIMARY_NODELIST_CACHE_TTL', '15'))
+except ValueError:
+    PRIMARY_NODELIST_CACHE_TTL = 15.0
+
+try:
+    PRIMARY_API_TIMEOUT = float(os.getenv('PRIMARY_BOOTSTRAP_TIMEOUT', '6'))
+except ValueError:
+    PRIMARY_API_TIMEOUT = 6.0
+
 
 def _normalize_hostname(value):
     """Normalize host/domain strings pulled from config or env."""
@@ -239,15 +251,18 @@ def _build_default_network_info(total_nodes: int) -> dict:
         'intelligence_nodes': total_nodes
     }
 
+def _get_primary_api_base() -> str:
+    domain = _normalize_hostname(os.getenv('PRIMARY_BOOTSTRAP_DOMAIN')) or 'bootstrap.pisecure.org'
+    scheme = (os.getenv('PRIMARY_BOOTSTRAP_SCHEME', 'https') or 'https').lower()
+    return f"{scheme}://{domain}"
+
 
 def _get_primary_registry_url() -> str:
     explicit_url = os.getenv('PRIMARY_BOOTSTRAP_REGISTRY_URL')
     if explicit_url:
         return explicit_url
 
-    domain = os.getenv('PRIMARY_BOOTSTRAP_DOMAIN', 'bootstrap.pisecure.org')
-    scheme = os.getenv('PRIMARY_BOOTSTRAP_SCHEME', 'https')
-    return f"{scheme}://{domain}/api/v1/bootstrap/registry"
+    return f"{_get_primary_api_base()}/api/v1/bootstrap/registry"
 
 
 def _fetch_primary_registry_snapshot(force_refresh: bool = False):
@@ -260,7 +275,7 @@ def _fetch_primary_registry_snapshot(force_refresh: bool = False):
         return PRIMARY_REGISTRY_CACHE['data']
 
     registry_url = _get_primary_registry_url()
-    timeout = float(os.getenv('PRIMARY_BOOTSTRAP_TIMEOUT', '6'))
+    timeout = PRIMARY_API_TIMEOUT
 
     try:
         response = requests.get(registry_url, timeout=timeout)
@@ -272,6 +287,46 @@ def _fetch_primary_registry_snapshot(force_refresh: bool = False):
     except (requests.RequestException, ValueError) as exc:
         logger.warning("Primary registry fetch failed: %s", exc)
         return PRIMARY_REGISTRY_CACHE['data']
+
+
+def _build_primary_nodes_cache_key(query_params=None) -> str:
+    if not query_params:
+        return '__default__'
+
+    normalized_items = []
+    for key in sorted(query_params.keys()):
+        value = query_params[key]
+        if value is None:
+            continue
+        normalized_items.append(f"{key}={value}")
+
+    return '&'.join(normalized_items) or '__default__'
+
+
+def _fetch_primary_nodes_snapshot(force_refresh: bool = False, query_params=None):
+    if NODE_IDENTITY.get('role') != 'secondary':
+        return None
+
+    cache_key = _build_primary_nodes_cache_key(query_params)
+    cache_entry = PRIMARY_NODELIST_CACHE.setdefault(cache_key, {'data': None, 'timestamp': 0.0})
+    now = time.time()
+
+    if (not force_refresh and cache_entry['data'] and
+            now - cache_entry['timestamp'] < PRIMARY_NODELIST_CACHE_TTL):
+        return cache_entry['data']
+
+    nodes_url = f"{_get_primary_api_base()}/api/v1/nodes/list"
+
+    try:
+        response = requests.get(nodes_url, params=query_params, timeout=PRIMARY_API_TIMEOUT)
+        response.raise_for_status()
+        nodes_data = response.json()
+        cache_entry['data'] = nodes_data
+        cache_entry['timestamp'] = now
+        return nodes_data
+    except (requests.RequestException, ValueError) as exc:
+        logger.warning("Primary node directory fetch failed: %s", exc)
+        return cache_entry['data']
 
 
 def load_node_config():
@@ -1536,6 +1591,15 @@ class NetworkIntelligence:
             latency_penalty = max(0, (self.latency_stats['mean'] - 100) / 4)
             performance_score = max(0, 100 - latency_penalty)
 
+        low_connection_sample = len(self.connection_timestamps) < 25
+        low_geographic_sample = len(self.geographic_distribution) < 2
+
+        if low_connection_sample and recent_connections < 5:
+            connectivity_score = max(connectivity_score, 80)
+
+        if (low_geographic_sample or active_locations == 0) and recent_connections == 0:
+            geographic_score = max(geographic_score, 75)
+
         # Overall health (weighted average)
         overall_health = (
             connectivity_score * 0.3 +
@@ -1543,6 +1607,9 @@ class NetworkIntelligence:
             attack_score * 0.3 +
             performance_score * 0.2
         )
+
+        if low_connection_sample and recent_attacks == 0 and performance_score >= 70:
+            overall_health = max(overall_health, 85)
 
         self.health_metrics.update({
             'connectivity_score': connectivity_score,
@@ -4933,12 +5000,35 @@ def list_registered_nodes():
         client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
         network_intelligence.record_connection(client_ip)
 
-        # Get filter parameters
-        node_type = request.args.get('type')
-        location = request.args.get('location')
-        service = request.args.get('service')
+        # Get filter parameters and optional freshness hint
+        query_params = request.args.to_dict(flat=True)
+        force_refresh = query_params.pop('fresh', 'false').lower() == 'true'
+        node_type = query_params.get('type')
+        location = query_params.get('location')
+        service = query_params.get('service')
 
-        # Retrieve registered nodes
+        # Secondary bootstraps proxy the primary node directory for unified dashboards
+        upstream_nodes = None
+        if NODE_IDENTITY and NODE_IDENTITY.get('role') == 'secondary':
+            upstream_nodes = _fetch_primary_nodes_snapshot(
+                force_refresh=force_refresh,
+                query_params=query_params
+            )
+
+        if upstream_nodes:
+            proxied_payload = {**upstream_nodes}
+            proxied_payload.setdefault('filters_applied', {
+                'type': node_type,
+                'location': location,
+                'service': service
+            })
+            proxied_payload.setdefault('timestamp', time.time())
+            proxied_payload['proxied_from_primary'] = True
+            proxied_payload['primary_endpoint'] = _get_primary_api_base()
+            proxied_payload['proxied_by'] = NODE_IDENTITY.get('node_id')
+            return jsonify(proxied_payload)
+
+        # Retrieve registered nodes locally (primary or fallback)
         nodes_list = _get_registered_nodes_filtered(node_type, location, service)
 
         # Add intelligence insights

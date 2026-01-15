@@ -12,6 +12,7 @@ An intelligent, ML-powered bootstrap node for the PiSecure P2P network with adva
 **🆕 Latest Updates (Deployed 2026-01-13)**
 - ✅ **Services Status API**: New `/api/v1/services/status` endpoint with real-time port information
 - ✅ **Ghostwheel Support**: Added `sentinel_ai` node type for Ghostwheel registration
+- ✅ **Federated Dashboards**: Secondary nodes now proxy registry + Ghostwheel status from the primary cluster
 - ✅ **Dashboard Enhancements**: Service Status card now displays actual running ports
 - ✅ **API Documentation**: Complete documentation for all endpoints
 - ✅ **Intelligence Federation**: Cross-bootstrap threat sharing active
@@ -149,7 +150,15 @@ BOOTSTRAP_HOST=0.0.0.0
 BOOTSTRAP_PORT=3142
 API_HOST=0.0.0.0
 API_PORT=8080
+
+# Federation Sync
+PRIMARY_BOOTSTRAP_DOMAIN=bootstrap.pisecure.org
+PRIMARY_BOOTSTRAP_SCHEME=https
+PRIMARY_BOOTSTRAP_TIMEOUT=6
+PRIMARY_NODELIST_CACHE_TTL=15
 ```
+
+Secondary deployments automatically proxy `/api/v1/nodes/list` from the domain defined by `PRIMARY_BOOTSTRAP_DOMAIN`, and the optional `PRIMARY_NODELIST_CACHE_TTL` (seconds) controls how long the shared directory is cached locally.
 
 ### Raspberry Pi Configuration
 The installation script automatically configures:
