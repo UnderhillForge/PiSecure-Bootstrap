@@ -687,6 +687,45 @@
         </div>
     </div>
 
+    <!-- Operator Value Estimation -->
+    <div class="operator-value-section">
+        <div class="card">
+            <h3>🧮 Operator Value Estimation</h3>
+
+            <div class="value-metrics">
+                <div class="value-row">
+                    <span class="value-label">Net Monthly Value (USD)</span>
+                    <span class="value-amount" id="monthlyValueUSD">--</span>
+                </div>
+                <div class="value-row">
+                    <span class="value-label">Net Monthly Value (314ST)</span>
+                    <span class="value-amount" id="monthlyValue314ST">--</span>
+                </div>
+                <div class="value-row">
+                    <span class="value-label">Average Daily Value</span>
+                    <span class="value-amount" id="dailyValueUSD">--</span>
+                </div>
+                <div class="value-row">
+                    <span class="value-label">Average Hourly Value</span>
+                    <span class="value-amount" id="hourlyValueUSD">--</span>
+                </div>
+            </div>
+
+            <div class="value-breakdown">
+                <h4>📂 Value Breakdown</h4>
+                <div id="valueBreakdown" class="breakdown-list">
+                    <div class="breakdown-item">
+                        <span class="breakdown-label">Loading valuation data...</span>
+                        <span class="breakdown-value">--</span>
+                    </div>
+                </div>
+                <div class="value-disclaimer">
+                    <p><small>* Estimates blend ML workload, DEX coordination, uptime incentives, and operator time. Values refresh every 5 minutes.</small></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 314ST Token Valuation Dashboard -->
     <div class="token-valuation-section">
         <div class="card">
@@ -1035,12 +1074,72 @@
         }
 
         function updateProtocolInfo(data) {
-            document.getElementById('protocolVersion').textContent = '1.0.0';
-            document.getElementById('networkId').textContent = 'pisecure-mainnet';
-            document.getElementById('consensus').textContent = 'PoW + Intelligence';
-            document.getElementById('blockTimeTarget').textContent = 'Variable';
-            document.getElementById('maxBlockSize').textContent = 'Dynamic';
-            document.getElementById('circulatingSupply').textContent = '0'; // Pre-mining phase
+            const version = data.protocol_version || '1.0.0';
+            const networkId = data.network_id || 'pisecure-mainnet';
+            const consensus = data.consensus || 'PoW + Intelligence';
+            const blockTimeTarget = data.target_block_time || data.avg_block_time || 'Variable';
+            const maxBlockSize = data.max_block_size || 'Dynamic';
+            const supply = data.circulating_supply ?? '0';
+
+            document.getElementById('protocolVersion').textContent = version;
+            document.getElementById('networkId').textContent = networkId;
+            document.getElementById('consensus').textContent = consensus;
+            document.getElementById('blockTimeTarget').textContent = typeof blockTimeTarget === 'number'
+                ? `${blockTimeTarget}s`
+                : blockTimeTarget;
+            document.getElementById('maxBlockSize').textContent = maxBlockSize;
+            document.getElementById('circulatingSupply').textContent =
+                typeof supply === 'number' ? supply.toLocaleString() : supply;
+        }
+
+        function updateMempoolInfo(data) {
+            const size = data?.mempool_size ?? data?.size ?? null;
+            const pending = data?.pending_transactions ?? data?.tx_count ?? null;
+
+            document.getElementById('mempoolSize').textContent =
+                size !== null ? `${size.toLocaleString()} tx` : '--';
+            document.getElementById('pendingTransactions').textContent =
+                pending !== null ? pending.toLocaleString() : '--';
+
+            if (Array.isArray(data?.top_transactions) && data.top_transactions.length > 0) {
+                console.log(`✅ Mempool loaded with ${data.top_transactions.length} tracked transactions`);
+            }
+        }
+
+        function updateSyncStatus(data) {
+            const statusEl = document.getElementById('syncStatus');
+            const statusValue = (data?.sync_status || data?.status || 'unknown').toLowerCase();
+            let statusLabel = 'Unknown';
+            let statusClass = 'status-initializing';
+
+            if (statusValue === 'synced' || statusValue === 'healthy') {
+                statusLabel = 'Synced';
+                statusClass = 'status-healthy';
+            } else if (statusValue === 'syncing' || statusValue === 'catching_up') {
+                statusLabel = 'Syncing';
+                statusClass = 'status-warning';
+            } else if (statusValue === 'error' || statusValue === 'stalled') {
+                statusLabel = 'Sync Error';
+                statusClass = 'status-error';
+            }
+
+            statusEl.textContent = statusLabel;
+            statusEl.className = `metric-value ${statusClass}`;
+
+            const currentHeight = data?.current_height ?? data?.block_height;
+            if (typeof currentHeight === 'number') {
+                document.getElementById('blockHeight').textContent = currentHeight.toLocaleString();
+            }
+
+            const avgBlockTime = data?.avg_block_time ?? data?.block_interval_seconds;
+            if (typeof avgBlockTime === 'number') {
+                document.getElementById('avgBlockTime').textContent = `${avgBlockTime.toFixed(1)}s`;
+            }
+
+            const peers = data?.connected_peers ?? data?.peers;
+            if (Array.isArray(peers)) {
+                console.log(`✅ Sync data: ${statusLabel}, ${peers.length} peers connected`);
+            }
         }
 
         function updateMiningDetails(data) {
