@@ -1031,6 +1031,27 @@ class NetworkIntelligence:
             'overall_health': 100
         }
 
+        # Intelligence insights cache (pre-compute to avoid request latency)
+        cache_ttl_env = os.getenv('INTELLIGENCE_INSIGHTS_CACHE_TTL', '5')
+        try:
+            self.insights_cache_ttl = max(1.0, float(cache_ttl_env))
+        except ValueError:
+            self.insights_cache_ttl = 5.0
+
+        self._insights_cache_lock = threading.RLock()
+        self._insights_generation_lock = threading.RLock()
+        self._insights_cache = {
+            'data': None,
+            'timestamp': 0.0,
+            'duration': 0.0,
+            'source': 'uninitialized'
+        }
+
+        # Prime cache immediately and start refresh loop
+        self._refresh_network_insights_cache(reason='startup')
+        self._insights_refresh_thread = threading.Thread(target=self._insights_cache_refresher, daemon=True)
+        self._insights_refresh_thread.start()
+
         # Initialize ML models
         self._initialize_ml_models()
 
@@ -1094,13 +1115,15 @@ class NetworkIntelligence:
                     # Check for anomalies
                     for i, (pred, score) in enumerate(zip(predictions, scores)):
                         if pred == -1 and score < -0.5:  # High confidence anomaly
+                            ml_score = float(score)
+                            confidence = float(min(1.0, abs(score)))
                             attacks.append({
                                 'type': 'ml_anomaly_detection',
-                                'severity': 'high' if score < -0.8 else 'medium',
-                                'ml_score': score,
-                                'confidence': min(1.0, abs(score)),
+                                'severity': 'high' if ml_score < -0.8 else 'medium',
+                                'ml_score': ml_score,
+                                'confidence': confidence,
                                 'timestamp': current_time,
-                                'description': f'ML-detected anomaly with score {score:.3f}'
+                                'description': f'ML-detected anomaly with score {ml_score:.3f}'
                             })
             except Exception as e:
                 logger.warning(f"ML anomaly detection failed: {e}")
@@ -1678,8 +1701,8 @@ class NetworkIntelligence:
 
         return {'prediction': 'no_data'}
 
-    def get_network_insights(self) -> dict:
-        """Get comprehensive network intelligence insights"""
+    def _build_network_insights_snapshot(self) -> dict:
+        """Compute comprehensive network intelligence insights"""
         current_time = time.time()
 
         # Analyze current state
@@ -1737,6 +1760,86 @@ class NetworkIntelligence:
                 'data_points_analyzed': len(self.connection_history),
                 'analysis_timestamp': current_time
             }
+        }
+
+    def _refresh_network_insights_cache(self, reason: str = 'manual') -> dict:
+        """Regenerate the cached network insights snapshot."""
+        with self._insights_generation_lock:
+            start_time = time.time()
+            insights = self._build_network_insights_snapshot()
+        duration = time.time() - start_time
+
+        with self._insights_cache_lock:
+            self._insights_cache = {
+                'data': insights,
+                'timestamp': time.time(),
+                'duration': duration,
+                'source': reason
+            }
+
+        if duration > 1.5:
+            logger.info("Network insights refresh (%s) took %.2fs", reason, duration)
+
+        return insights
+
+    def _insights_cache_refresher(self):
+        """Background thread that periodically refreshes the insights cache."""
+        while True:
+            try:
+                self._refresh_network_insights_cache(reason='background')
+            except Exception as exc:
+                logger.warning("Background network insights refresh failed: %s", exc)
+            time.sleep(self.insights_cache_ttl)
+
+    def get_network_insights(self, force_refresh: bool = False,
+                              max_age: float = None,
+                              allow_stale: bool = True) -> dict:
+        """Return cached network insights, refreshing when needed."""
+        if max_age is None:
+            max_age = self.insights_cache_ttl * 2
+
+        with self._insights_cache_lock:
+            cache_snapshot = dict(self._insights_cache)
+
+        cache_age = time.time() - cache_snapshot.get('timestamp', 0.0) if cache_snapshot.get('timestamp') else None
+        cache_valid = (
+            cache_snapshot.get('data') is not None and
+            cache_age is not None and
+            cache_age <= max_age
+        )
+
+        if not force_refresh and cache_valid:
+            return cache_snapshot['data']
+
+        try:
+            refreshed = self._refresh_network_insights_cache(
+                reason='force-refresh' if force_refresh else 'stale-cache'
+            )
+            if refreshed is not None:
+                return refreshed
+        except Exception as exc:
+            logger.error("On-demand network insights refresh failed: %s", exc)
+
+        if allow_stale and cache_snapshot.get('data') is not None:
+            return cache_snapshot['data']
+
+        return {}
+
+    def get_insights_cache_metadata(self) -> dict:
+        """Expose metadata about the cached network insights snapshot."""
+        with self._insights_cache_lock:
+            generated_at = self._insights_cache.get('timestamp', 0.0)
+            duration = self._insights_cache.get('duration', 0.0)
+            source = self._insights_cache.get('source', 'unknown')
+
+        age_seconds = time.time() - generated_at if generated_at else None
+
+        return {
+            'generated_at': generated_at,
+            'age_seconds': age_seconds,
+            'analysis_duration_ms': int(duration * 1000),
+            'source': source,
+            'refresh_interval_seconds': self.insights_cache_ttl
         }
 
     def process_miner_intelligence(self, report_data: dict) -> dict:
@@ -3828,12 +3931,28 @@ def network_intelligence_health():
         user_agent = request.headers.get('User-Agent', '')
         network_intelligence.record_connection(client_ip, user_agent)
 
+        # Optional query parameters for cache control
+        force_refresh = request.args.get('fresh', 'false').lower() == 'true'
+        max_age_param = request.args.get('max_age')
+        max_age = None
+        if max_age_param:
+            try:
+                max_age = float(max_age_param)
+            except ValueError:
+                max_age = None
+
         # Get comprehensive intelligence insights
-        insights = network_intelligence.get_network_insights()
+        insights = network_intelligence.get_network_insights(
+            force_refresh=force_refresh,
+            max_age=max_age
+        )
+        cache_meta = network_intelligence.get_insights_cache_metadata()
+        analysis_timestamp = cache_meta.get('generated_at') or time.time()
 
         return jsonify({
             'intelligence_analysis': insights,
-            'analysis_timestamp': time.time(),
+            'analysis_timestamp': analysis_timestamp,
+            'analysis_metadata': cache_meta,
             'data_quality': 'good' if len(network_intelligence.connection_history) > 100 else 'building'
         })
 
@@ -4195,13 +4314,15 @@ def sync_intelligence():
             return jsonify({'error': 'Unauthorized sync request'}), 403
 
         # Provide intelligence snapshot
+        insights_snapshot = network_intelligence.get_network_insights()
+        summary = insights_snapshot.get('intelligence_summary', {})
         intelligence_snapshot = {
             'threat_zones': list(network_intelligence.threat_zones),
             'active_attacks': network_intelligence.potential_attacks[-10:],  # Last 10 attacks
-            'intelligence_summary': network_intelligence.get_network_insights().get('intelligence_summary', {}),
+            'intelligence_summary': summary,
             'federation_status': intelligence_federation.get_federation_status(),
             'sync_timestamp': time.time(),
-            'data_freshness': time.time() - network_intelligence.get_network_insights().get('intelligence_summary', {}).get('analysis_timestamp', time.time())
+            'data_freshness': time.time() - summary.get('analysis_timestamp', time.time())
         }
 
         logger.info(f"Provided intelligence sync to authorized peer at {client_ip}")
@@ -5199,6 +5320,131 @@ def get_security_status():
     except Exception as e:
         logger.error(f"Security status error: {e}")
         return jsonify({'error': 'Security status unavailable'}), 500
+
+
+@app.route('/api/v1/services/status', methods=['GET'])
+def services_status():
+    """Return real-time status for internal and external services."""
+    logger.info("Services status endpoint called")
+
+    try:
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip, request.headers.get('User-Agent', ''))
+
+        now = time.time()
+
+        # Primary bootstrap service status
+        primary_descriptor = _build_local_bootstrap_descriptor()
+        primary_services = []
+        for capability in primary_descriptor.get('capabilities', []):
+            primary_services.append({
+                'service': capability,
+                'status': 'online',
+                'last_updated': now,
+                'details': {
+                    'port': NODE_CONFIG.get('node', {}).get('network', {}).get('ports', {}).get('bootstrap', 3142),
+                    'region': primary_descriptor.get('region', 'unknown'),
+                    'trust_level': primary_descriptor.get('trust_level', 'foundation_verified')
+                }
+            })
+
+        # API server status
+        api_port = NODE_CONFIG.get('node', {}).get('network', {}).get('ports', {}).get('api', 8080)
+        api_status = {
+            'service': 'api_gateway',
+            'status': 'online',
+            'port': api_port,
+            'last_heartbeat': now,
+            'latency_ms': network_intelligence.latency_stats.get('mean', 0)
+        }
+
+        # Database status
+        db_session = SessionLocal()
+        try:
+            active_nodes = db_session.query(Node).count()
+        except Exception as exc:
+            logger.warning("Database status query failed: %s", exc)
+            active_nodes = None
+        finally:
+            db_session.close()
+
+        db_status = {
+            'service': 'sqlite_db',
+            'status': 'online',
+            'database_url': DATABASE_URL,
+            'active_nodes': active_nodes,
+            'last_heartbeat': now
+        }
+
+        # DDoS protection status
+        ddos_stats = ddos_protection.get_protection_stats()
+        ddos_status = {
+            'service': 'ddos_protection',
+            'status': 'online',
+            'active_clients': ddos_stats.get('active_clients'),
+            'blocked_ips': ddos_stats.get('blocked_ips'),
+            'last_heartbeat': now
+        }
+
+        # Sentinel coordination status
+        sentinel_stats = sentinel_service.get_sentinel_stats()
+        sentinel_status = {
+            'service': 'sentinel_coordination',
+            'status': 'online',
+            'registered_nodes': sentinel_stats.get('registered_nodes'),
+            'active_defense_actions': sentinel_stats.get('active_defense_actions'),
+            'last_heartbeat': now
+        }
+
+        # Intelligence services
+        intelligence_meta = network_intelligence.get_insights_cache_metadata()
+        intelligence_status = {
+            'service': 'network_intelligence',
+            'status': 'online',
+            'cache_age_seconds': intelligence_meta.get('age_seconds'),
+            'analysis_duration_ms': intelligence_meta.get('analysis_duration_ms'),
+            'last_heartbeat': intelligence_meta.get('generated_at'),
+            'refresh_interval_seconds': intelligence_meta.get('refresh_interval_seconds')
+        }
+
+        # Federation and bootstrap registry status
+        federation_status = intelligence_federation.get_federation_status()
+        bootstrap_registry_status = {
+            'service': 'bootstrap_registry',
+            'status': 'online',
+            'primary_node': primary_descriptor.get('node_id'),
+            'secondary_nodes': len(_get_registered_bootstrap_nodes()),
+            'federation_enabled': federation_status.get('federation_enabled', True),
+            'last_sync': max(federation_status.get('last_sync_times', {}).values()) if federation_status.get('last_sync_times') else None
+        }
+
+        services_payload = {
+            'primary_bootstrap': {
+                'node': primary_descriptor,
+                'services': primary_services
+            },
+            'api_gateway': api_status,
+            'database': db_status,
+            'security_layers': {
+                'ddos_protection': ddos_status,
+                'sentinel': sentinel_status,
+                'validation_engine': {
+                    'service': 'validation_engine',
+                    'status': 'online',
+                    'schemas_loaded': validation_engine.get_validation_stats().get('schemas_loaded'),
+                    'last_heartbeat': now
+                }
+            },
+            'intelligence': intelligence_status,
+            'bootstrap_federation': bootstrap_registry_status,
+            'timestamp': now
+        }
+
+        return jsonify(services_payload)
+
+    except Exception as e:
+        logger.error(f"Services status error: {e}")
+        return jsonify({'error': 'Services status unavailable'}), 500
 
 if __name__ == '__main__':
     import os
