@@ -1136,8 +1136,7 @@ class NodeTracker:
                 db.close()
 
     def _geolocate_ip(self, ip_address: str) -> str:
-        if geo_locator:
-            return geo_locator.geolocate_ip(ip_address, allow_async=False)
+        # Geolocation disabled for performance—was blocking on every node registration
         return 'unknown'
 
     def _calculate_uptime(self, node_id: str) -> float:
@@ -2003,7 +2002,7 @@ class NetworkIntelligence:
             'ip': ip_address,
             'user_agent': user_agent,
             'timestamp': timestamp,
-            'location': geo_locator.geolocate_ip(ip_address) if geo_locator else 'unknown'
+            'location': 'unknown'  # Geolocation disabled for performance
         })
         self.connection_timestamps.append(timestamp)
 

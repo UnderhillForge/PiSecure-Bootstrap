@@ -505,26 +505,7 @@ class DDoSProtection:
 
     def _geolocate_ip(self, ip_address: str) -> str:
         """Geolocate IP address to region"""
-        try:
-            # Use ip-api.com for geolocation
-            response = requests.get(f"http://ip-api.com/json/{ip_address}", timeout=3)
-            data = response.json()
-
-            if data.get('status') == 'success':
-                country_code = data.get('countryCode', '').lower()
-                region = data.get('regionName', '').lower().replace(' ', '_')
-
-                # Classify regions
-                if country_code in ['cn', 'ru', 'kp', 'ir']:
-                    return 'high_risk'
-                elif region:
-                    return f"{country_code}_{region}"
-                else:
-                    return country_code
-
-        except Exception:
-            pass
-
+        # Geolocation disabled for performance—was causing request timeouts
         return 'unknown'
 
     def _generate_user_agent_fingerprint(self, user_agent: str) -> str:
