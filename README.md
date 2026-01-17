@@ -158,12 +158,21 @@ PRIMARY_BOOTSTRAP_TIMEOUT=6
 PRIMARY_NODELIST_CACHE_TTL=15
 BOOTSTRAP_PEERS_CACHE_TTL=45
 PISECURE_GENESIS_HASH=2742129a6e95a85dbac0d62cb59c3b8fb9d5a4f56b67a4beec72e59a0bd0f8c2
+
+# Startup Performance
+BOOTSTRAP_LAZY_ML_INIT=1
+BOOTSTRAP_LAZY_ML_DELAY=5
+ASYNC_GEO_LOOKUPS=1
+# Set to 1 to skip the automatic peer cache warmup thread
+BOOTSTRAP_DISABLE_PEER_WARMUP=0
 ```
 
 Secondary deployments automatically proxy `/api/v1/nodes/list` from the domain defined by `PRIMARY_BOOTSTRAP_DOMAIN`, and the optional `PRIMARY_NODELIST_CACHE_TTL` (seconds) controls how long the shared directory is cached locally.
 `BOOTSTRAP_PEERS_CACHE_TTL` (clamped between 30-60 seconds, default 45) drives the stale-while-revalidate cache for `/api/v1/bootstrap/peers`, so clients get a cached response in <1s while a background refresh keeps the snapshot under the 5s SLA, and `PISECURE_GENESIS_HASH` sets the advertised genesis hash in peer metadata for clients that verify responses.
 
 `/api/v1/bootstrap/registry` also includes an `origin_node` object for the hosting server, making it obvious to dashboards and operators whether the instance they are connected to is the canonical primary, an acting primary, or a secondary node.
+
+`BOOTSTRAP_LAZY_ML_INIT` defers the scikit-learn model construction to a background thread (default on) so cold starts stay under the Railway 2s SLA. Tune `BOOTSTRAP_LAZY_ML_DELAY` (seconds) to control how long the server waits before warming those models, or set the flag to `0` to build everything synchronously. `ASYNC_GEO_LOOKUPS` shifts slow ip-api.com calls off the request path, returning cached or `'unknown'` immediately while a worker thread back-fills the database cache. Finally, the server now primes a default `/api/v1/bootstrap/peers` snapshot in the background; disable that warmup entirely by setting `BOOTSTRAP_DISABLE_PEER_WARMUP=1` if a deployment needs to minimize background threads.
 
 Mainnet deployments should keep the default `2742129a6e95a85dbac0d62cb59c3b8fb9d5a4f56b67a4beec72e59a0bd0f8c2` hash. For testnet clusters, override `PISECURE_GENESIS_HASH` with `cedf0871ffacca577bd02d5db5e8c6ba2e1d6cdff43cdadc17c63dc58ed3c24d`.
 

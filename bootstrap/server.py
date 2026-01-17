@@ -899,6 +899,35 @@ def _record_primary_availability(success: bool):
             PRIMARY_STATUS['last_failure'] = now
 
 
+def _prime_peer_directory_cache_async():
+    if _as_bool(os.getenv('BOOTSTRAP_DISABLE_PEER_WARMUP')):
+        return
+
+    def _warm_default_snapshot():
+        cache_key = _build_peer_directory_cache_key(None, None, True, 10)
+        build_kwargs = {
+            'requesting_location': None,
+            'requesting_services': None,
+            'intelligence_enabled': True,
+            'max_peers': 10,
+            'fresh_requested': False
+        }
+
+        try:
+            payload = _generate_peer_directory_payload(**build_kwargs)
+            generation_time = payload.get('timestamp', time.time())
+            with PEER_DIRECTORY_CACHE_LOCK:
+                PEER_DIRECTORY_CACHE[cache_key] = {
+                    'data': copy.deepcopy(payload),
+                    'timestamp': generation_time
+                }
+            logger.debug("Primed default peer directory cache (%s peers)", len(payload.get('peers', [])))
+        except Exception as exc:
+            logger.debug("Peer directory warmup skipped: %s", exc)
+
+    threading.Thread(target=_warm_default_snapshot, name='peer-cache-primer', daemon=True).start()
+
+
 def _calculate_bootstrap_health_score(descriptor: dict) -> float:
     current_time = time.time()
     reliability = descriptor.get('reliability_score', 0.85)
@@ -1108,7 +1137,7 @@ class NodeTracker:
 
     def _geolocate_ip(self, ip_address: str) -> str:
         if geo_locator:
-            return geo_locator.geolocate_ip(ip_address)
+            return geo_locator.geolocate_ip(ip_address, allow_async=False)
         return 'unknown'
 
     def _calculate_uptime(self, node_id: str) -> float:
@@ -1254,46 +1283,75 @@ class GeoLocator:
     def __init__(self, api_key: str = None):
         self.cache = {}
         self.api_key = api_key
+        self.async_enabled = _as_bool(os.getenv('ASYNC_GEO_LOOKUPS', '1'))
+        self._inflight = set()
+        self._inflight_lock = threading.Lock()
 
-    def geolocate_ip(self, ip_address: str) -> str:
-        # Check cache first
-        if ip_address in self.cache:
-            return self.cache[ip_address]
+    def geolocate_ip(self, ip_address: str, allow_async: bool = True) -> str:
+        if not ip_address:
+            return 'unknown'
 
+        cached_location = self.cache.get(ip_address)
+        if cached_location:
+            return cached_location
+
+        if self.async_enabled and allow_async:
+            self._trigger_async_lookup(ip_address)
+            return 'unknown'
+
+        return self._lookup_and_cache_ip(ip_address)
+
+    def _trigger_async_lookup(self, ip_address: str):
+        with self._inflight_lock:
+            if ip_address in self._inflight:
+                return
+            self._inflight.add(ip_address)
+
+        def _background_lookup():
+            try:
+                self._lookup_and_cache_ip(ip_address)
+            finally:
+                with self._inflight_lock:
+                    self._inflight.discard(ip_address)
+
+        thread_name = f"geo-lookup-{abs(hash(ip_address)) % 10000}"
+        threading.Thread(target=_background_lookup, name=thread_name, daemon=True).start()
+
+    def _lookup_and_cache_ip(self, ip_address: str) -> str:
         try:
-            # Use IP-API (free tier)
-            response = requests.get(f"http://ip-api.com/json/{ip_address}", timeout=5)
+            response = requests.get(f"http://ip-api.com/json/{ip_address}", timeout=4)
             data = response.json()
 
-            if data['status'] == 'success':
+            if data.get('status') == 'success':
                 location = f"{data['countryCode'].lower()}-{data['regionName'].lower().replace(' ', '-')}"
                 self.cache[ip_address] = location
-
-                # Save to database cache
-                db = SessionLocal()
-                try:
-                    geo_entry = GeoCache(
-                        ip_address=ip_address,
-                        country_code=data['countryCode'],
-                        region=data['regionName'],
-                        city=data['city'],
-                        latitude=data.get('lat', 0),
-                        longitude=data.get('lon', 0),
-                        cached_at=time.time()
-                    )
-                    db.merge(geo_entry)
-                    db.commit()
-                except Exception as e:
-                    logger.error(f"Failed to save geo data to database: {e}")
-                    db.rollback()
-                finally:
-                    db.close()
-
+                self._persist_geo_entry(ip_address, data)
                 return location
-        except Exception as e:
-            logger.warning(f"Geolocation failed for {ip_address}: {e}")
+        except Exception as exc:
+            logger.warning(f"Geolocation failed for {ip_address}: {exc}")
 
         return 'unknown'
+
+    def _persist_geo_entry(self, ip_address: str, data: dict):
+        db = SessionLocal()
+        try:
+            geo_entry = GeoCache(
+                ip_address=ip_address,
+                country_code=data.get('countryCode'),
+                region=data.get('regionName'),
+                city=data.get('city'),
+                latitude=data.get('lat', 0),
+                longitude=data.get('lon', 0),
+                cached_at=time.time()
+            )
+            db.merge(geo_entry)
+            db.commit()
+        except Exception as exc:
+            logger.error(f"Failed to save geo data to database: {exc}")
+            db.rollback()
+        finally:
+            db.close()
+
 
 class PeerDiscoveryService:
     def __init__(self, node_tracker: NodeTracker):
@@ -1359,6 +1417,7 @@ node_tracker = NodeTracker()
 mining_aggregator = MiningStatsAggregator(node_tracker)
 geo_locator = GeoLocator()
 peer_discovery = PeerDiscoveryService(node_tracker)
+_prime_peer_directory_cache_async()
 
 # Production PiSecure Component Integration Points
 # These will be initialized when PiSecure core components are available
@@ -1452,15 +1511,28 @@ class NetworkIntelligence:
             'source': 'uninitialized'
         }
 
+        self._ml_init_lock = threading.Lock()
+        self._ml_ready_event = threading.Event()
+        self._ml_init_thread = None
+        self._ml_init_error = None
+        self.lazy_ml_init = _as_bool(os.getenv('BOOTSTRAP_LAZY_ML_INIT', '1'))
+        try:
+            self._ml_lazy_delay = max(0.0, float(os.getenv('BOOTSTRAP_LAZY_ML_DELAY', '5')))
+        except ValueError:
+            self._ml_lazy_delay = 5.0
+
         # Prime cache immediately and start refresh loop
         self._refresh_network_insights_cache(reason='startup')
         self._insights_refresh_thread = threading.Thread(target=self._insights_cache_refresher, daemon=True)
         self._insights_refresh_thread.start()
 
-        # Initialize ML models
-        self._initialize_ml_models()
+        # Initialize ML models lazily when requested
+        if self.lazy_ml_init:
+            threading.Thread(target=self._delayed_ml_warmup, name='ml-warmup-delay', daemon=True).start()
+        else:
+            self._ensure_ml_models_ready(background_trigger=False)
 
-    def _initialize_ml_models(self):
+    def _initialize_ml_models(self) -> bool:
         """Initialize ML models for attack detection and routing optimization"""
         try:
             # Isolation Forest for unsupervised anomaly detection
@@ -1485,15 +1557,58 @@ class NetworkIntelligence:
             )
 
             logger.info("ML models initialized successfully")
+            return True
 
         except Exception as e:
             logger.warning(f"Failed to initialize ML models: {e}")
-            # Continue without ML models - fall back to statistical methods
+            return False
+
+    def _delayed_ml_warmup(self):
+        if self._ml_lazy_delay > 0:
+            time.sleep(self._ml_lazy_delay)
+        self._ensure_ml_models_ready(background_trigger=False)
+
+    def _initialize_ml_models_guarded(self):
+        if self._ml_ready_event.is_set():
+            return
+
+        with self._ml_init_lock:
+            if self._ml_ready_event.is_set():
+                return
+
+            start_time = time.time()
+            success = self._initialize_ml_models()
+            if success:
+                self._ml_ready_event.set()
+                self._ml_init_error = None
+                logger.info("ML models ready after %.2fs", time.time() - start_time)
+            else:
+                self._ml_init_error = 'failed'
+
+    def _ensure_ml_models_ready(self, background_trigger: bool = False) -> bool:
+        if self._ml_ready_event.is_set():
+            return True
+
+        if background_trigger:
+            if self._ml_init_thread and self._ml_init_thread.is_alive():
+                return False
+
+            self._ml_init_thread = threading.Thread(
+                target=self._initialize_ml_models_guarded,
+                name='ml-model-init',
+                daemon=True
+            )
+            self._ml_init_thread.start()
+            return False
+
+        self._initialize_ml_models_guarded()
+        return self._ml_ready_event.is_set()
 
     def detect_attacks_ml(self) -> list:
         """Enhanced attack detection using ML algorithms"""
         attacks = []
         current_time = time.time()
+        ml_ready = self._ensure_ml_models_ready(background_trigger=True)
 
         # Extract features from recent connection data
         features = self._extract_connection_features()
@@ -1501,7 +1616,7 @@ class NetworkIntelligence:
             return attacks
 
         # ML-based anomaly detection
-        if self.isolation_forest and len(features) >= 50:  # Need minimum training data
+        if ml_ready and self.isolation_forest and len(features) >= 50:  # Need minimum training data
             try:
                 # Prepare data for ML
                 feature_array = np.array(features[-100:])  # Last 100 samples
@@ -1639,6 +1754,9 @@ class NetworkIntelligence:
 
     def cluster_geographic_regions(self) -> dict:
         """Use ML clustering to identify geographic regions and optimize routing"""
+        if not self._ensure_ml_models_ready(background_trigger=True) or not self.geo_cluster_model:
+            return {}
+
         if len(self.geographic_distribution) < 5:
             return {}
 
