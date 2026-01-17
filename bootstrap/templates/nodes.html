@@ -60,6 +60,15 @@
             transition: all 0.3s ease;
         }
 
+        .card[data-card] {
+            cursor: pointer;
+        }
+
+        .card[data-card]:focus-visible {
+            outline: 2px solid #00d4ff;
+            outline-offset: 4px;
+        }
+
         .card:hover {
             transform: translateY(-5px);
             box-shadow: 0 8px 30px rgba(0, 212, 255, 0.2);
@@ -299,6 +308,74 @@
             box-shadow: 0 8px 32px rgba(255, 193, 7, 0.2);
         }
 
+        .detail-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .detail-panel {
+            width: min(90vw, 540px);
+            max-height: 85vh;
+            overflow-y: auto;
+            background: rgba(15, 15, 20, 0.95);
+            border-radius: 16px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            padding: 24px;
+            position: relative;
+        }
+
+        .detail-close {
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            background: transparent;
+            border: none;
+            color: #e0e0e0;
+            font-size: 1.6em;
+            cursor: pointer;
+        }
+
+        .detail-body {
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+
+        .detail-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .detail-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.95em;
+        }
+
+        .detail-list li span:last-child {
+            font-weight: bold;
+            color: #00d4ff;
+            font-family: 'Courier New', monospace;
+        }
+
+        .detail-empty {
+            color: #999;
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .hidden {
+            display: none;
+        }
+
         .token-valuation-section .card h3 {
             color: #ffc107;
             border-bottom-color: rgba(255, 193, 7, 0.3);
@@ -505,7 +582,7 @@
 
     <div class="grid">
         <!-- Network Overview -->
-        <div class="card" id="networkOverviewCard">
+        <div class="card" id="networkOverviewCard" data-card="network-overview" tabindex="0">
             <h3>🌐 Network Overview</h3>
             <div class="metric">
                 <span class="metric-label">Total Nodes</span>
@@ -534,7 +611,7 @@
         </div>
 
         <!-- Network Health -->
-        <div class="card" id="networkHealthCard">
+        <div class="card" id="networkHealthCard" data-card="network-health" tabindex="0">
             <h3>💚 Network Health</h3>
             <div class="metric">
                 <span class="metric-label">Health Status</span>
@@ -563,7 +640,7 @@
         </div>
 
         <!-- Mining Statistics -->
-        <div class="card" id="miningStatsCard">
+        <div class="card" id="miningStatsCard" data-card="mining-stats" tabindex="0">
             <h3>⛏️ Mining Statistics</h3>
             <div class="metric">
                 <span class="metric-label">Active Miners</span>
@@ -588,7 +665,7 @@
         </div>
 
         <!-- Protocol Information -->
-        <div class="card" id="protocolInfoCard">
+        <div class="card" id="protocolInfoCard" data-card="protocol-info" tabindex="0">
             <h3>📋 Protocol Information</h3>
             <div class="metric">
                 <span class="metric-label">Protocol Version</span>
@@ -617,7 +694,7 @@
         </div>
 
         <!-- Bootstrap Nodes -->
-        <div class="card" id="bootstrapNodesCard">
+        <div class="card" id="bootstrapNodesCard" data-card="bootstrap-nodes" tabindex="0">
             <h3>🚀 Bootstrap Nodes</h3>
             <div id="bootstrapNodesContent">
                 <div class="metric">
@@ -627,7 +704,7 @@
         </div>
 
         <!-- Service Status -->
-        <div class="card" id="serviceStatusCard">
+        <div class="card" id="serviceStatusCard" data-card="service-status" tabindex="0">
             <h3>⚙️ Service Status</h3>
             <div id="serviceStatusContent">
                 <div class="metric">
@@ -637,7 +714,7 @@
         </div>
 
         <!-- Sentinel Intelligence -->
-        <div class="card" id="sentinelIntelligenceCard">
+        <div class="card" id="sentinelIntelligenceCard" data-card="sentinel-intelligence" tabindex="0">
             <h3>🛡️ Sentinel Intelligence</h3>
             <div class="metric">
                 <span class="metric-label">Threat Level</span>
@@ -660,13 +737,13 @@
                 <span class="metric-value" id="threatZones">--</span>
             </div>
             <div class="metric">
-                <span class="metric-label">Ghostwheel Status</span>
-                <span class="metric-value status-healthy" id="ghostwheelStatus">--</span>
+                <span class="metric-label">Sentinel Status</span>
+                <span class="metric-value status-healthy" id="sentinelStatus">--</span>
             </div>
         </div>
 
         <!-- Recent Blocks -->
-        <div class="card recent-blocks-card" id="recentBlocksCard">
+        <div class="card recent-blocks-card" id="recentBlocksCard" data-card="recent-blocks" tabindex="0">
             <h3>📦 Recent Blocks</h3>
             <table class="blocks-table">
                 <thead>
@@ -689,7 +766,7 @@
 
     <!-- Operator Value Estimation -->
     <div class="operator-value-section">
-        <div class="card">
+        <div class="card" id="operatorValueCard" data-card="operator-value" tabindex="0">
             <h3>🧮 Operator Value Estimation</h3>
 
             <div class="value-metrics">
@@ -728,7 +805,7 @@
 
     <!-- 314ST Token Valuation Dashboard -->
     <div class="token-valuation-section">
-        <div class="card">
+        <div class="card" id="tokenValuationCard" data-card="token-valuation" tabindex="0">
             <h3>💎 314ST Token Valuation</h3>
 
             <!-- Price Overview -->
@@ -875,9 +952,272 @@
         </div>
     </div>
 
+    <div id="cardDetailOverlay" class="detail-overlay hidden">
+        <div class="detail-panel" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+            <button id="detailClose" class="detail-close" aria-label="Close detail view">&times;</button>
+            <h3 id="detailTitle">Details</h3>
+            <div id="detailBody" class="detail-body">
+                <p class="detail-empty">Select a card to view real-time details.</p>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Global variables
+        const dashboardState = {
+            networkOverview: null,
+            networkHealth: null,
+            miningStats: null,
+            protocolInfo: null,
+            bootstrapNodes: null,
+            serviceStatus: null,
+            sentinelIntelligence: null,
+            recentBlocks: null,
+            operatorValue: null,
+            tokenValuation: null
+        };
+
+        let activeDetailCard = null;
         let lastUpdate = Date.now();
+
+        const detailEmptyState = '<p class="detail-empty">Waiting for live telemetry...</p>';
+
+        function buildDetailList(entries = []) {
+            if (!entries.length) {
+                return detailEmptyState;
+            }
+            const items = entries
+                .filter(Boolean)
+                .map(entry => `<li><span>${entry.label}</span><span>${entry.value ?? '--'}</span></li>`) 
+                .join('');
+            return `<ul class="detail-list">${items}</ul>`;
+        }
+
+        const cardDetailBuilders = {
+            'network-overview': (state) => {
+                const data = state.networkOverview;
+                if (!data) {
+                    return { title: 'Network Overview', content: detailEmptyState };
+                }
+                return {
+                    title: 'Network Overview',
+                    content: buildDetailList([
+                        { label: 'Total Nodes', value: data.totalNodes },
+                        { label: 'Active Nodes', value: data.activeNodes },
+                        { label: 'Network Status', value: data.networkStatus },
+                        { label: 'Hashrate', value: data.networkHashrate },
+                        { label: 'Block Height', value: data.blockHeight },
+                        { label: 'Average Block Time', value: data.avgBlockTime }
+                    ])
+                };
+            },
+            'network-health': (state) => {
+                const data = state.networkHealth;
+                if (!data) {
+                    return { title: 'Network Health', content: detailEmptyState };
+                }
+                return {
+                    title: 'Network Health',
+                    content: buildDetailList([
+                        { label: 'Overall Health', value: `${data.overallHealth}%` },
+                        { label: 'Status', value: data.healthStatus },
+                        { label: 'Average Latency', value: data.avgLatency },
+                        { label: 'Packet Loss', value: data.packetLoss },
+                        { label: 'Sync Status', value: data.syncStatus },
+                        { label: 'Mempool Size', value: data.mempoolSize },
+                        { label: 'Pending Transactions', value: data.pendingTransactions }
+                    ])
+                };
+            },
+            'mining-stats': (state) => {
+                const data = state.miningStats;
+                if (!data) {
+                    return { title: 'Mining Statistics', content: detailEmptyState };
+                }
+                return {
+                    title: 'Mining Statistics',
+                    content: buildDetailList([
+                        { label: 'Active Miners', value: data.activeMiners },
+                        { label: 'Total Hashrate', value: data.totalHashrate },
+                        { label: 'Blocks Last Hour', value: data.blocksLastHour },
+                        { label: 'Average Blocks/Hour', value: data.avgBlocksPerHour },
+                        { label: 'Top Miner Count', value: data.topMinerCount }
+                    ])
+                };
+            },
+            'protocol-info': (state) => {
+                const data = state.protocolInfo;
+                if (!data) {
+                    return { title: 'Protocol Information', content: detailEmptyState };
+                }
+                return {
+                    title: 'Protocol Information',
+                    content: buildDetailList([
+                        { label: 'Version', value: data.version },
+                        { label: 'Network ID', value: data.networkId },
+                        { label: 'Consensus', value: data.consensus },
+                        { label: 'Block Target', value: data.blockTimeTarget },
+                        { label: 'Max Block Size', value: data.maxBlockSize },
+                        { label: 'Circulating Supply', value: data.circulatingSupply }
+                    ])
+                };
+            },
+            'bootstrap-nodes': (state) => {
+                const data = state.bootstrapNodes;
+                if (!data) {
+                    return { title: 'Bootstrap Nodes', content: detailEmptyState };
+                }
+                const origin = data.origin || {};
+                const localRole = origin.role ? origin.role.charAt(0).toUpperCase() + origin.role.slice(1) : 'Unknown';
+                const localBadge = origin.primary_domain_match ? ' (Canonical Host)' : origin.role === 'primary' ? ' (Failover Primary)' : ' (This Server)';
+                const secondaryList = (data.secondaryNodes || []).map(node => `${node.name || node.node_id} (${node.region || 'unknown'})`).join('<br>');
+                return {
+                    title: 'Bootstrap Nodes',
+                    content: `
+                        ${buildDetailList([
+                            { label: 'Primary Node', value: data.primary?.name || data.primary?.node_id || '--' },
+                            { label: 'Role', value: data.primary?.role || 'primary' },
+                            { label: 'Operator', value: data.primary?.operator || 'PiSecure Foundation' },
+                            { label: 'Acting Primary', value: data.primaryStatus?.acting_primary || 'Canonical' },
+                            { label: 'Secondary Count', value: data.secondaryCount },
+                            { label: 'This Server', value: `${localRole}${localBadge}` }
+                        ])}
+                        ${secondaryList ? `<p style="margin-top:12px;font-size:0.85em;color:#bbb;">Secondary Nodes:<br>${secondaryList}</p>` : ''}
+                    `
+                };
+            },
+            'service-status': (state) => {
+                const data = state.serviceStatus;
+                if (!data?.services) {
+                    return { title: 'Service Status', content: detailEmptyState };
+                }
+                const items = Object.entries(data.services).map(([name, svc]) => ({
+                    label: name.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
+                    value: svc.health || svc.status || '--'
+                }));
+                return {
+                    title: 'Service Status',
+                    content: buildDetailList(items)
+                };
+            },
+            'sentinel-intelligence': (state) => {
+                const data = state.sentinelIntelligence;
+                if (!data) {
+                    return { title: 'Sentinel Intelligence', content: detailEmptyState };
+                }
+                return {
+                    title: 'Sentinel Intelligence',
+                    content: buildDetailList([
+                        { label: 'Threat Level', value: data.threatLevel },
+                        { label: 'Active Attacks', value: data.activeAttacks },
+                        { label: 'Defense Effectiveness', value: data.defenseEffectiveness },
+                        { label: 'Blocked IPs', value: data.blockedIPs },
+                        { label: 'Threat Zones', value: data.threatZones?.join(', ') || 'None' },
+                        { label: 'Sentinel Status', value: data.sentinelStatus }
+                    ])
+                };
+            },
+            'recent-blocks': (state) => {
+                const data = state.recentBlocks;
+                if (!data?.length) {
+                    return { title: 'Recent Blocks', content: '<p class="detail-empty">Blockchain not yet initialized.</p>' };
+                }
+                const rows = data.slice(0, 5).map(block => `
+                    <li><span>#${block.height}</span><span>${block.transactions?.length || 0} tx</span></li>
+                `).join('');
+                return {
+                    title: 'Recent Blocks',
+                    content: `<ul class="detail-list">${rows}</ul>`
+                };
+            },
+            'operator-value': (state) => {
+                const data = state.operatorValue;
+                if (!data) {
+                    return { title: 'Operator Value', content: detailEmptyState };
+                }
+                const breakdown = Object.values(data.breakdown || {}).map(item => ({
+                    label: item.description,
+                    value: item.monthly_usd ? `$${item.monthly_usd.toLocaleString()}/mo` :
+                        item.daily_usd ? `$${item.daily_usd.toLocaleString()}/day` :
+                        item.hourly_usd ? `$${item.hourly_usd.toLocaleString()}/hr` :
+                        item.percentage ? `${item.percentage}%` : '--'
+                }));
+                return {
+                    title: 'Operator Value',
+                    content: buildDetailList([
+                        { label: 'Net Monthly (USD)', value: `$${data.totals?.net_value_monthly_usd?.toLocaleString() || '--'}` },
+                        { label: 'Net Monthly (314ST)', value: data.totals?.net_value_monthly_314st?.toLocaleString() || '--' }
+                    ]) + `<h4 style="margin-top:16px;color:#ffc107;">Breakdown</h4>${buildDetailList(breakdown)}`
+                };
+            },
+            'token-valuation': (state) => {
+                const data = state.tokenValuation;
+                if (!data) {
+                    return { title: '314ST Token Valuation', content: detailEmptyState };
+                }
+                return {
+                    title: '314ST Token Valuation',
+                    content: buildDetailList([
+                        { label: 'Market Price', value: data.marketPrice },
+                        { label: 'Fundamental Value', value: data.fundamentalValue },
+                        { label: 'Premium/Discount', value: data.premium },
+                        { label: 'Market Status', value: data.marketStatus },
+                        { label: 'Last Trade', value: data.lastTrade },
+                        { label: '24h Volume', value: data.volume24h },
+                        { label: 'Liquidity', value: data.liquidity },
+                        { label: 'Active Pools', value: data.activePools }
+                    ])
+                };
+            }
+        };
+
+        function renderCardDetail(cardKey) {
+            const builder = cardDetailBuilders[cardKey];
+            if (!builder) {
+                return;
+            }
+            const overlay = document.getElementById('cardDetailOverlay');
+            const titleEl = document.getElementById('detailTitle');
+            const bodyEl = document.getElementById('detailBody');
+            const detail = builder(dashboardState) || {};
+            titleEl.textContent = detail.title || 'Details';
+            bodyEl.innerHTML = detail.content || detailEmptyState;
+        }
+
+        function openCardDetail(cardKey) {
+            activeDetailCard = cardKey;
+            renderCardDetail(cardKey);
+            document.getElementById('cardDetailOverlay').classList.remove('hidden');
+        }
+
+        function closeCardDetail() {
+            document.getElementById('cardDetailOverlay').classList.add('hidden');
+            activeDetailCard = null;
+        }
+
+        function refreshActiveDetail(cardKey) {
+            if (activeDetailCard === cardKey) {
+                renderCardDetail(cardKey);
+            }
+        }
+
+        function registerCardInteractions() {
+            document.querySelectorAll('.card[data-card]').forEach(card => {
+                card.addEventListener('click', () => openCardDetail(card.dataset.card));
+                card.addEventListener('keypress', (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        openCardDetail(card.dataset.card);
+                    }
+                });
+            });
+
+            document.getElementById('detailClose').addEventListener('click', closeCardDetail);
+            document.getElementById('cardDetailOverlay').addEventListener('click', (event) => {
+                if (event.target.id === 'cardDetailOverlay') {
+                    closeCardDetail();
+                }
+            });
+        }
 
         function updateTime() {
             const now = new Date();
@@ -1018,12 +1358,27 @@
             const totalRegistered = data.total_registered_nodes || 0;
             const activeNodes = data.nodes?.filter(node => node.status === 'active').length || 0;
 
+            const networkStatus = totalRegistered > 0 ? 'Active' : 'Initializing';
+            const networkHashrate = '-- MH/s';
+            const blockHeight = '--';
+            const avgBlockTime = '--s';
+
             document.getElementById('totalNodes').textContent = totalRegistered;
             document.getElementById('activeNodes').textContent = activeNodes;
-            document.getElementById('networkHashrate').textContent = '-- MH/s'; // Will be updated from mining data
-            document.getElementById('blockHeight').textContent = '--'; // No blockchain data yet
-            document.getElementById('avgBlockTime').textContent = '--s'; // No blockchain data yet
-            document.getElementById('networkStatus').textContent = totalRegistered > 0 ? 'Active' : 'Initializing';
+            document.getElementById('networkHashrate').textContent = networkHashrate; // Will be updated from mining data
+            document.getElementById('blockHeight').textContent = blockHeight; // No blockchain data yet
+            document.getElementById('avgBlockTime').textContent = avgBlockTime; // No blockchain data yet
+            document.getElementById('networkStatus').textContent = networkStatus;
+
+            dashboardState.networkOverview = {
+                totalNodes: totalRegistered,
+                activeNodes,
+                networkStatus,
+                networkHashrate,
+                blockHeight,
+                avgBlockTime
+            };
+            refreshActiveDetail('network-overview');
         }
 
         function updateNetworkHealth(data) {
@@ -1037,12 +1392,29 @@
 
             // Use real intelligence data
             const latency = health.avg_latency_ms || 'N/A';
-            document.getElementById('avgLatency').textContent = latency !== 'N/A' ? `${latency}ms` : '--ms';
+            const latencyText = latency !== 'N/A' ? `${latency}ms` : '--ms';
+            document.getElementById('avgLatency').textContent = latencyText;
 
-            document.getElementById('packetLoss').textContent = '--%'; // Not available in current API
-            document.getElementById('syncStatus').textContent = 'Active'; // Bootstrap is running
-            document.getElementById('mempoolSize').textContent = '--'; // Not available in current API
-            document.getElementById('pendingTransactions').textContent = '--'; // Not available in current API
+            const packetLoss = '--%';
+            const syncStatus = 'Active';
+            const mempoolSize = '--';
+            const pendingTransactions = '--';
+
+            document.getElementById('packetLoss').textContent = packetLoss;
+            document.getElementById('syncStatus').textContent = syncStatus;
+            document.getElementById('mempoolSize').textContent = mempoolSize;
+            document.getElementById('pendingTransactions').textContent = pendingTransactions;
+
+            dashboardState.networkHealth = {
+                overallHealth,
+                healthStatus: document.getElementById('healthStatus').textContent,
+                avgLatency: latencyText,
+                packetLoss,
+                syncStatus,
+                mempoolSize,
+                pendingTransactions
+            };
+            refreshActiveDetail('network-health');
 
             console.log(`✅ Network health: ${overallHealth}% overall health`);
         }
@@ -1062,13 +1434,31 @@
                 .filter(node => node.status === 'active')
                 .reduce((sum, node) => sum + (node.hashrate || 0), 0);
 
+            const formattedHashrate = totalHashrate > 0 ? `${(totalHashrate / 1000000).toFixed(1)} MH/s` : '-- MH/s';
+
             document.getElementById('activeMiners').textContent = activeMiners;
-            document.getElementById('totalHashrate').textContent = totalHashrate > 0 ?
-                `${(totalHashrate / 1000000).toFixed(1)} MH/s` : '-- MH/s';
+            document.getElementById('totalHashrate').textContent = formattedHashrate;
             document.getElementById('blocksLastHour').textContent = '--'; // No blockchain data yet
             document.getElementById('avgBlocksPerHour').textContent = '--'; // No blockchain data yet
             document.getElementById('topMiners').textContent = minerNodes.length > 0 ?
                 Math.min(minerNodes.length, 10) : '--'; // Show up to top 10
+
+            dashboardState.miningStats = {
+                activeMiners,
+                totalHashrate: formattedHashrate,
+                blocksLastHour: '--',
+                avgBlocksPerHour: '--',
+                topMinerCount: minerNodes.length > 0 ? Math.min(minerNodes.length, 10) : '--'
+            };
+            refreshActiveDetail('mining-stats');
+
+            if (dashboardState.networkOverview) {
+                dashboardState.networkOverview = {
+                    ...dashboardState.networkOverview,
+                    networkHashrate: formattedHashrate
+                };
+                refreshActiveDetail('network-overview');
+            }
 
             console.log(`✅ Mining stats: ${activeMiners} active miners, ${totalHashrate.toLocaleString()} H/s total hashrate`);
         }
@@ -1090,6 +1480,16 @@
             document.getElementById('maxBlockSize').textContent = maxBlockSize;
             document.getElementById('circulatingSupply').textContent =
                 typeof supply === 'number' ? supply.toLocaleString() : supply;
+
+            dashboardState.protocolInfo = {
+                version,
+                networkId,
+                consensus,
+                blockTimeTarget: typeof blockTimeTarget === 'number' ? `${blockTimeTarget}s` : blockTimeTarget,
+                maxBlockSize,
+                circulatingSupply: typeof supply === 'number' ? supply.toLocaleString() : supply
+            };
+            refreshActiveDetail('protocol-info');
         }
 
         function updateMempoolInfo(data) {
@@ -1100,6 +1500,15 @@
                 size !== null ? `${size.toLocaleString()} tx` : '--';
             document.getElementById('pendingTransactions').textContent =
                 pending !== null ? pending.toLocaleString() : '--';
+
+            if (dashboardState.networkHealth) {
+                dashboardState.networkHealth = {
+                    ...dashboardState.networkHealth,
+                    mempoolSize: size !== null ? `${size.toLocaleString()} tx` : '--',
+                    pendingTransactions: pending !== null ? pending.toLocaleString() : '--'
+                };
+                refreshActiveDetail('network-health');
+            }
 
             if (Array.isArray(data?.top_transactions) && data.top_transactions.length > 0) {
                 console.log(`✅ Mempool loaded with ${data.top_transactions.length} tracked transactions`);
@@ -1127,18 +1536,40 @@
             statusEl.className = `metric-value ${statusClass}`;
 
             const currentHeight = data?.current_height ?? data?.block_height;
+            let blockHeightText = document.getElementById('blockHeight').textContent;
             if (typeof currentHeight === 'number') {
                 document.getElementById('blockHeight').textContent = currentHeight.toLocaleString();
+                blockHeightText = currentHeight.toLocaleString();
             }
 
             const avgBlockTime = data?.avg_block_time ?? data?.block_interval_seconds;
+            let avgBlockTimeText = document.getElementById('avgBlockTime').textContent;
             if (typeof avgBlockTime === 'number') {
                 document.getElementById('avgBlockTime').textContent = `${avgBlockTime.toFixed(1)}s`;
+                avgBlockTimeText = `${avgBlockTime.toFixed(1)}s`;
             }
 
             const peers = data?.connected_peers ?? data?.peers;
             if (Array.isArray(peers)) {
                 console.log(`✅ Sync data: ${statusLabel}, ${peers.length} peers connected`);
+            }
+
+            if (dashboardState.networkOverview) {
+                dashboardState.networkOverview = {
+                    ...dashboardState.networkOverview,
+                    networkStatus: statusLabel,
+                    blockHeight: blockHeightText,
+                    avgBlockTime: avgBlockTimeText
+                };
+                refreshActiveDetail('network-overview');
+            }
+
+            if (dashboardState.networkHealth) {
+                dashboardState.networkHealth = {
+                    ...dashboardState.networkHealth,
+                    syncStatus: statusLabel
+                };
+                refreshActiveDetail('network-health');
             }
         }
 
@@ -1152,6 +1583,9 @@
 
             // Show primary bootstrap info
             const primaryNode = data.primary_node;
+            const secondaryNodes = data.secondary_nodes || [];
+            const secondaryCount = secondaryNodes.length;
+            const originNode = data.origin_node || null;
             if (primaryNode) {
                 content.innerHTML = `
                     <div class="metric">
@@ -1169,7 +1603,6 @@
                 `;
 
                 // Add secondary nodes count if available
-                const secondaryCount = data.secondary_nodes?.length || 0;
                 if (secondaryCount > 0) {
                     content.innerHTML += `
                         <div class="metric">
@@ -1181,6 +1614,26 @@
             } else {
                 content.innerHTML = '<div class="metric"><span class="metric-value status-initializing">Loading bootstrap nodes...</span></div>';
             }
+
+            if (originNode) {
+                const localRole = (originNode.role || 'unknown').replace(/\b\w/g, char => char.toUpperCase());
+                const badge = originNode.primary_domain_match ? 'Canonical Host' : originNode.role === 'primary' ? 'Acting Primary' : 'This Server';
+                content.innerHTML += `
+                    <div class="metric" style="margin-top:10px;">
+                        <span class="metric-label">Current Server Role</span>
+                        <span class="metric-value">${localRole} <small style="color:#00d4ff;">(${badge})</small></span>
+                    </div>
+                `;
+            }
+
+            dashboardState.bootstrapNodes = {
+                primary: primaryNode,
+                secondaryNodes,
+                secondaryCount,
+                primaryStatus: data.primary_status || {},
+                origin: originNode
+            };
+            refreshActiveDetail('bootstrap-nodes');
         }
 
         function updateServiceStatus(data) {
@@ -1221,6 +1674,9 @@
             } else {
                 content.innerHTML = '<div class="metric"><span class="metric-value status-initializing">Loading services...</span></div>';
             }
+
+            dashboardState.serviceStatus = data;
+            refreshActiveDetail('service-status');
         }
 
         function updateRecentBlocks(data) {
@@ -1228,6 +1684,9 @@
 
             // Since we don't have real blockchain data yet, show placeholder
             tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #888;">Blockchain not yet initialized - waiting for mining to start</td></tr>';
+
+            dashboardState.recentBlocks = Array.isArray(data) ? data : [];
+            refreshActiveDetail('recent-blocks');
         }
 
         function updateRegisteredNodes(data) {
@@ -1252,9 +1711,9 @@
             const blockedIPs = defenseStatus.blocked_ips?.length || 0;
             const threatZones = defenseStatus.threat_zones || [];
             
-            // Check if Ghostwheel is registered and active
+            // Check if the primary sentinel (Ghostwheel) is registered and active
             const allNodes = nodesData?.nodes || [];
-            const ghostwheelNode = allNodes.find(node => 
+            const sentinelNode = allNodes.find(node => 
                 node.node_id === 'ghostwheel-sentinel-ai' || 
                 node.node_type === 'sentinel_ai'
             );
@@ -1307,19 +1766,29 @@
             document.getElementById('threatZones').textContent = 
                 threatZones.length > 0 ? threatZones.join(', ') : 'None';
             
-            // Update Ghostwheel status
-            const ghostwheelStatusEl = document.getElementById('ghostwheelStatus');
-            if (ghostwheelNode && ghostwheelNode.status === 'active') {
-                ghostwheelStatusEl.textContent = '🟢 Active';
-                ghostwheelStatusEl.className = 'metric-value status-healthy';
-            } else if (ghostwheelNode) {
-                ghostwheelStatusEl.textContent = '🟡 Registered';
-                ghostwheelStatusEl.className = 'metric-value status-warning';
+            // Update Sentinel status indicator
+            const sentinelStatusEl = document.getElementById('sentinelStatus');
+            if (sentinelNode && sentinelNode.status === 'active') {
+                sentinelStatusEl.textContent = '🟢 Active';
+                sentinelStatusEl.className = 'metric-value status-healthy';
+            } else if (sentinelNode) {
+                sentinelStatusEl.textContent = '🟡 Registered';
+                sentinelStatusEl.className = 'metric-value status-warning';
             } else {
-                ghostwheelStatusEl.textContent = '⚪ Not Connected';
-                ghostwheelStatusEl.className = 'metric-value status-initializing';
+                sentinelStatusEl.textContent = '⚪ Not Connected';
+                sentinelStatusEl.className = 'metric-value status-initializing';
             }
             
+            dashboardState.sentinelIntelligence = {
+                threatLevel: threatLevelEl.textContent,
+                activeAttacks: attacks.length,
+                defenseEffectiveness: `${Math.round(defenseEffectiveness)}%`,
+                blockedIPs,
+                threatZones,
+                sentinelStatus: sentinelStatusEl.textContent
+            };
+            refreshActiveDetail('sentinel-intelligence');
+
             console.log(`✅ Sentinel Intelligence: ${attacks.length} attacks, ${threatLevel} threat level, ${Math.round(defenseEffectiveness)}% effective`);
         }
 
@@ -1419,6 +1888,18 @@
                 document.getElementById('riskLevel').textContent = '🔴 High (Pre-Launch)';
                 document.getElementById('confidenceScore').textContent = '75%';
 
+                dashboardState.tokenValuation = {
+                    marketPrice: marketPrice > 0 ? `$${marketPrice.toFixed(2)}` : '--',
+                    fundamentalValue: `$${fundamentalValue.toFixed(2)}`,
+                    premium: marketPrice > 0 ? `${premium >= 0 ? '+' : ''}${premium.toFixed(1)}%` : '--',
+                    marketStatus: document.getElementById('marketStatus').textContent,
+                    lastTrade: document.getElementById('lastTrade').textContent,
+                    volume24h: document.getElementById('volume24h').textContent,
+                    liquidity: document.getElementById('liquidity').textContent,
+                    activePools: document.getElementById('activePools').textContent
+                };
+                refreshActiveDetail('token-valuation');
+
                 console.log('✅ Token valuation updated successfully');
 
             } catch (error) {
@@ -1436,6 +1917,9 @@
                 document.getElementById('tokenVelocity').textContent = '--';
                 document.getElementById('priceMomentum').textContent = '⏳ Pre-Market';
                 document.getElementById('tradingActivity').textContent = '⏸️ DEX Pending';
+
+                dashboardState.tokenValuation = null;
+                refreshActiveDetail('token-valuation');
             }
         }
 
@@ -1508,6 +1992,9 @@
 
                 breakdownContainer.innerHTML = breakdownHTML;
 
+                dashboardState.operatorValue = mockValueData;
+                refreshActiveDetail('operator-value');
+
             } catch (error) {
                 console.error('Failed to fetch operator value:', error);
                 document.getElementById('valueBreakdown').innerHTML = `
@@ -1516,11 +2003,14 @@
                         <span class="breakdown-value">N/A</span>
                     </div>
                 `;
+                dashboardState.operatorValue = null;
+                refreshActiveDetail('operator-value');
             }
         }
 
         // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
+            registerCardInteractions();
             // Initial data load
             updateAllData();
             fetchOperatorValue();

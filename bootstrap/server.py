@@ -63,11 +63,13 @@ except ValueError:
 PEER_DIRECTORY_CACHE = {}
 
 try:
-    PEER_DIRECTORY_CACHE_TTL = float(os.getenv('BOOTSTRAP_PEERS_CACHE_TTL', '60'))
+    _configured_peer_cache_ttl = float(os.getenv('BOOTSTRAP_PEERS_CACHE_TTL', '45'))
 except ValueError:
-    PEER_DIRECTORY_CACHE_TTL = 60.0
+    _configured_peer_cache_ttl = 45.0
 
+PEER_DIRECTORY_CACHE_TTL = max(30.0, min(60.0, _configured_peer_cache_ttl))
 PEER_DIRECTORY_CACHE_LOCK = threading.RLock()
+PEER_DIRECTORY_CACHE_REFRESHING = set()
 
 GENESIS_HASH = os.getenv(
     'PISECURE_GENESIS_HASH',
@@ -682,6 +684,186 @@ def _build_peer_directory_cache_key(location: str, services: list, intelligence_
         service_key = ','.join(normalized) or 'any'
     intelligence_key = '1' if intelligence_enabled else '0'
     return f"{location_key}|{service_key}|{intelligence_key}|{limit}"
+
+
+def _generate_peer_directory_payload(
+    requesting_location: str,
+    requesting_services: list,
+    intelligence_enabled: bool,
+    max_peers: int,
+    fresh_requested: bool = False
+) -> dict:
+    """Build the peer directory snapshot independent from Flask request context."""
+    network_config = NODE_CONFIG.get('node', {}).get('network', {}) if NODE_CONFIG else {}
+    federation_config = NODE_CONFIG.get('node', {}).get('federation', {}) if NODE_CONFIG else {}
+    dex_config = NODE_CONFIG.get('dex', {}) if NODE_CONFIG else {}
+    node_capabilities = NODE_CONFIG.get('node', {}).get('capabilities', []) if NODE_CONFIG else []
+
+    is_secondary = NODE_IDENTITY.get('role') == 'secondary' if NODE_IDENTITY else False
+    trust_level = 'community_trusted' if is_secondary else 'foundation_verified'
+    local_descriptor = copy.deepcopy(_build_local_bootstrap_descriptor(trust_level))
+
+    secondary_bootstraps = []
+    primary_descriptor = None
+
+    if is_secondary:
+        upstream_registry = _fetch_primary_registry_snapshot()
+        if upstream_registry:
+            primary_descriptor = copy.deepcopy(upstream_registry.get('primary_node') or _build_primary_env_descriptor())
+            secondary_bootstraps = copy.deepcopy(upstream_registry.get('secondary_nodes', [])) or []
+            local_id = local_descriptor.get('node_id') if local_descriptor else None
+            if local_id and all(node.get('node_id') != local_id for node in secondary_bootstraps):
+                secondary_bootstraps.append(copy.deepcopy(local_descriptor))
+        else:
+            primary_descriptor, fallback_secondaries = _select_failover_primary(local_descriptor)
+            primary_descriptor = copy.deepcopy(primary_descriptor)
+            secondary_bootstraps = copy.deepcopy(fallback_secondaries or [])
+            if primary_descriptor:
+                primary_descriptor['role'] = 'acting_primary'
+                primary_descriptor['status'] = 'degraded'
+                logger.warning("Primary unreachable; acting primary elected: %s", primary_descriptor.get('node_id'))
+    else:
+        primary_descriptor = copy.deepcopy(local_descriptor)
+        secondary_bootstraps = copy.deepcopy(_get_registered_bootstrap_nodes())
+
+    if not primary_descriptor:
+        primary_descriptor = _build_primary_env_descriptor()
+
+    current_time = time.time()
+    requested_service_set = set([svc for svc in (requesting_services or []) if svc])
+
+    primary_peer = {
+        'node_id': primary_descriptor.get('node_id', 'bootstrap-primary'),
+        'address': primary_descriptor.get('address') or network_config.get('domain', 'bootstrap.pisecure.org'),
+        'port': primary_descriptor.get('port', network_config.get('ports', {}).get('bootstrap', 3142)),
+        'services': primary_descriptor.get('services') or node_capabilities,
+        'capabilities': primary_descriptor.get('capabilities') or node_capabilities,
+        'location': primary_descriptor.get('region', network_config.get('region', 'us-east')),
+        'operator': primary_descriptor.get('operator', NODE_IDENTITY.get('operator', 'PiSecure Foundation') if NODE_IDENTITY else 'PiSecure Foundation'),
+        'trust_level': primary_descriptor.get('trust_level', trust_level),
+        'version': primary_descriptor.get('version', NODE_IDENTITY.get('version', '1.0.0') if NODE_IDENTITY else '1.0.0'),
+        'federation_enabled': primary_descriptor.get('intelligence_sharing', federation_config.get('intelligence_sharing', True)),
+        'intelligence_capable': 'intelligence_sharing' in (primary_descriptor.get('capabilities') or []),
+        'dex_coordination': primary_descriptor.get('dex_coordination', dex_config.get('coordination_enabled', False)),
+        'last_seen': current_time,
+        'reliability_score': 1.0,
+        'load_factor': 0.0,
+        'intelligence_sharing': primary_descriptor.get('intelligence_sharing', True),
+        'hardware_verified': True,
+        'geographic_distance': 'local'
+    }
+
+    peers = [primary_peer]
+
+    for bootstrap in secondary_bootstraps or []:
+        descriptor = bootstrap or {}
+
+        if requested_service_set:
+            peer_services = set(descriptor.get('services', []))
+            if not requested_service_set.issubset(peer_services):
+                continue
+
+        geo_distance = None
+        if intelligence_enabled and requesting_location:
+            geo_distance = 'local' if descriptor.get('region') == requesting_location else 'regional'
+
+        last_seen = descriptor.get('last_seen', 0)
+        time_since_seen = max(0.0, current_time - last_seen)
+        reliability_score = max(0.0, 1.0 - (time_since_seen / 3600.0))
+
+        peer_data = {
+            'node_id': descriptor.get('node_id'),
+            'address': descriptor.get('address'),
+            'port': descriptor.get('port'),
+            'services': descriptor.get('services', []),
+            'capabilities': descriptor.get('capabilities', []),
+            'location': descriptor.get('region', 'unknown'),
+            'operator': descriptor.get('operator', 'Community Operator'),
+            'trust_level': descriptor.get('trust_level', 'community_trusted'),
+            'version': descriptor.get('version', 'unknown'),
+            'federation_enabled': descriptor.get('intelligence_sharing', True),
+            'intelligence_capable': 'intelligence_sharing' in descriptor.get('capabilities', []),
+            'dex_coordination': descriptor.get('dex_coordination', False),
+            'last_seen': last_seen,
+            'reliability_score': reliability_score,
+            'load_factor': descriptor.get('load_factor', 0.5),
+            'intelligence_sharing': 'intelligence_sharing' in descriptor.get('capabilities', []),
+            'hardware_verified': descriptor.get('trust_level') == 'foundation_verified',
+            'geographic_distance': geo_distance
+        }
+
+        peers.append(peer_data)
+
+    if intelligence_enabled:
+        peers.sort(key=lambda x: (
+            x.get('trust_level') == 'foundation_verified',
+            x.get('geographic_distance') == 'local',
+            x.get('reliability_score', 0.0),
+            -x.get('load_factor', 0.0)
+        ), reverse=True)
+    else:
+        peers.sort(key=lambda x: (
+            x.get('trust_level') == 'foundation_verified',
+            x.get('reliability_score', 0.0)
+        ), reverse=True)
+
+    peers = peers[:max_peers]
+
+    generation_time = time.time()
+    response = {
+        'peers': peers,
+        'total_available': len(secondary_bootstraps) + 1,
+        'returned_count': len(peers),
+        'intelligence_applied': intelligence_enabled,
+        'filters_applied': {
+            'location': requesting_location,
+            'services': requesting_services,
+            'intelligence_enabled': intelligence_enabled,
+            'fresh': fresh_requested
+        },
+        'recommended_usage': 'Use primary bootstrap for initial coordination, secondaries for redundancy',
+        'timestamp': generation_time,
+        'last_updated': generation_time,
+        'ttl': int(PEER_DIRECTORY_CACHE_TTL),
+        'network_info': _build_peer_network_metadata(len(peers))
+    }
+
+    with PRIMARY_STATUS_LOCK:
+        response['primary_status'] = PRIMARY_STATUS.copy()
+
+    return response
+
+
+def _schedule_peer_directory_refresh(cache_key: str, build_kwargs: dict):
+    """Refresh peer directory cache asynchronously if not already refreshing."""
+
+    def _refresh():
+        try:
+            refreshed_payload = _generate_peer_directory_payload(**build_kwargs)
+            generation_time = refreshed_payload.get('timestamp', time.time())
+            cache_payload = copy.deepcopy(refreshed_payload)
+            with PEER_DIRECTORY_CACHE_LOCK:
+                PEER_DIRECTORY_CACHE[cache_key] = {
+                    'data': cache_payload,
+                    'timestamp': generation_time
+                }
+            logger.debug("Peer directory cache refreshed for key %s", cache_key)
+        except Exception as refresh_error:
+            logger.error("Peer directory cache refresh failed for %s: %s", cache_key, refresh_error)
+        finally:
+            with PEER_DIRECTORY_CACHE_LOCK:
+                PEER_DIRECTORY_CACHE_REFRESHING.discard(cache_key)
+
+    with PEER_DIRECTORY_CACHE_LOCK:
+        if cache_key in PEER_DIRECTORY_CACHE_REFRESHING:
+            return
+        PEER_DIRECTORY_CACHE_REFRESHING.add(cache_key)
+
+    threading.Thread(
+        target=_refresh,
+        name=f"peer-cache-refresh-{abs(hash(cache_key)) % 10000}",
+        daemon=True
+    ).start()
 
 
 def _build_peer_network_metadata(total_bootstrap_nodes: int) -> dict:
@@ -3950,14 +4132,15 @@ def bootstrap_peers():
 
     request_start = time.time()
 
-    def finalize_response(payload: dict, cached: bool = False, cache_age: float = 0.0):
+    def finalize_response(payload: dict, cached: bool = False, cache_age: float = 0.0, stale: bool = False):
         payload.setdefault('last_updated', payload.get('timestamp', time.time()))
         payload.setdefault('ttl', int(PEER_DIRECTORY_CACHE_TTL))
         payload['cache'] = {
             'cached': cached,
             'ttl_seconds': int(PEER_DIRECTORY_CACHE_TTL),
             'generated_at': payload.get('last_updated'),
-            'age_seconds': round(cache_age, 3)
+            'age_seconds': round(cache_age, 3),
+            'stale': stale
         }
 
         duration_ms = max(0.0, (time.time() - request_start) * 1000)
@@ -3998,153 +4181,31 @@ def bootstrap_peers():
             max_peers
         )
 
+        build_kwargs = {
+            'requesting_location': requesting_location,
+            'requesting_services': requesting_services,
+            'intelligence_enabled': intelligence_enabled,
+            'max_peers': max_peers,
+            'fresh_requested': force_refresh
+        }
+
         if not force_refresh:
             with PEER_DIRECTORY_CACHE_LOCK:
                 cache_entry = PEER_DIRECTORY_CACHE.get(cache_key)
 
             if cache_entry:
                 cache_age = time.time() - cache_entry['timestamp']
+                cached_payload = copy.deepcopy(cache_entry['data'])
                 if cache_age < PEER_DIRECTORY_CACHE_TTL:
-                    cached_payload = copy.deepcopy(cache_entry['data'])
                     return finalize_response(cached_payload, cached=True, cache_age=cache_age)
 
-        # Safe configuration access with defaults
-        network_config = NODE_CONFIG.get('node', {}).get('network', {}) if NODE_CONFIG else {}
-        federation_config = NODE_CONFIG.get('node', {}).get('federation', {}) if NODE_CONFIG else {}
-        dex_config = NODE_CONFIG.get('dex', {}) if NODE_CONFIG else {}
-        node_capabilities = NODE_CONFIG.get('node', {}).get('capabilities', []) if NODE_CONFIG else []
+                background_kwargs = dict(build_kwargs)
+                background_kwargs['fresh_requested'] = False
+                _schedule_peer_directory_refresh(cache_key, background_kwargs)
+                return finalize_response(cached_payload, cached=True, cache_age=cache_age, stale=True)
 
-        is_secondary = NODE_IDENTITY.get('role') == 'secondary' if NODE_IDENTITY else False
-        local_descriptor = _build_local_bootstrap_descriptor(
-            'community_trusted' if is_secondary else 'foundation_verified'
-        )
-
-        if is_secondary:
-            upstream_registry = _fetch_primary_registry_snapshot()
-            if upstream_registry:
-                primary_descriptor = upstream_registry.get('primary_node') or _build_primary_env_descriptor()
-                secondary_bootstraps = upstream_registry.get('secondary_nodes', [])
-
-                # Ensure this node is represented in the secondary list
-                local_id = local_descriptor.get('node_id')
-                if local_id and all(node.get('node_id') != local_id for node in secondary_bootstraps):
-                    secondary_bootstraps.append(local_descriptor)
-            else:
-                primary_descriptor, secondary_bootstraps = _select_failover_primary(local_descriptor)
-                primary_descriptor['role'] = 'acting_primary'
-                primary_descriptor['status'] = 'degraded'
-                logger.warning("Primary unreachable; acting primary elected: %s", primary_descriptor.get('node_id'))
-        else:
-            primary_descriptor = local_descriptor
-            secondary_bootstraps = _get_registered_bootstrap_nodes()
-
-        # Build primary bootstrap peer using descriptor data
-        primary_peer = {
-            'node_id': primary_descriptor.get('node_id', 'bootstrap-primary'),
-            'address': primary_descriptor.get('address') or network_config.get('domain', 'bootstrap.pisecure.org'),
-            'port': primary_descriptor.get('port', network_config.get('ports', {}).get('bootstrap', 3142)),
-            'services': primary_descriptor.get('services', node_capabilities),
-            'capabilities': primary_descriptor.get('capabilities', node_capabilities),
-            'location': primary_descriptor.get('region', network_config.get('region', 'us-east')),
-            'operator': primary_descriptor.get('operator', NODE_IDENTITY.get('operator', 'PiSecure Foundation') if NODE_IDENTITY else 'PiSecure Foundation'),
-            'trust_level': primary_descriptor.get('trust_level', 'foundation_verified'),
-            'version': primary_descriptor.get('version', NODE_IDENTITY.get('version', '1.0.0') if NODE_IDENTITY else '1.0.0'),
-            'federation_enabled': primary_descriptor.get('intelligence_sharing', federation_config.get('intelligence_sharing', True)),
-            'intelligence_capable': 'intelligence_sharing' in primary_descriptor.get('capabilities', []),
-            'dex_coordination': primary_descriptor.get('dex_coordination', dex_config.get('coordination_enabled', False)),
-            'last_seen': time.time(),
-            'reliability_score': 1.0,
-            'load_factor': 0.0,
-            'intelligence_sharing': primary_descriptor.get('intelligence_sharing', True),
-            'hardware_verified': True
-        }
-
-        peers = [primary_peer]
-
-        # Add active secondary bootstrap nodes
-        for bootstrap in secondary_bootstraps:
-            # Apply intelligent filtering if requested
-            if intelligence_enabled and requesting_location:
-                # Prefer geographically close bootstraps
-                if bootstrap['region'] != requesting_location:
-                    # Still include but with lower priority
-                    bootstrap['geographic_distance'] = 'regional'
-                else:
-                    bootstrap['geographic_distance'] = 'local'
-
-            # Filter by requested services
-            if requesting_services:
-                peer_services = set(bootstrap.get('services', []))
-                requested_set = set(requesting_services)
-                if not requested_set.issubset(peer_services):
-                    continue  # Skip peers that don't offer required services
-
-            # Calculate reliability score for secondary nodes
-            last_seen = bootstrap.get('last_seen', 0)
-            time_since_seen = time.time() - last_seen
-            reliability_score = max(0.0, 1.0 - (time_since_seen / 3600))  # Degrade over 1 hour
-
-            peer_data = {
-                'node_id': bootstrap['node_id'],
-                'address': bootstrap['address'],
-                'port': bootstrap['port'],
-                'services': bootstrap['services'],
-                'capabilities': bootstrap['capabilities'],
-                'location': bootstrap.get('region', 'unknown'),
-                'operator': bootstrap.get('operator', 'Community Operator'),
-                'trust_level': bootstrap.get('trust_level', 'community_trusted'),
-                'version': bootstrap.get('version', 'unknown'),
-                'federation_enabled': bootstrap.get('intelligence_sharing', True),
-                'intelligence_capable': 'intelligence_sharing' in bootstrap.get('capabilities', []),
-                'dex_coordination': bootstrap.get('dex_coordination', False),
-                'last_seen': last_seen,
-                'reliability_score': reliability_score,
-                'load_factor': bootstrap.get('load_factor', 0.5),
-                'intelligence_sharing': 'intelligence_sharing' in bootstrap.get('capabilities', []),
-                'hardware_verified': bootstrap.get('trust_level') == 'foundation_verified'
-            }
-
-            peers.append(peer_data)
-
-        # Intelligent sorting if enabled
-        if intelligence_enabled:
-            peers.sort(key=lambda x: (
-                x['trust_level'] == 'foundation_verified',  # Primary first
-                x.get('geographic_distance') == 'local',   # Local peers next
-                x['reliability_score'],                     # Then by reliability
-                -x['load_factor']                           # Lower load factor preferred
-            ), reverse=True)
-        else:
-            # Simple sorting: primary first, then by reliability
-            peers.sort(key=lambda x: (
-                x['trust_level'] == 'foundation_verified',
-                x['reliability_score']
-            ), reverse=True)
-
-        # Limit to top peers for performance
-        peers = peers[:max_peers]
-
-        generation_time = time.time()
-        response = {
-            'peers': peers,
-            'total_available': len(secondary_bootstraps) + 1,
-            'returned_count': len(peers),
-            'intelligence_applied': intelligence_enabled,
-            'filters_applied': {
-                'location': requesting_location,
-                'services': requesting_services,
-                'intelligence_enabled': intelligence_enabled,
-                'fresh': force_refresh
-            },
-            'recommended_usage': 'Use primary bootstrap for initial coordination, secondaries for redundancy',
-            'timestamp': generation_time,
-            'last_updated': generation_time,
-            'ttl': int(PEER_DIRECTORY_CACHE_TTL),
-            'network_info': _build_peer_network_metadata(len(peers))
-        }
-
-        with PRIMARY_STATUS_LOCK:
-            response['primary_status'] = PRIMARY_STATUS.copy()
+        response = _generate_peer_directory_payload(**build_kwargs)
+        generation_time = response.get('timestamp', time.time())
 
         cache_payload = copy.deepcopy(response)
         with PEER_DIRECTORY_CACHE_LOCK:
@@ -4224,7 +4285,15 @@ def bootstrap_registry():
             'federation_config': federation_config,
             'network_info': network_info,
             'last_updated': last_updated,
-            'config_version': config_version
+            'config_version': config_version,
+            'origin_node': {
+                'node_id': local_descriptor.get('node_id'),
+                'name': local_descriptor.get('name'),
+                'role': NODE_IDENTITY.get('role'),
+                'address': local_descriptor.get('address'),
+                'region': local_descriptor.get('region'),
+                'primary_domain_match': NODE_IDENTITY.get('primary_domain_match', False)
+            }
         }
 
         with PRIMARY_STATUS_LOCK:
