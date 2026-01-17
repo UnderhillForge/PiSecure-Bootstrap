@@ -1064,6 +1064,7 @@ BOOTSTRAP_DAILY_BUDGET=1000
 - `type`: Filter by node type (miner, validator, wallet, etc.)
 - `location`: Filter by geographic location
 - `service`: Filter by provided services
+- `fresh`: When `true`, bypasses any cached snapshot on secondary nodes and forces a new fetch from the primary registry (defaults to `false`).
 
 **Response:**
 ```json
@@ -1095,6 +1096,21 @@ BOOTSTRAP_DAILY_BUDGET=1000
   "intelligence_enhanced": true
 }
 ```
+
+**Secondary Proxy Metadata:** When a node runs in secondary mode, the response mirrors the primary registry and includes extra keys:
+
+```json
+{
+  "proxied_from_primary": true,
+  "primary_endpoint": "https://bootstrap.pisecure.org",
+  "proxied_by": "bootstrap-secondary-01",
+  "timestamp": 1705620000.0,
+  "filters_applied": { ... }
+}
+```
+
+- The data is cached for `PRIMARY_NODELIST_CACHE_TTL` seconds to avoid hammering the primary. Clients can append `?fresh=true` whenever they need the latest view (the dashboard toggles this automatically during troubleshooting).
+- Primary nodes omit the proxy metadata because they are the authoritative source.
 
 **Unique Features:**
 - Automatic inactive node cleanup (24-hour timeout)
@@ -1242,8 +1258,13 @@ BOOTSTRAP_DAILY_BUDGET=1000
 
 #### Installation Command:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/UnderhillForge/PiSecure-Bootstrap/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/UnderhillForge/PiSecure-Bootstrap/main/bootstrap-install.sh \
+  -o bootstrap-install.sh
+chmod +x bootstrap-install.sh
+sudo BOOTSTRAP_ROLE=primary ./bootstrap-install.sh
 ```
+
+> **Tip:** Set `BOOTSTRAP_ROLE=secondary` before running the script on follower nodes so they register with the primary during first boot.
 
 #### Post-Installation Configuration:
 ```bash
@@ -1256,6 +1277,26 @@ sudo nano /opt/pisecure/bootstrap/.env
 # Monitor logs
 sudo journalctl -u pisecure-bootstrap -f
 ```
+
+### Federation Configuration (Primary & Secondary Roles)
+PiSecure bootstrap nodes can operate as a **primary coordinator** or a **secondary follower** that mirrors the primary's registry. Configure the following environment variables (typically in `/opt/pisecure/bootstrap/.env`) to control federation behavior:
+
+```bash
+BOOTSTRAP_ROLE=primary|secondary
+PRIMARY_BOOTSTRAP_DOMAIN=bootstrap.pisecure.org
+PRIMARY_BOOTSTRAP_SCHEME=https
+PRIMARY_BOOTSTRAP_TIMEOUT=6
+PRIMARY_NODELIST_CACHE_TTL=15
+BOOTSTRAP_PEERS_CACHE_TTL=60
+PISECURE_GENESIS_HASH=2742129a6e95a85dbac0d62cb59c3b8fb9d5a4f56b67a4beec72e59a0bd0f8c2
+```
+
+- `BOOTSTRAP_ROLE` toggles the node identity so the server knows when to proxy registry data versus serve as the canonical source.
+- `PRIMARY_BOOTSTRAP_*` values tell secondary nodes where to forward bootstrap federation calls and how long to wait before timing out.
+- `PRIMARY_NODELIST_CACHE_TTL` (seconds) governs how long the proxied `/api/v1/nodes/list` snapshot stays in memory before a refresh; set to `0` to always fetch live data or increase the value to reduce load on constrained links.
+- `BOOTSTRAP_PEERS_CACHE_TTL` (seconds) controls the caching window for `/api/v1/bootstrap/peers`, keeping responses within the PiSecure node 10-second timeout target while reducing duplicated registry work.
+- `PISECURE_GENESIS_HASH` allows operators to broadcast a consistent genesis hash in the peer API payload so strict clients can verify they are on the right network. Leave it at `2742129a6e95a85dbac0d62cb59c3b8fb9d5a4f56b67a4beec72e59a0bd0f8c2` for mainnet, or set it to `cedf0871ffacca577bd02d5db5e8c6ba2e1d6cdff43cdadc17c63dc58ed3c24d` for the testnet.
+- Secondary nodes automatically invoke `_register_with_primary_bootstrap()` on startup and will reuse the cached snapshot unless the dashboard requests `fresh=true` (see API section below).
 
 ### 16. Real-Time Network Dashboard
 **Purpose:** Live network statistics and monitoring dashboard.
@@ -1439,6 +1480,7 @@ sudo journalctl -u pisecure-bootstrap -f
 - `services`: Filter peers by required services (comma-separated)
 - `intelligence`: Enable/disable intelligent filtering (`true`/`false`)
 - `limit`: Maximum number of peers to return (default: 10)
+- `fresh`: When `true`, bypasses the in-memory cache (default `false`). PiSecure nodes only set this during troubleshooting because the cache already refreshes every `BOOTSTRAP_PEERS_CACHE_TTL` seconds.
 
 **Response Format:**
 ```json
@@ -1460,7 +1502,8 @@ sudo journalctl -u pisecure-bootstrap -f
       "last_seen": 1704379200.0,
       "reliability_score": 1.0,
       "load_factor": 0.0,
-      "intelligence_sharing": true
+      "intelligence_sharing": true,
+      "hardware_verified": true
     }
   ],
   "total_available": 4,
@@ -1468,13 +1511,42 @@ sudo journalctl -u pisecure-bootstrap -f
   "intelligence_applied": true,
   "filters_applied": {
     "location": "us-east",
-    "services": "peer_discovery",
-    "intelligence_enabled": true
+    "services": ["peer_discovery"],
+    "intelligence_enabled": true,
+    "fresh": false
   },
   "recommended_usage": "Use primary bootstrap for initial coordination, secondaries for redundancy",
-  "timestamp": 1704379200.0
+  "timestamp": 1704379200.0,
+  "last_updated": 1704379200.0,
+  "ttl": 60,
+  "network_info": {
+    "total_blocks": 12450,
+    "blocks_last_hour": 12,
+    "active_nodes": 156,
+    "protocol_version": "1.0.0",
+    "genesis_hash": "2742129a6e95a85d...",
+    "total_bootstrap_nodes": 3,
+    "coordination_status": "active"
+  },
+  "primary_status": {
+    "reachable": true,
+    "last_success": 1704379200.0,
+    "last_failure": 0.0,
+    "acting_primary": null,
+    "acting_primary_since": 0.0
+  },
+  "cache": {
+    "cached": false,
+    "ttl_seconds": 60,
+    "generated_at": 1704379200.0,
+    "age_seconds": 0.0
+  }
 }
 ```
+
+If the canonical primary (`bootstrap.pisecure.org`) cannot be reached, the API sets `primary_status.reachable` to `false`, exposes the elected `acting_primary`, and tags the elected descriptor with `role: acting_primary`/`status: degraded` until the canonical host comes back online.
+
+Mainnet operators should keep the default genesis hash (`2742129a6e95a85dbac0d62cb59c3b8fb9d5a4f56b67a4beec72e59a0bd0f8c2`). For testnet, override `PISECURE_GENESIS_HASH` with `cedf0871ffacca577bd02d5db5e8c6ba2e1d6cdff43cdadc17c63dc58ed3c24d` so clients validate responses against the correct chain.
 
 **Unique Features:**
 - **Dual Compatibility**: Supports both traditional peers.json format and advanced API
@@ -1484,6 +1556,8 @@ sudo journalctl -u pisecure-bootstrap -f
 - **Geographic Optimization**: Preferentially returns local peers
 - **Trust Hierarchy**: Foundation verified > Community trusted > Unverified
 - **Real-time Updates**: Dynamic peer list based on current network state
+- **Latency Monitoring**: Each response records latency for `/api/v1/bootstrap/peers` so operators can verify the 10-second SLA.
+- **Automatic Failover Election**: When the canonical primary is unreachable, secondaries elect an acting primary using health scores, mark it with `role: acting_primary`, and expose the decision through `primary_status` so clients understand the cluster state.
 
 **Usage Examples:**
 

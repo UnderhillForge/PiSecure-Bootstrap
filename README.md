@@ -156,9 +156,16 @@ PRIMARY_BOOTSTRAP_DOMAIN=bootstrap.pisecure.org
 PRIMARY_BOOTSTRAP_SCHEME=https
 PRIMARY_BOOTSTRAP_TIMEOUT=6
 PRIMARY_NODELIST_CACHE_TTL=15
+BOOTSTRAP_PEERS_CACHE_TTL=60
+PISECURE_GENESIS_HASH=2742129a6e95a85dbac0d62cb59c3b8fb9d5a4f56b67a4beec72e59a0bd0f8c2
 ```
 
 Secondary deployments automatically proxy `/api/v1/nodes/list` from the domain defined by `PRIMARY_BOOTSTRAP_DOMAIN`, and the optional `PRIMARY_NODELIST_CACHE_TTL` (seconds) controls how long the shared directory is cached locally.
+`BOOTSTRAP_PEERS_CACHE_TTL` governs the `/api/v1/bootstrap/peers` cache window (seconds) so secondary dashboards can keep responses under the 10s SLA, and `PISECURE_GENESIS_HASH` sets the advertised genesis hash in peer metadata for clients that verify responses.
+
+Mainnet deployments should keep the default `2742129a6e95a85dbac0d62cb59c3b8fb9d5a4f56b67a4beec72e59a0bd0f8c2` hash. For testnet clusters, override `PISECURE_GENESIS_HASH` with `cedf0871ffacca577bd02d5db5e8c6ba2e1d6cdff43cdadc17c63dc58ed3c24d`.
+
+When the canonical primary (`bootstrap.pisecure.org`) is unreachable, secondary nodes now elect an acting primary using the new health-scored failover logic. Both `/api/v1/bootstrap/peers` and `/api/v1/bootstrap/registry` include a `primary_status` object so operators and clients can see whether the canonical host is reachable, which node is currently acting primary, and when that election happened. Acting primaries are marked with `role: acting_primary` and `status: degraded` in the returned descriptors until the canonical host recovers.
 
 ### Raspberry Pi Configuration
 The installation script automatically configures:

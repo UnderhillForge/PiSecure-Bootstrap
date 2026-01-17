@@ -11,6 +11,7 @@ import ipaddress
 import json
 import os
 import re
+import copy
 from collections import deque, defaultdict
 from flask import Flask, jsonify, request, render_template
 from sqlalchemy import create_engine, Column, String, Integer, Float, Boolean, Text, DateTime
@@ -58,6 +59,29 @@ try:
     PRIMARY_API_TIMEOUT = float(os.getenv('PRIMARY_BOOTSTRAP_TIMEOUT', '6'))
 except ValueError:
     PRIMARY_API_TIMEOUT = 6.0
+
+PEER_DIRECTORY_CACHE = {}
+
+try:
+    PEER_DIRECTORY_CACHE_TTL = float(os.getenv('BOOTSTRAP_PEERS_CACHE_TTL', '60'))
+except ValueError:
+    PEER_DIRECTORY_CACHE_TTL = 60.0
+
+PEER_DIRECTORY_CACHE_LOCK = threading.RLock()
+
+GENESIS_HASH = os.getenv(
+    'PISECURE_GENESIS_HASH',
+    '2742129a6e95a85dbac0d62cb59c3b8fb9d5a4f56b67a4beec72e59a0bd0f8c2'
+)
+
+PRIMARY_STATUS = {
+    'reachable': True,
+    'last_success': time.time(),
+    'last_failure': 0.0,
+    'acting_primary': None,
+    'acting_primary_since': 0.0
+}
+PRIMARY_STATUS_LOCK = threading.RLock()
 
 
 def _normalize_hostname(value):
@@ -283,9 +307,11 @@ def _fetch_primary_registry_snapshot(force_refresh: bool = False):
         registry_data = response.json()
         PRIMARY_REGISTRY_CACHE['data'] = registry_data
         PRIMARY_REGISTRY_CACHE['timestamp'] = now
+        _record_primary_availability(True)
         return registry_data
     except (requests.RequestException, ValueError) as exc:
         logger.warning("Primary registry fetch failed: %s", exc)
+        _record_primary_availability(False)
         return PRIMARY_REGISTRY_CACHE['data']
 
 
@@ -323,10 +349,18 @@ def _fetch_primary_nodes_snapshot(force_refresh: bool = False, query_params=None
         nodes_data = response.json()
         cache_entry['data'] = nodes_data
         cache_entry['timestamp'] = now
+        _record_primary_availability(True)
         return nodes_data
     except (requests.RequestException, ValueError) as exc:
         logger.warning("Primary node directory fetch failed: %s", exc)
+        _record_primary_availability(False)
         return cache_entry['data']
+
+
+def _as_bool(env_value: str) -> bool:
+    if env_value is None:
+        return False
+    return env_value.strip().lower() in ('1', 'true', 'yes', 'on')
 
 
 def load_node_config():
@@ -372,12 +406,27 @@ def load_node_config():
     primary_domains = _get_primary_domains()
     raw_env_role = os.getenv('BOOTSTRAP_ROLE')
     env_role = raw_env_role.strip().lower() if raw_env_role else None
+    force_primary = _as_bool(os.getenv('BOOTSTRAP_FORCE_PRIMARY'))
+    force_secondary = _as_bool(os.getenv('BOOTSTRAP_FORCE_SECONDARY'))
+    domain_matches_primary = bool(runtime_domain and runtime_domain in primary_domains)
+
     assigned_role = env_role or identity_section.get('role') or 'primary'
 
-    if not env_role and runtime_domain:
-        assigned_role = 'primary' if runtime_domain in primary_domains else 'secondary'
+    if force_secondary:
+        assigned_role = 'secondary'
+    elif force_primary:
+        assigned_role = 'primary'
+    elif domain_matches_primary:
+        assigned_role = 'primary'
+    else:
+        assigned_role = 'secondary'
+
+    if assigned_role == 'primary' and not domain_matches_primary and not force_primary:
+        print("[bootstrap] Primary role requested but runtime domain is not canonical; forcing secondary mode")
+        assigned_role = 'secondary'
 
     identity_section['role'] = assigned_role
+    identity_section['primary_domain_match'] = domain_matches_primary
 
     if assigned_role == 'secondary':
         region = network_section.get('region') or os.getenv('RAILWAY_REGION') or 'unknown'
@@ -399,6 +448,7 @@ def load_node_config():
     elif identity_section.get('role') == 'secondary':
         identity_section['node_id'] = _generate_secondary_node_id(runtime_domain, network_section.get('region'))
 
+    identity_section.setdefault('registered_at', time.time())
     NODE_IDENTITY = identity_section
     role = NODE_IDENTITY.get('role', 'unknown')
     region = network_section.get('region', 'unknown')
@@ -624,6 +674,119 @@ def ddos_protection_middleware():
     
     return None
 
+def _build_peer_directory_cache_key(location: str, services: list, intelligence_enabled: bool, limit: int) -> str:
+    location_key = location or 'any'
+    service_key = 'any'
+    if services:
+        normalized = sorted([svc.strip() for svc in services if svc])
+        service_key = ','.join(normalized) or 'any'
+    intelligence_key = '1' if intelligence_enabled else '0'
+    return f"{location_key}|{service_key}|{intelligence_key}|{limit}"
+
+
+def _build_peer_network_metadata(total_bootstrap_nodes: int) -> dict:
+    mining_stats = mining_aggregator.get_mining_stats() if 'mining_aggregator' in globals() else {}
+    active_nodes = node_tracker.count_active_nodes() if 'node_tracker' in globals() else 0
+    blocks_last_hour = mining_stats.get('blocks_last_hour', 0)
+    avg_blocks_per_hour = mining_stats.get('avg_blocks_per_hour', 0) or 0
+    estimated_total_blocks = int(blocks_last_hour + (avg_blocks_per_hour * 24))
+
+    return {
+        'total_blocks': estimated_total_blocks,
+        'blocks_last_hour': blocks_last_hour,
+        'active_nodes': active_nodes,
+        'protocol_version': NODE_IDENTITY.get('version', '1.0.0') if NODE_IDENTITY else '1.0.0',
+        'genesis_hash': GENESIS_HASH,
+        'total_bootstrap_nodes': total_bootstrap_nodes,
+        'coordination_status': 'active'
+    }
+
+
+def _record_primary_availability(success: bool):
+    now = time.time()
+    with PRIMARY_STATUS_LOCK:
+        if success:
+            PRIMARY_STATUS.update({
+                'reachable': True,
+                'last_success': now,
+                'acting_primary': None,
+                'acting_primary_since': 0.0
+            })
+        else:
+            PRIMARY_STATUS['reachable'] = False
+            PRIMARY_STATUS['last_failure'] = now
+
+
+def _calculate_bootstrap_health_score(descriptor: dict) -> float:
+    current_time = time.time()
+    reliability = descriptor.get('reliability_score', 0.85)
+    load_factor = min(max(descriptor.get('load_factor', 0.2), 0.0), 1.0)
+    last_seen = descriptor.get('last_seen', current_time)
+    response_ms = descriptor.get('avg_response_ms')
+    if response_ms is None:
+        response_ms = network_intelligence.latency_stats.get('mean') or 350
+    uptime_target = descriptor.get('uptime_target', 99.0)
+
+    freshness = max(0.0, 1.0 - min((current_time - last_seen) / 600, 1.0))
+    latency_component = max(0.0, 1.0 - min(response_ms / 1200.0, 1.0))
+    uptime_component = max(0.0, min(uptime_target / 100.0, 1.0))
+
+    score = (
+        min(reliability, 1.0) * 0.4 +
+        (1.0 - load_factor) * 0.25 +
+        freshness * 0.15 +
+        latency_component * 0.15 +
+        uptime_component * 0.05
+    )
+
+    descriptor['health_score'] = round(score * 100, 2)
+    descriptor['avg_response_ms'] = round(response_ms, 2)
+    descriptor['last_health_check'] = current_time
+    descriptor.setdefault('registered_at', NODE_IDENTITY.get('registered_at', current_time))
+    return descriptor['health_score']
+
+
+def _collect_failover_candidates(local_descriptor: dict) -> list:
+    candidates = []
+
+    if local_descriptor:
+        local_copy = local_descriptor.copy()
+        local_copy.setdefault('node_id', NODE_IDENTITY.get('node_id', 'bootstrap-local'))
+        local_copy.setdefault('last_seen', time.time())
+        _calculate_bootstrap_health_score(local_copy)
+        candidates.append(local_copy)
+
+    for node in _get_registered_bootstrap_nodes(include_metadata=True):
+        descriptor = node.copy()
+        _calculate_bootstrap_health_score(descriptor)
+        candidates.append(descriptor)
+
+    return candidates
+
+
+def _select_failover_primary(local_descriptor: dict):
+    candidates = _collect_failover_candidates(local_descriptor)
+    if not candidates:
+        return local_descriptor, []
+
+    candidates.sort(
+        key=lambda d: (
+            -d.get('health_score', 0),
+            d.get('avg_response_ms', 9999),
+            d.get('registered_at', time.time())
+        )
+    )
+
+    acting_primary = candidates[0]
+    other_nodes = [node for node in candidates[1:] if node.get('node_id') != acting_primary.get('node_id')]
+
+    with PRIMARY_STATUS_LOCK:
+        PRIMARY_STATUS['acting_primary'] = acting_primary.get('node_id')
+        PRIMARY_STATUS['acting_primary_since'] = time.time()
+        PRIMARY_STATUS['reachable'] = False
+
+    return acting_primary, other_nodes
+
 # Database Models (matching API specification)
 class Node(Base):
     __tablename__ = 'nodes'
@@ -781,6 +944,11 @@ class NodeTracker:
             return 0.0
 
         return min(100.0, (1 - (time_since_last_seen / total_time)) * 100)
+
+    def count_active_nodes(self, max_idle_seconds: int = 300) -> int:
+        current_time = time.time()
+        return sum(1 for node in self.nodes.values()
+                   if current_time - node.get('last_seen', 0) < max_idle_seconds)
 
 class MiningStatsAggregator:
     def __init__(self, node_tracker: NodeTracker):
@@ -3463,6 +3631,13 @@ def _validate_bootstrap_node(handshake_data: dict) -> bool:
 def _register_bootstrap_node(bootstrap_node: dict):
     """Register or update a secondary bootstrap node"""
     node_id = bootstrap_node['node_id']
+    now = time.time()
+    bootstrap_node.setdefault('registered_at', now)
+    bootstrap_node.setdefault('last_seen', now)
+    bootstrap_node.setdefault('health_score', 75.0)
+    bootstrap_node.setdefault('reliability_score', bootstrap_node.get('reliability_score', 0.9))
+    bootstrap_node.setdefault('avg_response_ms', bootstrap_node.get('avg_response_ms', 350))
+    bootstrap_node.setdefault('uptime_target', bootstrap_node.get('uptime_target', 99.0))
     bootstrap_node_registry[node_id] = bootstrap_node
     logger.info(f"Registered bootstrap node: {node_id}")
 
@@ -3470,31 +3645,54 @@ def _update_bootstrap_services(node_id: str, service_update: dict):
     """Update service advertisement for a bootstrap node"""
     if node_id in bootstrap_node_registry:
         bootstrap_node_registry[node_id].update(service_update)
+        bootstrap_node_registry[node_id]['last_seen'] = time.time()
+        health_metrics = service_update.get('health_metrics') or {}
+        if health_metrics:
+            bootstrap_node_registry[node_id]['avg_response_ms'] = health_metrics.get('avg_response_ms',
+                                                                                    bootstrap_node_registry[node_id].get('avg_response_ms'))
+            bootstrap_node_registry[node_id]['reliability_score'] = health_metrics.get('reliability_score',
+                                                                                      bootstrap_node_registry[node_id].get('reliability_score', 0.9))
+            bootstrap_node_registry[node_id]['uptime_target'] = health_metrics.get('uptime_target',
+                                                                                  bootstrap_node_registry[node_id].get('uptime_target', 99.0))
+        _calculate_bootstrap_health_score(bootstrap_node_registry[node_id])
         logger.info(f"Updated services for bootstrap node: {node_id}")
 
 def _is_bootstrap_node_registered(node_id: str) -> bool:
     """Check if a bootstrap node is registered"""
     return node_id in bootstrap_node_registry
 
-def _get_registered_bootstrap_nodes() -> list:
+def _get_registered_bootstrap_nodes(include_metadata: bool = False) -> list:
     """Get all registered secondary bootstrap nodes"""
     current_time = time.time()
     active_nodes = []
 
     for node_id, node_data in bootstrap_node_registry.items():
-        # Check if node is still active (last seen within 10 minutes)
-        if current_time - node_data.get('last_seen', 0) < 600:
-            active_nodes.append({
-                'node_id': node_data['node_id'],
-                'address': node_data['address'],
-                'port': node_data['port'],
-                'services': node_data['services'],
-                'capabilities': node_data['capabilities'],
-                'region': node_data.get('region', 'unknown'),
-                'status': node_data.get('status', 'active'),
-                'load_factor': node_data.get('load_factor', 0.0),
-                'last_seen': node_data.get('last_seen', current_time)
+        last_seen = node_data.get('last_seen', 0)
+        if current_time - last_seen >= 600:
+            continue
+
+        entry = {
+            'node_id': node_data['node_id'],
+            'address': node_data['address'],
+            'port': node_data['port'],
+            'services': node_data['services'],
+            'capabilities': node_data['capabilities'],
+            'region': node_data.get('region', 'unknown'),
+            'status': node_data.get('status', 'active'),
+            'load_factor': node_data.get('load_factor', 0.0),
+            'last_seen': last_seen
+        }
+
+        if include_metadata:
+            entry.update({
+                'reliability_score': node_data.get('reliability_score', 0.85),
+                'avg_response_ms': node_data.get('avg_response_ms'),
+                'uptime_target': node_data.get('uptime_target', 99.0),
+                'registered_at': node_data.get('registered_at', current_time),
+                'health_score': node_data.get('health_score')
             })
+
+        active_nodes.append(entry)
 
     return active_nodes
 
@@ -3750,6 +3948,29 @@ def bootstrap_peers():
     """Dynamic peer discovery API with intelligence-enhanced peer selection"""
     logger.info("Dynamic bootstrap peers endpoint called")
 
+    request_start = time.time()
+
+    def finalize_response(payload: dict, cached: bool = False, cache_age: float = 0.0):
+        payload.setdefault('last_updated', payload.get('timestamp', time.time()))
+        payload.setdefault('ttl', int(PEER_DIRECTORY_CACHE_TTL))
+        payload['cache'] = {
+            'cached': cached,
+            'ttl_seconds': int(PEER_DIRECTORY_CACHE_TTL),
+            'generated_at': payload.get('last_updated'),
+            'age_seconds': round(cache_age, 3)
+        }
+
+        duration_ms = max(0.0, (time.time() - request_start) * 1000)
+        try:
+            network_intelligence.record_latency(
+                duration_ms,
+                endpoint='/api/v1/bootstrap/peers'
+            )
+        except Exception as latency_error:
+            logger.debug("Failed to record latency for peers endpoint: %s", latency_error)
+
+        return jsonify(payload)
+
     try:
         # Record this API call for intelligence
         client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
@@ -3758,7 +3979,34 @@ def bootstrap_peers():
         # Get query parameters for intelligent filtering
         requesting_location = request.args.get('location')
         requesting_services = request.args.get('services', '').split(',') if request.args.get('services') else None
+        if requesting_services:
+            requesting_services = [svc.strip() for svc in requesting_services if svc.strip()]
         intelligence_enabled = request.args.get('intelligence', 'true').lower() == 'true'
+        force_refresh = request.args.get('fresh', 'false').lower() == 'true'
+
+        try:
+            max_peers = int(request.args.get('limit', 10))
+        except ValueError:
+            max_peers = 10
+
+        max_peers = max(1, min(50, max_peers))
+
+        cache_key = _build_peer_directory_cache_key(
+            requesting_location,
+            requesting_services,
+            intelligence_enabled,
+            max_peers
+        )
+
+        if not force_refresh:
+            with PEER_DIRECTORY_CACHE_LOCK:
+                cache_entry = PEER_DIRECTORY_CACHE.get(cache_key)
+
+            if cache_entry:
+                cache_age = time.time() - cache_entry['timestamp']
+                if cache_age < PEER_DIRECTORY_CACHE_TTL:
+                    cached_payload = copy.deepcopy(cache_entry['data'])
+                    return finalize_response(cached_payload, cached=True, cache_age=cache_age)
 
         # Safe configuration access with defaults
         network_config = NODE_CONFIG.get('node', {}).get('network', {}) if NODE_CONFIG else {}
@@ -3767,6 +4015,9 @@ def bootstrap_peers():
         node_capabilities = NODE_CONFIG.get('node', {}).get('capabilities', []) if NODE_CONFIG else []
 
         is_secondary = NODE_IDENTITY.get('role') == 'secondary' if NODE_IDENTITY else False
+        local_descriptor = _build_local_bootstrap_descriptor(
+            'community_trusted' if is_secondary else 'foundation_verified'
+        )
 
         if is_secondary:
             upstream_registry = _fetch_primary_registry_snapshot()
@@ -3775,15 +4026,16 @@ def bootstrap_peers():
                 secondary_bootstraps = upstream_registry.get('secondary_nodes', [])
 
                 # Ensure this node is represented in the secondary list
-                local_descriptor = _build_local_bootstrap_descriptor('community_trusted')
                 local_id = local_descriptor.get('node_id')
                 if local_id and all(node.get('node_id') != local_id for node in secondary_bootstraps):
                     secondary_bootstraps.append(local_descriptor)
             else:
-                primary_descriptor = _build_primary_env_descriptor()
-                secondary_bootstraps = [_build_local_bootstrap_descriptor('community_trusted')]
+                primary_descriptor, secondary_bootstraps = _select_failover_primary(local_descriptor)
+                primary_descriptor['role'] = 'acting_primary'
+                primary_descriptor['status'] = 'degraded'
+                logger.warning("Primary unreachable; acting primary elected: %s", primary_descriptor.get('node_id'))
         else:
-            primary_descriptor = _build_local_bootstrap_descriptor('foundation_verified')
+            primary_descriptor = local_descriptor
             secondary_bootstraps = _get_registered_bootstrap_nodes()
 
         # Build primary bootstrap peer using descriptor data
@@ -3803,7 +4055,8 @@ def bootstrap_peers():
             'last_seen': time.time(),
             'reliability_score': 1.0,
             'load_factor': 0.0,
-            'intelligence_sharing': primary_descriptor.get('intelligence_sharing', True)
+            'intelligence_sharing': primary_descriptor.get('intelligence_sharing', True),
+            'hardware_verified': True
         }
 
         peers = [primary_peer]
@@ -3847,7 +4100,8 @@ def bootstrap_peers():
                 'last_seen': last_seen,
                 'reliability_score': reliability_score,
                 'load_factor': bootstrap.get('load_factor', 0.5),
-                'intelligence_sharing': 'intelligence_sharing' in bootstrap.get('capabilities', [])
+                'intelligence_sharing': 'intelligence_sharing' in bootstrap.get('capabilities', []),
+                'hardware_verified': bootstrap.get('trust_level') == 'foundation_verified'
             }
 
             peers.append(peer_data)
@@ -3868,9 +4122,9 @@ def bootstrap_peers():
             ), reverse=True)
 
         # Limit to top peers for performance
-        max_peers = int(request.args.get('limit', 10))
         peers = peers[:max_peers]
 
+        generation_time = time.time()
         response = {
             'peers': peers,
             'total_available': len(secondary_bootstraps) + 1,
@@ -3879,17 +4133,37 @@ def bootstrap_peers():
             'filters_applied': {
                 'location': requesting_location,
                 'services': requesting_services,
-                'intelligence_enabled': intelligence_enabled
+                'intelligence_enabled': intelligence_enabled,
+                'fresh': force_refresh
             },
             'recommended_usage': 'Use primary bootstrap for initial coordination, secondaries for redundancy',
-            'timestamp': time.time()
+            'timestamp': generation_time,
+            'last_updated': generation_time,
+            'ttl': int(PEER_DIRECTORY_CACHE_TTL),
+            'network_info': _build_peer_network_metadata(len(peers))
         }
 
-        return jsonify(response)
+        with PRIMARY_STATUS_LOCK:
+            response['primary_status'] = PRIMARY_STATUS.copy()
+
+        cache_payload = copy.deepcopy(response)
+        with PEER_DIRECTORY_CACHE_LOCK:
+            PEER_DIRECTORY_CACHE[cache_key] = {
+                'data': cache_payload,
+                'timestamp': generation_time
+            }
+
+        return finalize_response(response, cached=False, cache_age=0.0)
 
     except Exception as e:
         logger.error(f"Dynamic bootstrap peers error: {e}")
-        return jsonify({'error': 'Peer discovery failed'}), 500
+        error_payload = {'error': 'Peer discovery failed'}
+        duration_ms = max(0.0, (time.time() - request_start) * 1000)
+        try:
+            network_intelligence.record_latency(duration_ms, endpoint='/api/v1/bootstrap/peers')
+        except Exception:
+            pass
+        return jsonify(error_payload), 500
 
 @app.route('/api/v1/bootstrap/registry', methods=['GET'])
 def bootstrap_registry():
@@ -3925,8 +4199,10 @@ def bootstrap_registry():
                 last_updated = upstream_registry.get('last_updated', time.time())
                 config_version = upstream_registry.get('config_version', NODE_IDENTITY.get('version', '1.0.0'))
             else:
-                primary_node = _build_primary_env_descriptor()
-                secondary_nodes = [local_descriptor]
+                primary_node, secondary_nodes = _select_failover_primary(local_descriptor)
+                primary_node['role'] = 'acting_primary'
+                primary_node['status'] = 'degraded'
+                logger.warning("Primary unreachable; acting primary elected for registry: %s", primary_node.get('node_id'))
                 total_nodes = len(secondary_nodes) + 1
                 federation_config = local_federation_config
                 network_info = _build_default_network_info(total_nodes)
@@ -3950,6 +4226,9 @@ def bootstrap_registry():
             'last_updated': last_updated,
             'config_version': config_version
         }
+
+        with PRIMARY_STATUS_LOCK:
+            registry['primary_status'] = PRIMARY_STATUS.copy()
 
         return jsonify(registry)
 
