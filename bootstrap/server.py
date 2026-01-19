@@ -270,6 +270,74 @@ def _build_primary_env_descriptor() -> dict:
     return descriptor
 
 
+def _build_primary_env_descriptor_for_network(network: str = 'mainnet') -> dict:
+    network_key = (network or 'mainnet').strip().lower()
+    if network_key == 'testnet':
+        try:
+            port = int(os.getenv('TESTNET_BOOTSTRAP_PORT', '3142'))
+        except ValueError:
+            port = 3142
+
+        return {
+            'node_id': os.getenv('TESTNET_BOOTSTRAP_NODE_ID', 'bootstrap-testnet'),
+            'name': os.getenv('TESTNET_BOOTSTRAP_NAME', 'PiSecure Bootstrap Testnet'),
+            'role': 'primary',
+            'operator': os.getenv('TESTNET_BOOTSTRAP_OPERATOR', 'PiSecure Foundation'),
+            'address': os.getenv('TESTNET_BOOTSTRAP_DOMAIN', 'testnet-bootstrap.pisecure.org'),
+            'port': port,
+            'status': 'active',
+            'services': ['bootstrap_coordination', 'peer_discovery', 'network_health_monitoring'],
+            'capabilities': ['bootstrap_coordination', 'peer_discovery', 'network_health_monitoring'],
+            'region': os.getenv('TESTNET_BOOTSTRAP_REGION', 'us-east'),
+            'version': os.getenv('TESTNET_BOOTSTRAP_VERSION', '1.0.0'),
+            'trust_level': 'foundation_verified',
+            'uptime_target': float(os.getenv('TESTNET_BOOTSTRAP_UPTIME_TARGET', '99.9')),
+            'intelligence_sharing': True,
+            'dex_coordination': False
+        }
+    else:
+        return _build_primary_env_descriptor()
+
+
+def _get_env_secondary_bootstraps(network: str = 'mainnet') -> list:
+    network_key = (network or 'mainnet').strip().lower()
+    env_var = 'TESTNET_SECONDARY_BOOTSTRAPS' if network_key == 'testnet' else 'SECONDARY_BOOTSTRAPS'
+    raw = os.getenv(env_var, '').strip()
+    if not raw:
+        return []
+
+    secondaries = []
+    for entry in raw.split(','):
+        entry = entry.strip()
+        if not entry:
+            continue
+        address = entry
+        port = 3142
+        if ':' in entry:
+            addr, p = entry.split(':', 1)
+            address = addr
+            try:
+                port = int(p)
+            except ValueError:
+                port = 3142
+
+        secondaries.append({
+            'node_id': f"{network_key}-secondary-{address}",
+            'address': address,
+            'port': port,
+            'services': ['peer_discovery'],
+            'capabilities': ['peer_discovery'],
+            'region': 'unknown',
+            'version': 'unknown',
+            'trust_level': 'community_trusted',
+            'intelligence_sharing': False,
+            'last_seen': time.time(),
+            'load_factor': 0.0
+        })
+
+    return secondaries
+
+
 def _build_default_network_info(total_nodes: int) -> dict:
     return {
         'coordination_status': 'active',
@@ -676,14 +744,15 @@ def ddos_protection_middleware():
     
     return None
 
-def _build_peer_directory_cache_key(location: str, services: list, intelligence_enabled: bool, limit: int) -> str:
+def _build_peer_directory_cache_key(location: str, services: list, intelligence_enabled: bool, limit: int, network: str = 'mainnet') -> str:
     location_key = location or 'any'
     service_key = 'any'
     if services:
         normalized = sorted([svc.strip() for svc in services if svc])
         service_key = ','.join(normalized) or 'any'
     intelligence_key = '1' if intelligence_enabled else '0'
-    return f"{location_key}|{service_key}|{intelligence_key}|{limit}"
+    network_key = (network or 'mainnet').strip().lower()
+    return f"{location_key}|{service_key}|{intelligence_key}|{limit}|{network_key}"
 
 
 def _generate_peer_directory_payload(
@@ -691,7 +760,8 @@ def _generate_peer_directory_payload(
     requesting_services: list,
     intelligence_enabled: bool,
     max_peers: int,
-    fresh_requested: bool = False
+    fresh_requested: bool = False,
+    network: str = 'mainnet'
 ) -> dict:
     """Build the peer directory snapshot independent from Flask request context."""
     network_config = NODE_CONFIG.get('node', {}).get('network', {}) if NODE_CONFIG else {}
@@ -706,7 +776,8 @@ def _generate_peer_directory_payload(
     secondary_bootstraps = []
     primary_descriptor = None
 
-    if is_secondary:
+    selected_network = (network or 'mainnet').strip().lower()
+    if is_secondary and selected_network == 'mainnet':
         upstream_registry = _fetch_primary_registry_snapshot()
         if upstream_registry:
             primary_descriptor = copy.deepcopy(upstream_registry.get('primary_node') or _build_primary_env_descriptor())
@@ -723,8 +794,12 @@ def _generate_peer_directory_payload(
                 primary_descriptor['status'] = 'degraded'
                 logger.warning("Primary unreachable; acting primary elected: %s", primary_descriptor.get('node_id'))
     else:
-        primary_descriptor = copy.deepcopy(local_descriptor)
-        secondary_bootstraps = copy.deepcopy(_get_registered_bootstrap_nodes())
+        if selected_network == 'testnet':
+            primary_descriptor = copy.deepcopy(_build_primary_env_descriptor_for_network('testnet'))
+            secondary_bootstraps = copy.deepcopy(_get_env_secondary_bootstraps('testnet'))
+        else:
+            primary_descriptor = copy.deepcopy(local_descriptor)
+            secondary_bootstraps = copy.deepcopy(_get_registered_bootstrap_nodes())
 
     if not primary_descriptor:
         primary_descriptor = _build_primary_env_descriptor()
@@ -819,7 +894,8 @@ def _generate_peer_directory_payload(
             'location': requesting_location,
             'services': requesting_services,
             'intelligence_enabled': intelligence_enabled,
-            'fresh': fresh_requested
+            'fresh': fresh_requested,
+            'network': selected_network
         },
         'recommended_usage': 'Use primary bootstrap for initial coordination, secondaries for redundancy',
         'timestamp': generation_time,
@@ -4277,6 +4353,7 @@ def bootstrap_peers():
         network_intelligence.record_connection(client_ip)
 
         # Get query parameters for intelligent filtering
+        selected_network = (request.args.get('network') or 'mainnet').strip().lower()
         requesting_location = request.args.get('location')
         requesting_services = request.args.get('services', '').split(',') if request.args.get('services') else None
         if requesting_services:
@@ -4295,7 +4372,8 @@ def bootstrap_peers():
             requesting_location,
             requesting_services,
             intelligence_enabled,
-            max_peers
+            max_peers,
+            selected_network
         )
 
         build_kwargs = {
@@ -4303,7 +4381,8 @@ def bootstrap_peers():
             'requesting_services': requesting_services,
             'intelligence_enabled': intelligence_enabled,
             'max_peers': max_peers,
-            'fresh_requested': force_refresh
+            'fresh_requested': force_refresh,
+            'network': selected_network
         }
 
         if not force_refresh:
