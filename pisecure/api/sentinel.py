@@ -398,6 +398,61 @@ class SentinelService:
                 'network_notified': True
             }
     
+    def record_incident(self, incident_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Record a security incident including low-entropy RNG submissions
+        Automatically adjusts node reputation and network standing
+        """
+        node_id = incident_data.get('node_id')
+        incident_type = incident_data.get('incident_type')
+        severity = incident_data.get('severity', 'medium')
+        evidence = incident_data.get('evidence', {})
+        reputation_impact = incident_data.get('reputation_impact', -5.0)
+        
+        with self.lock:
+            # Get or create node reputation
+            if node_id not in self.node_reputations:
+                self.node_reputations[node_id] = NodeReputation(node_id=node_id)
+            
+            target_rep = self.node_reputations[node_id]
+            
+            # Record the incident
+            target_rep.incident_count += 1
+            target_rep.last_incident = time.time()
+            
+            incident_record = {
+                'type': incident_type,
+                'severity': severity,
+                'evidence': evidence,
+                'reputation_impact': reputation_impact,
+                'timestamp': time.time()
+            }
+            target_rep.incident_history.append(incident_record)
+            
+            # Apply reputation penalty
+            self._adjust_reputation(node_id, reputation_impact)
+            
+            # Check if network standing should be updated
+            self._check_network_standing(node_id)
+            
+            # Update trust level
+            target_rep.trust_level = self._calculate_trust_level(target_rep.reputation_score)
+            
+            # Log based on severity
+            if severity == 'high' or severity == 'critical':
+                # Could propagate alert to network here
+                pass
+            
+            return {
+                'incident_recorded': True,
+                'node_id': node_id,
+                'incident_type': incident_type,
+                'new_reputation_score': target_rep.reputation_score,
+                'trust_level': target_rep.trust_level,
+                'network_standing': target_rep.network_standing,
+                'total_incidents': target_rep.incident_count
+            }
+    
     def propagate_alert(self, alert_data: Dict[str, Any]) -> Dict[str, Any]:
         """Propagate security alert across the network using Intelligence Federation"""
         source_node = alert_data.get('source_node')

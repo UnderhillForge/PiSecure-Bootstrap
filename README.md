@@ -72,6 +72,7 @@ An intelligent, ML-powered bootstrap node for the PiSecure P2P network with adva
 | `/api/v1/nodes/register` | POST | PiSecure node registration |
 | `/api/v1/nodes/status` | POST | Node status updates |
 | `/api/v1/nodes/list` | GET | Registered nodes directory |
+| `/api/v1/hardware/entropy` | POST | Hardware RNG entropy validation |
 
 ### DEX & Token Economics
 | Endpoint | Method | Description |
@@ -260,6 +261,39 @@ curl -X POST "https://bootstrap.pisecure.org/api/v1/nodes/register" \
 curl -X POST "https://bootstrap.pisecure.org/api/v1/nodes/status" \
      -H "Content-Type: application/json" \
      -d '{"node_id": "your-node-id", "status": "active", "mining_active": true}'
+
+# Submit hardware entropy for validation (32 bytes as hex)
+curl -X POST "https://bootstrap.pisecure.org/api/v1/hardware/entropy" \
+     -H "Content-Type: application/json" \
+     -d '{"node_id": "your-node-id", "entropy_hex": "a1b2c3d4e5f6..."}'
+```
+
+### Hardware RNG Entropy Validation
+The bootstrap node validates hardware random number generators (RNG) using **NIST SP 800-90B** statistical tests:
+
+- **Chi-Square Test**: Validates uniform byte distribution
+- **Runs Test**: Detects patterns in bit sequences  
+- **Longest Run Test**: Identifies abnormal consecutive bit runs
+- **Shannon Entropy**: Measures randomness quality (bits per byte)
+
+**Requirements:**
+- Submit 32 bytes of entropy as hexadecimal string
+- Minimum acceptable entropy: 4.5 bits/byte (realistic for 32-byte samples)
+- Failed submissions result in reputation penalties
+- Nodes with consistent low entropy may be quarantined
+
+**Example Response:**
+```json
+{
+  "validation_result": true,
+  "quality_score": 87.5,
+  "entropy_estimate_bits_per_byte": 7.89,
+  "node_entropy_history": {
+    "total_samples": 15,
+    "pass_rate": 0.93,
+    "avg_quality": 85.2
+  }
+}
 ```
 
 ### For Bootstrap Operators

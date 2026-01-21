@@ -37,6 +37,8 @@ from sklearn.cluster import KMeans
 from collections import Counter
 import threading
 import time as time_module
+import math
+from typing import Tuple
 
 # Load node configuration
 NODE_CONFIG = None
@@ -1147,10 +1149,291 @@ Base.metadata.create_all(bind=engine)
 
 # Core Service Classes
 
+class EntropyValidator:
+    """
+    RNG Entropy Validation using NIST SP 800-90B statistical tests
+    Validates 32-byte hardware RNG samples to ensure genuine entropy quality
+    """
+    
+    # Entropy quality thresholds (adjusted for 32-byte samples)
+    MIN_ENTROPY_BITS_PER_BYTE = 4.5  # Realistic minimum for 32-byte samples
+    PENALTY_LOW_ENTROPY = -10.0  # Reputation penalty for low entropy
+    PENALTY_FAILED_TESTS = -5.0  # Penalty for failing statistical tests
+    
+    def __init__(self):
+        self.node_entropy_history = {}  # Track entropy quality per node
+        self.lock = threading.RLock()
+    
+    def validate_entropy_sample(self, node_id: str, entropy_bytes: bytes) -> dict:
+        """
+        Validate a 32-byte entropy sample using NIST SP 800-90B tests
+        Returns validation results with pass/fail and quality score
+        """
+        with self.lock:
+            if len(entropy_bytes) != 32:
+                return {
+                    'valid': False,
+                    'error': f'Expected 32 bytes, got {len(entropy_bytes)}',
+                    'penalty': self.PENALTY_FAILED_TESTS
+                }
+            
+            # Run NIST statistical tests
+            chi_square_result = self._chi_square_test(entropy_bytes)
+            runs_test_result = self._runs_test(entropy_bytes)
+            longest_run_result = self._longest_run_test(entropy_bytes)
+            entropy_estimate = self._estimate_entropy(entropy_bytes)
+            
+            # Determine if sample passes all tests
+            tests_passed = (
+                chi_square_result['pass'] and
+                runs_test_result['pass'] and
+                longest_run_result['pass'] and
+                entropy_estimate >= self.MIN_ENTROPY_BITS_PER_BYTE
+            )
+            
+            # Calculate quality score (0-100)
+            quality_score = self._calculate_quality_score(
+                chi_square_result,
+                runs_test_result,
+                longest_run_result,
+                entropy_estimate
+            )
+            
+            # Update node history
+            if node_id not in self.node_entropy_history:
+                self.node_entropy_history[node_id] = {
+                    'samples_submitted': 0,
+                    'samples_passed': 0,
+                    'samples_failed': 0,
+                    'avg_quality': 0.0,
+                    'last_submission': 0.0
+                }
+            
+            history = self.node_entropy_history[node_id]
+            history['samples_submitted'] += 1
+            history['last_submission'] = time.time()
+            
+            if tests_passed:
+                history['samples_passed'] += 1
+            else:
+                history['samples_failed'] += 1
+            
+            # Update rolling average quality
+            prev_avg = history['avg_quality']
+            sample_count = history['samples_submitted']
+            history['avg_quality'] = (prev_avg * (sample_count - 1) + quality_score) / sample_count
+            
+            # Determine penalty
+            penalty = 0.0
+            if not tests_passed:
+                if entropy_estimate < self.MIN_ENTROPY_BITS_PER_BYTE:
+                    penalty = self.PENALTY_LOW_ENTROPY
+                else:
+                    penalty = self.PENALTY_FAILED_TESTS
+            
+            return {
+                'valid': tests_passed,
+                'quality_score': quality_score,
+                'entropy_estimate_bits_per_byte': entropy_estimate,
+                'tests': {
+                    'chi_square': chi_square_result,
+                    'runs_test': runs_test_result,
+                    'longest_run': longest_run_result
+                },
+                'node_history': {
+                    'total_samples': history['samples_submitted'],
+                    'pass_rate': history['samples_passed'] / history['samples_submitted'] if history['samples_submitted'] > 0 else 0.0,
+                    'avg_quality': history['avg_quality']
+                },
+                'penalty': penalty,
+                'timestamp': time.time()
+            }
+    
+    def _chi_square_test(self, data: bytes) -> dict:
+        """
+        Chi-square test for uniform distribution
+        Tests if byte values are uniformly distributed
+        """
+        # Count frequency of each byte value (0-255)
+        observed = [0] * 256
+        for byte in data:
+            observed[byte] += 1
+        
+        # Expected frequency for uniform distribution
+        expected = len(data) / 256.0
+        
+        # Calculate chi-square statistic
+        chi_square = sum((obs - expected) ** 2 / expected for obs in observed if expected > 0)
+        
+        # Degrees of freedom = 255 (256 categories - 1)
+        # Critical value at 0.05 significance level ≈ 293.25
+        critical_value = 293.25
+        passes = chi_square < critical_value
+        
+        return {
+            'pass': passes,
+            'chi_square_statistic': chi_square,
+            'critical_value': critical_value,
+            'p_value': 1.0 - stats.chi2.cdf(chi_square, 255) if chi_square < 1000 else 0.0
+        }
+    
+    def _runs_test(self, data: bytes) -> dict:
+        """
+        Runs test for independence
+        Tests for patterns where bits alternate too frequently or too rarely
+        """
+        # Convert to bit string
+        bits = ''.join(format(byte, '08b') for byte in data)
+        n = len(bits)
+        
+        # Count 1s and 0s
+        n1 = bits.count('1')
+        n0 = n - n1
+        
+        if n0 == 0 or n1 == 0:
+            return {'pass': False, 'error': 'All bits are same value'}
+        
+        # Count runs (sequences of consecutive same bits)
+        runs = 1
+        for i in range(1, len(bits)):
+            if bits[i] != bits[i-1]:
+                runs += 1
+        
+        # Expected runs and standard deviation
+        expected_runs = (2 * n0 * n1) / n + 1
+        variance = (2 * n0 * n1 * (2 * n0 * n1 - n)) / (n ** 2 * (n - 1))
+        std_dev = math.sqrt(variance) if variance > 0 else 1.0
+        
+        # Z-score
+        z_score = (runs - expected_runs) / std_dev if std_dev > 0 else 0.0
+        
+        # Test passes if |z| < 1.96 (95% confidence)
+        passes = abs(z_score) < 1.96
+        
+        return {
+            'pass': passes,
+            'runs': runs,
+            'expected_runs': expected_runs,
+            'z_score': z_score,
+            'threshold': 1.96
+        }
+    
+    def _longest_run_test(self, data: bytes) -> dict:
+        """
+        Longest run of ones test
+        Tests if there are unusually long sequences of 1s
+        """
+        # Convert to bit string
+        bits = ''.join(format(byte, '08b') for byte in data)
+        
+        # Find longest run of 1s
+        max_run = 0
+        current_run = 0
+        
+        for bit in bits:
+            if bit == '1':
+                current_run += 1
+                max_run = max(max_run, current_run)
+            else:
+                current_run = 0
+        
+        # For 256 bits (32 bytes), longest run should typically be < 12
+        # This is a simplified threshold based on NIST guidelines
+        n = len(bits)
+        expected_max = math.log2(n) + 2  # Rough heuristic
+        threshold = min(expected_max * 1.5, 12)
+        
+        passes = max_run <= threshold
+        
+        return {
+            'pass': passes,
+            'longest_run': max_run,
+            'threshold': threshold,
+            'total_bits': n
+        }
+    
+    def _estimate_entropy(self, data: bytes) -> float:
+        """
+        Shannon entropy estimation in bits per byte
+        Measures the randomness/unpredictability of the data
+        """
+        if len(data) == 0:
+            return 0.0
+        
+        # Count frequency of each byte value
+        frequency = Counter(data)
+        total = len(data)
+        
+        # Calculate Shannon entropy
+        entropy = 0.0
+        for count in frequency.values():
+            if count > 0:
+                probability = count / total
+                entropy -= probability * math.log2(probability)
+        
+        return entropy  # Returns bits per byte (max 8.0 for perfect randomness)
+    
+    def _calculate_quality_score(self, chi_square: dict, runs: dict, 
+                                 longest_run: dict, entropy: float) -> float:
+        """
+        Calculate overall quality score (0-100) based on test results
+        """
+        score = 0.0
+        
+        # Chi-square test (30 points)
+        if chi_square['pass']:
+            # Better score for chi-square closer to expected value
+            chi_stat = chi_square['chi_square_statistic']
+            # Ideal chi-square is around 255 (degrees of freedom)
+            deviation = abs(chi_stat - 255) / 255
+            score += 30 * (1 - min(deviation, 1.0))
+        
+        # Runs test (25 points)
+        if runs['pass']:
+            z_score = abs(runs['z_score'])
+            # Better score for z-score closer to 0
+            score += 25 * (1 - min(z_score / 1.96, 1.0))
+        
+        # Longest run test (20 points)
+        if longest_run['pass']:
+            ratio = longest_run['longest_run'] / longest_run['threshold']
+            score += 20 * (1 - min(ratio, 1.0))
+        
+        # Entropy estimate (25 points)
+        # Perfect entropy is 8 bits per byte
+        entropy_ratio = entropy / 8.0
+        score += 25 * entropy_ratio
+        
+        return min(100.0, max(0.0, score))
+    
+    def get_node_entropy_stats(self, node_id: str) -> dict:
+        """Get entropy statistics for a specific node"""
+        with self.lock:
+            if node_id not in self.node_entropy_history:
+                return {'error': 'No entropy history for this node'}
+            
+            return self.node_entropy_history[node_id].copy()
+    
+    def cleanup_old_history(self, max_age_seconds: float = 86400 * 7):
+        """Remove entropy history for nodes not seen in max_age_seconds (default 7 days)"""
+        with self.lock:
+            current_time = time.time()
+            to_remove = []
+            
+            for node_id, history in self.node_entropy_history.items():
+                if current_time - history.get('last_submission', 0) > max_age_seconds:
+                    to_remove.append(node_id)
+            
+            for node_id in to_remove:
+                del self.node_entropy_history[node_id]
+            
+            return len(to_remove)
+
 class NodeTracker:
     def __init__(self):
         self.nodes = {}
         self.active_connections = set()
+        self.entropy_quality = {}  # Track entropy quality per node
 
     def register_node(self, node_data: dict):
         node_id = node_data['node_id']
@@ -1168,7 +1451,9 @@ class NodeTracker:
             'last_seen': current_time,
             'first_seen': node_data.get('first_seen', current_time),
             'version': node_data.get('version', 'unknown'),
-            'uptime_percentage': self._calculate_uptime(node_id)
+            'uptime_percentage': self._calculate_uptime(node_id),
+            'entropy_quality_score': 0.0,  # Track RNG quality
+            'entropy_verified': False
         }
 
         # Save to database
@@ -1235,6 +1520,27 @@ class NodeTracker:
         current_time = time.time()
         return sum(1 for node in self.nodes.values()
                    if current_time - node.get('last_seen', 0) < max_idle_seconds)
+    
+    def update_entropy_quality(self, node_id: str, quality_score: float, verified: bool):
+        """Update node's entropy quality tracking"""
+        if node_id in self.nodes:
+            self.nodes[node_id]['entropy_quality_score'] = quality_score
+            self.nodes[node_id]['entropy_verified'] = verified
+            
+            # Store in separate tracking dict for quick lookups
+            self.entropy_quality[node_id] = {
+                'quality_score': quality_score,
+                'verified': verified,
+                'last_updated': time.time()
+            }
+    
+    def get_entropy_quality(self, node_id: str) -> dict:
+        """Get entropy quality info for a node"""
+        return self.entropy_quality.get(node_id, {
+            'quality_score': 0.0,
+            'verified': False,
+            'last_updated': 0.0
+        })
 
 class MiningStatsAggregator:
     def __init__(self, node_tracker: NodeTracker):
@@ -1488,6 +1794,7 @@ class PeerDiscoveryService:
         return (uptime / 100) * 0.7 + recency_score * 0.3
 
 # Initialize global service instances
+entropy_validator = EntropyValidator()
 node_tracker = NodeTracker()
 mining_aggregator = MiningStatsAggregator(node_tracker)
 geo_locator = GeoLocator()
@@ -5542,6 +5849,109 @@ def update_node_status():
     except Exception as e:
         logger.error(f"Node status update error: {e}")
         return jsonify({'error': 'Status update failed'}), 500
+
+@app.route('/api/v1/hardware/entropy', methods=['POST'])
+def validate_hardware_entropy():
+    """
+    Validate hardware RNG entropy from mining nodes
+    Accepts 32-byte entropy samples and applies NIST SP 800-90B statistical tests
+    Rejects low-entropy claims and applies reputation penalties
+    """
+    logger.info("Hardware entropy validation endpoint called")
+    
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+        
+        # Get entropy submission
+        entropy_data = request.get_json() or {}
+        node_id = entropy_data.get('node_id')
+        entropy_hex = entropy_data.get('entropy_hex')
+        
+        if not node_id:
+            return jsonify({'error': 'node_id required'}), 400
+        
+        if not entropy_hex:
+            return jsonify({'error': 'entropy_hex required (32 bytes as hex string)'}), 400
+        
+        # Check if node is registered
+        if not _is_node_registered(node_id):
+            return jsonify({'error': 'Node not registered. Please register first.'}), 403
+        
+        # Validate hex format and convert to bytes
+        try:
+            entropy_bytes = bytes.fromhex(entropy_hex)
+        except ValueError:
+            return jsonify({'error': 'Invalid hex format for entropy_hex'}), 400
+        
+        # Validate entropy sample using NIST tests
+        validation_result = entropy_validator.validate_entropy_sample(node_id, entropy_bytes)
+        
+        # Update node tracker with quality score
+        if validation_result['valid']:
+            node_tracker.update_entropy_quality(
+                node_id,
+                validation_result['quality_score'],
+                True
+            )
+            logger.info(f"Node {node_id} passed entropy validation (quality: {validation_result['quality_score']:.2f})")
+        else:
+            node_tracker.update_entropy_quality(
+                node_id,
+                validation_result['quality_score'],
+                False
+            )
+            logger.warning(f"Node {node_id} FAILED entropy validation (quality: {validation_result['quality_score']:.2f})")
+            
+            # Apply reputation penalty via Sentinel
+            penalty = validation_result.get('penalty', 0.0)
+            if penalty < 0:
+                try:
+                    # Adjust node reputation for low-entropy submission
+                    incident_data = {
+                        'node_id': node_id,
+                        'incident_type': 'low_entropy_rng',
+                        'severity': 'high' if validation_result['entropy_estimate_bits_per_byte'] < 6.0 else 'medium',
+                        'evidence': {
+                            'entropy_estimate': validation_result['entropy_estimate_bits_per_byte'],
+                            'quality_score': validation_result['quality_score'],
+                            'tests_failed': [k for k, v in validation_result['tests'].items() if not v.get('pass', False)]
+                        },
+                        'reputation_impact': penalty
+                    }
+                    sentinel_service.record_incident(incident_data)
+                    logger.info(f"Applied reputation penalty ({penalty}) to node {node_id} for low entropy")
+                except Exception as sentinel_err:
+                    logger.error(f"Failed to apply Sentinel penalty: {sentinel_err}")
+        
+        # Build response
+        response = {
+            'validation_result': validation_result['valid'],
+            'quality_score': validation_result['quality_score'],
+            'entropy_estimate_bits_per_byte': validation_result['entropy_estimate_bits_per_byte'],
+            'node_id': node_id,
+            'timestamp': validation_result['timestamp']
+        }
+        
+        # Include detailed test results if validation failed
+        if not validation_result['valid']:
+            response['tests'] = validation_result['tests']
+            response['penalty_applied'] = validation_result.get('penalty', 0.0)
+            response['recommendation'] = 'Improve hardware RNG quality or verify /dev/hwrng is properly configured'
+        
+        # Include node history stats
+        response['node_entropy_history'] = validation_result['node_history']
+        
+        # Return appropriate status code
+        if validation_result['valid']:
+            return jsonify(response), 200
+        else:
+            return jsonify(response), 400  # Bad request - low entropy
+    
+    except Exception as e:
+        logger.error(f"Hardware entropy validation error: {e}")
+        return jsonify({'error': 'Entropy validation failed'}), 500
 
 @app.route('/api/v1/nodes/list', methods=['GET'])
 def list_registered_nodes():
