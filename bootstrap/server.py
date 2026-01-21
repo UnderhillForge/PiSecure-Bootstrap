@@ -3740,16 +3740,20 @@ def _cleanup_inactive_nodes():
 
     return len(nodes_to_remove)
 
-def _get_registered_nodes_filtered(node_type: str = None, location: str = None, service: str = None) -> list:
+def _get_registered_nodes_filtered(node_type: str = None, location: str = None, service: str = None, network: str = 'mainnet') -> list:
     """Get filtered list of registered nodes (with inactive node cleanup)"""
     # Clean up inactive nodes before returning list
     _cleanup_inactive_nodes()
 
     nodes = []
 
+    network_key = (network or 'mainnet').strip().lower()
+
     for node_id, node_data in pisecure_node_registry.items():
         # Apply filters
         if node_type and node_data.get('node_type') != node_type:
+            continue
+        if network_key and node_data.get('network', 'mainnet') != network_key:
             continue
         if location and node_data.get('location') != location:
             continue
@@ -3763,6 +3767,7 @@ def _get_registered_nodes_filtered(node_type: str = None, location: str = None, 
             'services': node_data.get('services', []),
             'capabilities': node_data.get('capabilities', []),
             'location': node_data.get('location'),
+            'network': node_data.get('network', 'mainnet'),
             'status': node_data.get('status'),
             'last_seen': node_data.get('last_seen'),
             'performance_score': node_data.get('performance_score', 0),
@@ -5398,6 +5403,7 @@ def register_node():
         wallet_address = registration_data.get('wallet_address')
         capabilities = registration_data.get('capabilities', [])
         sentinel_config = registration_data.get('sentinel_config', {})
+        network_name = (registration_data.get('network') or 'mainnet').strip().lower()
 
         if not node_id:
             return jsonify({'error': 'node_id required'}), 400
@@ -5417,7 +5423,8 @@ def register_node():
             'registered_at': time.time(),
             'last_seen': time.time(),
             'status': 'registered',
-            'client_ip': client_ip
+            'client_ip': client_ip,
+            'network': network_name
         }
 
         # Store in node tracker
@@ -5483,6 +5490,7 @@ def update_node_status():
         # Get status data
         status_data = request.get_json() or {}
         node_id = status_data.get('node_id')
+        network_name = (status_data.get('network') or 'mainnet').strip().lower()
 
         if not node_id:
             return jsonify({'error': 'node_id required'}), 400
@@ -5501,7 +5509,8 @@ def update_node_status():
             'hashrate': status_data.get('hashrate'),
             'uptime_percentage': status_data.get('uptime_percentage'),
             'last_status_update': time.time(),
-            'client_ip': client_ip
+            'client_ip': client_ip,
+            'network': network_name
         }
 
         # If this is a sentinel node, also update sentinel status
@@ -5550,6 +5559,7 @@ def list_registered_nodes():
         node_type = query_params.get('type')
         location = query_params.get('location')
         service = query_params.get('service')
+        network_filter = (query_params.get('network') or 'mainnet').strip().lower()
 
         # Secondary bootstraps proxy the primary node directory for unified dashboards
         upstream_nodes = None
@@ -5564,7 +5574,8 @@ def list_registered_nodes():
             proxied_payload.setdefault('filters_applied', {
                 'type': node_type,
                 'location': location,
-                'service': service
+                'service': service,
+                'network': network_filter
             })
             proxied_payload.setdefault('timestamp', time.time())
             proxied_payload['proxied_from_primary'] = True
@@ -5573,7 +5584,7 @@ def list_registered_nodes():
             return jsonify(proxied_payload)
 
         # Retrieve registered nodes locally (primary or fallback)
-        nodes_list = _get_registered_nodes_filtered(node_type, location, service)
+        nodes_list = _get_registered_nodes_filtered(node_type, location, service, network_filter)
 
         # Add intelligence insights
         nodes_with_insights = []
@@ -5590,7 +5601,8 @@ def list_registered_nodes():
             'filters_applied': {
                 'type': node_type,
                 'location': location,
-                'service': service
+                'service': service,
+                'network': network_filter
             },
             'intelligence_enhanced': True,
             'timestamp': time.time()
@@ -5779,6 +5791,43 @@ def get_blockchain_metrics():
     except Exception as e:
         logger.error(f"Blockchain metrics error: {e}")
         return jsonify({'error': 'Metrics unavailable'}), 500
+
+
+@app.route('/api/v1/mempool', methods=['GET'])
+def get_mempool():
+    """Expose pending transactions for miners and bootstrap peers."""
+    logger.info("Mempool endpoint called")
+
+    try:
+        # Record this API call
+        client_ip = request.remote_addr or request.environ.get('HTTP_X_FORWARDED_FOR', 'unknown')
+        network_intelligence.record_connection(client_ip)
+
+        network_name = (request.args.get('network') or 'mainnet').strip().lower()
+
+        pending = []
+        source = 'simulated'
+
+        if real_blockchain and hasattr(real_blockchain, 'get_mempool'):
+            try:
+                pending = real_blockchain.get_mempool(network=network_name) if 'network' in real_blockchain.get_mempool.__code__.co_varnames else real_blockchain.get_mempool()
+                source = 'real_blockchain'
+            except Exception as exc:
+                logger.warning("real_blockchain mempool fetch failed: %s", exc)
+
+        response = {
+            'network': network_name,
+            'pending_count': len(pending),
+            'pending': pending,
+            'timestamp': time.time(),
+            'source': source
+        }
+
+        return jsonify(response)
+
+    except Exception as e:
+        logger.error(f"Mempool query error: {e}")
+        return jsonify({'error': 'Mempool unavailable'}), 500
 
 @app.route('/api/v1/blockchain/alerts', methods=['POST'])
 def submit_blockchain_alert():
