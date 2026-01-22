@@ -715,13 +715,6 @@ socketio = SocketIO(
     engineio_logger=False
 )
 
-# Register WebSocket namespaces
-socketio.register_namespace(NodesNamespace('/nodes'))
-socketio.register_namespace(ThreatsNamespace('/threats'))
-socketio.register_namespace(HealthNamespace('/health'))
-socketio.register_namespace(DEXNamespace('/dex'))
-socketio.register_namespace(RatesNamespace('/rates'))
-
 logger.info("WebSocket support initialized with 5 namespaces: /nodes, /threats, /health, /dex, /rates")
 
 # DDoS Protection Middleware
