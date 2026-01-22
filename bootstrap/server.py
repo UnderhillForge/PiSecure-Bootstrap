@@ -6012,6 +6012,16 @@ def list_registered_nodes():
 
         if upstream_nodes:
             proxied_payload = {**upstream_nodes}
+            
+            # Add deduplication by wallet_address to proxied response too
+            if 'nodes' in proxied_payload:
+                unique_wallets = {}
+                for node in proxied_payload.get('nodes', []):
+                    wallet = node.get('wallet_address') or f"node_{node.get('node_id', 'unknown')}"
+                    if wallet not in unique_wallets:
+                        unique_wallets[wallet] = node
+                proxied_payload['unique_nodes_count'] = len(unique_wallets)
+            
             proxied_payload.setdefault('filters_applied', {
                 'type': node_type,
                 'location': location,
