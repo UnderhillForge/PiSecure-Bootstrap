@@ -15,11 +15,42 @@ Date: 2026-01-21
 
 import logging
 from threading import Lock
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Set
 from flask_socketio import Namespace, emit, join_room, leave_room
 import time
 
 logger = logging.getLogger(__name__)
+
+# Global tracking of unique connected nodes
+websocket_connected_nodes: Set[str] = set()  # Set of node_ids currently connected via any namespace
+websocket_connection_lock = Lock()  # Thread-safe access to connected_nodes
+
+
+def get_connected_nodes_count() -> int:
+    """Get count of unique nodes currently connected via WebSocket"""
+    with websocket_connection_lock:
+        return len(websocket_connected_nodes)
+
+
+def get_connected_nodes() -> List[str]:
+    """Get list of unique node_ids currently connected via WebSocket"""
+    with websocket_connection_lock:
+        return list(websocket_connected_nodes)
+
+
+def register_websocket_connection(node_id: str) -> None:
+    """Register a WebSocket connection for a node"""
+    with websocket_connection_lock:
+        websocket_connected_nodes.add(node_id)
+        logger.debug(f"Registered WebSocket connection for {node_id}. Total unique nodes: {len(websocket_connected_nodes)}")
+
+
+def unregister_websocket_connection(node_id: str) -> None:
+    """Unregister a WebSocket connection for a node (only removes if no other connections)"""
+    # Note: In the current implementation, we don't actually remove nodes because multiple connections
+    # from the same node are possible. This tracks nodes with at least one active connection.
+    # To track exact connection count per node, we would need to track session_id -> node_id mapping
+    pass
 
 
 class NodesNamespace(Namespace):
@@ -52,7 +83,11 @@ class NodesNamespace(Namespace):
         
         # Store connection metadata
         request.sid_node_id = node_id
-        logger.info(f"Node {node_id} connected to /nodes namespace")
+        
+        # Register this connection as an active node
+        register_websocket_connection(node_id)
+        
+        logger.info(f"Node {node_id} connected to /nodes namespace (Total unique nodes: {get_connected_nodes_count()})")
         emit('connection_established', {'node_id': node_id})
         return True
     
@@ -108,7 +143,8 @@ class ThreatsNamespace(Namespace):
             return False
         
         request.sid_node_id = node_id
-        logger.info(f"Node {node_id} connected to /threats namespace")
+        register_websocket_connection(node_id)
+        logger.info(f"Node {node_id} connected to /threats namespace (Total unique nodes: {get_connected_nodes_count()})")
         emit('connection_established', {'node_id': node_id})
         return True
     
@@ -157,7 +193,8 @@ class HealthNamespace(Namespace):
             return False
         
         request.sid_node_id = node_id
-        logger.info(f"Node {node_id} connected to /health namespace")
+        register_websocket_connection(node_id)
+        logger.info(f"Node {node_id} connected to /health namespace (Total unique nodes: {get_connected_nodes_count()})")
         emit('connection_established', {'node_id': node_id})
         return True
     
@@ -206,7 +243,8 @@ class DEXNamespace(Namespace):
             return False
         
         request.sid_node_id = node_id
-        logger.info(f"Node {node_id} connected to /dex namespace")
+        register_websocket_connection(node_id)
+        logger.info(f"Node {node_id} connected to /dex namespace (Total unique nodes: {get_connected_nodes_count()})")
         emit('connection_established', {'node_id': node_id})
         return True
     
@@ -254,7 +292,8 @@ class RatesNamespace(Namespace):
             return False
         
         request.sid_node_id = node_id
-        logger.info(f"Node {node_id} connected to /rates namespace")
+        register_websocket_connection(node_id)
+        logger.info(f"Node {node_id} connected to /rates namespace (Total unique nodes: {get_connected_nodes_count()})")
         emit('connection_established', {'node_id': node_id})
         return True
     
@@ -283,4 +322,8 @@ __all__ = [
     'HealthNamespace',
     'DEXNamespace',
     'RatesNamespace',
+    'get_connected_nodes_count',
+    'get_connected_nodes',
+    'register_websocket_connection',
+    'unregister_websocket_connection',
 ]

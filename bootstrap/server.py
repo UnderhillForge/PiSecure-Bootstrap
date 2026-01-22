@@ -6053,6 +6053,31 @@ def list_registered_nodes():
         logger.error(f"Registered nodes list error: {e}")
         return jsonify({'error': 'Node list unavailable'}), 500
 
+@app.route('/api/v1/websocket/active-nodes', methods=['GET'])
+def get_websocket_active_nodes():
+    """Get count of unique nodes currently connected via WebSocket"""
+    try:
+        from pisecure.api.socketio_namespaces import get_connected_nodes_count, get_connected_nodes
+        
+        connected_count = get_connected_nodes_count()
+        connected_nodes = get_connected_nodes()
+        
+        logger.debug(f"WebSocket active nodes query: {connected_count} unique nodes")
+        
+        return jsonify({
+            'websocket_active_nodes': connected_count,
+            'connected_node_ids': connected_nodes,
+            'timestamp': time.time()
+        })
+    except Exception as e:
+        logger.error(f"WebSocket active nodes query error: {e}")
+        return jsonify({
+            'websocket_active_nodes': 0,
+            'connected_node_ids': [],
+            'error': str(e),
+            'timestamp': time.time()
+        }), 500
+
 @app.route('/nodes', methods=['GET'])
 def nodes():
     """Beautiful dark mode HTML dashboard with live API data"""

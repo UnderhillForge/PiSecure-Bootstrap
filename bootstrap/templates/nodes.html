@@ -1230,23 +1230,25 @@
         // API fetch functions
         async function fetchNetworkStats() {
             try {
-                // Fetch BOTH intelligence data AND registered nodes data
-                const [intelResponse, nodesResponse] = await Promise.all([
+                // Fetch BOTH intelligence data AND registered nodes data AND websocket active nodes
+                const [intelResponse, nodesResponse, websocketResponse] = await Promise.all([
                     fetch('/api/v1/intelligence/health'),
-                    fetch('/api/v1/nodes/list')
+                    fetch('/api/v1/nodes/list'),
+                    fetch('/api/v1/websocket/active-nodes')
                 ]);
 
                 const intelData = await intelResponse.json();
                 const nodesData = await nodesResponse.json();
+                const websocketData = await websocketResponse.json();
 
                 // Pass the correct data to each update function
-                updateNetworkOverview(nodesData);  // Node counts from nodes API
+                updateNetworkOverview(nodesData, websocketData);  // Node counts from nodes API + websocket unique count
                 updateNetworkHealth(intelData);    // Health from intelligence API
                 updateMiningStats({intelData, nodesData}); // Both for mining stats
             } catch (error) {
                 console.error('Failed to fetch network stats:', error);
                 // Set default values
-                updateNetworkOverview({});
+                updateNetworkOverview({}, {});
                 updateNetworkHealth({});
                 updateMiningStats({});
             }
@@ -1353,9 +1355,18 @@
         }
 
         // Update functions
-        function updateNetworkOverview(data) {
-            // Use real registered node data for total/active counts
-            const totalRegistered = data.total_registered_nodes || 0;
+        function updateNetworkOverview(data, websocketData) {
+            // Use WebSocket connected nodes count if available (real-time deduplicated count)
+            // Fall back to registered nodes count if WebSocket data not available
+            let totalRegistered = data.total_registered_nodes || 0;
+            const websocketActiveNodes = websocketData?.websocket_active_nodes || 0;
+            
+            // Prefer WebSocket count if it's available and smaller (deduped)
+            // WebSocket tracks unique node_ids currently connected via any namespace
+            if (websocketActiveNodes > 0 && websocketActiveNodes < totalRegistered) {
+                totalRegistered = websocketActiveNodes;
+            }
+            
             const activeNodes = data.nodes?.filter(node => node.status === 'active').length || 0;
 
             const networkStatus = totalRegistered > 0 ? 'Active' : 'Initializing';
@@ -1376,7 +1387,9 @@
                 networkStatus,
                 networkHashrate,
                 blockHeight,
-                avgBlockTime
+                avgBlockTime,
+                websocketActiveNodes, // For reference
+                registeredNodes: data.total_registered_nodes // For reference
             };
             refreshActiveDetail('network-overview');
         }
