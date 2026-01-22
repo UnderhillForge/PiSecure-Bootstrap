@@ -1356,14 +1356,13 @@
 
         // Update functions
         function updateNetworkOverview(data, websocketData) {
-            // Use WebSocket connected nodes count if available (real-time deduplicated count)
-            // Fall back to registered nodes count if WebSocket data not available
-            let totalRegistered = data.total_registered_nodes || 0;
+            // Use unique_nodes_count (deduplicated by wallet_address) if available
+            // Fall back to websocket count, then total_registered_nodes
+            let totalRegistered = data.unique_nodes_count || data.total_registered_nodes || 0;
             const websocketActiveNodes = websocketData?.websocket_active_nodes || 0;
             
-            // Prefer WebSocket count if it's available and smaller (deduped)
-            // WebSocket tracks unique node_ids currently connected via any namespace
-            if (websocketActiveNodes > 0 && websocketActiveNodes < totalRegistered) {
+            // If we only have websocket data and no registered nodes, use that
+            if (totalRegistered === 0 && websocketActiveNodes > 0) {
                 totalRegistered = websocketActiveNodes;
             }
             
@@ -1389,6 +1388,7 @@
                 blockHeight,
                 avgBlockTime,
                 websocketActiveNodes, // For reference
+                uniqueNodes: data.unique_nodes_count, // For reference
                 registeredNodes: data.total_registered_nodes // For reference
             };
             refreshActiveDetail('network-overview');

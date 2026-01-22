@@ -6036,8 +6036,19 @@ def list_registered_nodes():
                 'intelligence_insights': node_insights
             })
 
+        # Deduplicate by wallet_address to get unique nodes
+        # (same node may register multiple times with different node_ids)
+        unique_wallets = {}
+        for node in nodes_list:
+            wallet = node.get('wallet_address') or f"node_{node['node_id']}"  # Use wallet as primary key
+            if wallet not in unique_wallets:
+                unique_wallets[wallet] = node
+        
+        total_unique_nodes = len(unique_wallets)
+
         return jsonify({
-            'total_registered_nodes': len(nodes_list),
+            'total_registered_nodes': len(nodes_list),  # Total node_id registrations (may include duplicates)
+            'unique_nodes_count': total_unique_nodes,  # Deduplicated by wallet_address
             'nodes': nodes_with_insights,
             'filters_applied': {
                 'type': node_type,
