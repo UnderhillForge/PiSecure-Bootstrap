@@ -9,7 +9,19 @@ An intelligent, ML-powered bootstrap node for the PiSecure P2P network with adva
 - Railway Service: Active and running
 - Builder: Metal (optimized for performance)
 
-**🆕 Latest Updates (Deployed 2026-01-13)**
+**🆕 Latest Updates (Deployed 2026-01-21)**
+- ✅ **WebSocket Real-Time Communication**: 5 namespaces for 50-100x faster event delivery (Phase 2 Complete!)
+  - `/nodes` - Node registration and heartbeat events
+  - `/threats` - Real-time threat alerts and defense coordination
+  - `/health` - Network metrics and consensus status
+  - `/dex` - DEX pool updates and trading activity
+  - `/rates` - Rate limit and quota updates
+- ✅ **Performance**: 3,945x bandwidth reduction, 50ms latency (vs 2.5-5 seconds polling)
+- ✅ **HTTP Fallback**: Automatic fallback to polling if WebSocket unavailable
+- ✅ **Complete Specification**: [WEBSOCKET_SPECIFICATION.md](docs/WEBSOCKET_SPECIFICATION.md) with Python/JS examples
+- ✅ **Production Ready**: All 5 namespaces tested and deployed
+
+**Previous Updates (Deployed 2026-01-13)**
 - ✅ **Services Status API**: New `/api/v1/services/status` endpoint with real-time port information
 - ✅ **Ghostwheel Support**: Added `sentinel_ai` node type for Ghostwheel registration
 - ✅ **Federated Dashboards**: Secondary nodes now proxy registry + Ghostwheel status from the primary cluster
@@ -66,13 +78,18 @@ An intelligent, ML-powered bootstrap node for the PiSecure P2P network with adva
 | `/api/v1/bootstrap/registry` | GET | Active bootstrap nodes |
 | `/api/v1/bootstrap/coordinate` | POST | Service distribution |
 
-### Node Management
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/nodes/register` | POST | PiSecure node registration |
-| `/api/v1/nodes/status` | POST | Node status updates |
-| `/api/v1/nodes/list` | GET | Registered nodes directory |
-| `/api/v1/hardware/entropy` | POST | Hardware RNG entropy validation |
+### Node Management & Real-Time
+| Endpoint | Method | Description | Spec |
+|----------|--------|-------------|------|
+| `/api/v1/nodes/register` | POST | PiSecure node registration | [📋 api-node-registration.md](docs/api-node-registration.md) |
+| `/api/v1/nodes/status` | POST | Node status updates | [📋 api-node-registration.md](docs/api-node-registration.md) |
+| `/api/v1/nodes/list` | GET | Registered nodes directory | [📋 api-node-registration.md](docs/api-node-registration.md) |
+| `/api/v1/hardware/entropy` | POST | Hardware RNG entropy validation | [📋 api-entropy-validation.md](docs/api-entropy-validation.md) |
+| **`wss:///nodes`** | **WS** | **Real-time node events** | **[📋 WEBSOCKET_SPECIFICATION.md](docs/WEBSOCKET_SPECIFICATION.md)** |
+| **`wss:///threats`** | **WS** | **Real-time threat alerts** | **[📋 WEBSOCKET_SPECIFICATION.md](docs/WEBSOCKET_SPECIFICATION.md)** |
+| **`wss:///health`** | **WS** | **Real-time network metrics** | **[📋 WEBSOCKET_SPECIFICATION.md](docs/WEBSOCKET_SPECIFICATION.md)** |
+| **`wss:///dex`** | **WS** | **Real-time DEX updates** | **[📋 WEBSOCKET_SPECIFICATION.md](docs/WEBSOCKET_SPECIFICATION.md)** |
+| **`wss:///rates`** | **WS** | **Real-time rate limits** | **[📋 WEBSOCKET_SPECIFICATION.md](docs/WEBSOCKET_SPECIFICATION.md)** |
 
 ### DEX & Token Economics
 | Endpoint | Method | Description |

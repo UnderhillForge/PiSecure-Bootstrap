@@ -3,6 +3,7 @@
 - Security/AI helpers under [pisecure/api/](pisecure/api) (Sentinel, DDoS, Validation) are imported into the server module and mutated at runtime, so changes here ripple immediately into request handling.
 - Configuration loads from [config.json](config.json) plus environment overrides; `load_node_config()` assigns primary vs secondary roles and runtime domains, so avoid duplicating this logic when adding env-dependent behavior.
 - SQLite state is stored in `pisecure_bootstrap.db` via SQLAlchemy models defined near the top of [bootstrap/server.py](bootstrap/server.py); migrations are implicit, so schema edits must stay backward compatible or add defensive guards.
+- **Entropy Validation**: EntropyValidator class (line ~1150) implements NIST SP 800-90B tests for hardware RNG validation; endpoint `/api/v1/hardware/entropy` accepts 32-byte samples, integrates with Sentinel for reputation penalties; currently standalone (not auto-triggered during mining).
 
 ## Runtime & Workflows
 - Install deps with `pip install -r requirements.txt`; heavy ML libs (scikit-learn, scipy, numpy) require a working compiler toolchain on macOS.
@@ -24,6 +25,7 @@
 - Sentinel-facing endpoints expect requester reputation checks handled by [pisecure/api/sentinel.py](pisecure/api/sentinel.py); never bypass these guards when introducing new reputation or defense flows.
 - DDoS decisions come from `ddos_protection.analyze_request()` defined in [pisecure/api/ddos_protection.py](pisecure/api/ddos_protection.py); if you add long-running handlers, consider early exits for blocked clients to avoid holding Flask workers.
 - When coordinating bootstrap federation or peer lists, prefer helper functions like `_get_registered_bootstrap_nodes()` and `peer_discovery.get_bootstrap_peers()` rather than re-querying the database manually.
+- **Entropy Validation**: The `/api/v1/hardware/entropy` endpoint validates hardware RNG quality; it checks node registration, applies NIST tests via `entropy_validator.validate_entropy_sample()`, updates `node_tracker.entropy_quality`, and triggers `sentinel_service.record_incident()` for penalties; see [docs/api-entropy-validation.md](docs/api-entropy-validation.md) for complete specifications.
 
 ## Domain-Specific Modules
 - Sentinel service keeps reputations, threat signatures, defense actions, and blockchain alerts in memory with RLock protection; any cross-thread calls must acquire locks via the service methods rather than mutating attributes directly.

@@ -699,6 +699,31 @@ SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bi
 # Create minimal Flask app
 app = Flask(__name__)
 
+# Initialize WebSocket support via SocketIO
+from flask_socketio import SocketIO
+from pisecure.api.socketio_namespaces import (
+    NodesNamespace, ThreatsNamespace, HealthNamespace, DEXNamespace, RatesNamespace
+)
+
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode='threading',
+    ping_timeout=60,
+    ping_interval=25,
+    logger=False,
+    engineio_logger=False
+)
+
+# Register WebSocket namespaces
+socketio.register_namespace(NodesNamespace('/nodes'))
+socketio.register_namespace(ThreatsNamespace('/threats'))
+socketio.register_namespace(HealthNamespace('/health'))
+socketio.register_namespace(DEXNamespace('/dex'))
+socketio.register_namespace(RatesNamespace('/rates'))
+
+logger.info("WebSocket support initialized with 5 namespaces: /nodes, /threats, /health, /dex, /rates")
+
 # DDoS Protection Middleware
 @app.before_request
 def ddos_protection_middleware():
@@ -6598,6 +6623,99 @@ def services_status():
     except Exception as e:
         logger.error(f"Services status error: {e}")
         return jsonify({'error': 'Services status unavailable'}), 500
+
+
+# ============================================================================
+# WebSocket Event Emitters
+# ============================================================================
+
+def emit_node_registered(node_id: str, node_data: dict):
+    """Broadcast node registration event to all /nodes subscribers"""
+    try:
+        socketio.emit('node_registered', {
+            'node_id': node_id,
+            'node_type': node_data.get('node_type'),
+            'location': node_data.get('location'),
+            'reputation': node_data.get('reputation', 50.0),
+            'timestamp': time.time()
+        }, room='nodes_updates', namespace='/nodes')
+        logger.debug(f"Emitted node_registered for {node_id}")
+    except Exception as e:
+        logger.error(f"Error emitting node_registered: {e}")
+
+
+def emit_node_offline(node_id: str):
+    """Broadcast node offline event"""
+    try:
+        socketio.emit('node_offline', {
+            'node_id': node_id,
+            'timestamp': time.time()
+        }, room='nodes_updates', namespace='/nodes')
+        logger.debug(f"Emitted node_offline for {node_id}")
+    except Exception as e:
+        logger.error(f"Error emitting node_offline: {e}")
+
+
+def emit_threat_detected(threat_data: dict):
+    """Broadcast threat detection event to all /threats subscribers"""
+    try:
+        socketio.emit('threat_detected', {
+            'threat_id': threat_data.get('threat_id'),
+            'severity': threat_data.get('severity', 'medium'),
+            'threat_type': threat_data.get('threat_type'),
+            'source': threat_data.get('source'),
+            'description': threat_data.get('description'),
+            'timestamp': time.time()
+        }, room='threat_alerts', namespace='/threats')
+        logger.debug(f"Emitted threat_detected: {threat_data.get('threat_type')}")
+    except Exception as e:
+        logger.error(f"Error emitting threat_detected: {e}")
+
+
+def emit_health_update(health_metrics: dict):
+    """Broadcast network health update to all /health subscribers"""
+    try:
+        socketio.emit('health_update', {
+            'peer_count': health_metrics.get('peer_count'),
+            'network_health': health_metrics.get('network_health'),
+            'avg_latency_ms': health_metrics.get('avg_latency_ms'),
+            'consensus_status': health_metrics.get('consensus_status'),
+            'timestamp': time.time()
+        }, room='health_metrics', namespace='/health')
+        logger.debug("Emitted health_update")
+    except Exception as e:
+        logger.error(f"Error emitting health_update: {e}")
+
+
+def emit_dex_pool_updated(pool_data: dict):
+    """Broadcast DEX pool update to all /dex subscribers"""
+    try:
+        socketio.emit('pool_updated', {
+            'pool_id': pool_data.get('pool_id'),
+            'token_a': pool_data.get('token_a'),
+            'token_b': pool_data.get('token_b'),
+            'liquidity': pool_data.get('liquidity'),
+            'price': pool_data.get('price'),
+            'timestamp': time.time()
+        }, room='dex_updates', namespace='/dex')
+        logger.debug(f"Emitted pool_updated for {pool_data.get('pool_id')}")
+    except Exception as e:
+        logger.error(f"Error emitting pool_updated: {e}")
+
+
+def emit_rate_limit_status(client_ip: str, rate_data: dict):
+    """Broadcast rate limit status update"""
+    try:
+        socketio.emit('rate_limit_status', {
+            'requests_remaining': rate_data.get('requests_remaining'),
+            'reset_timestamp': rate_data.get('reset_timestamp'),
+            'limit': rate_data.get('limit'),
+            'window_seconds': rate_data.get('window_seconds'),
+            'timestamp': time.time()
+        }, room='rate_updates', namespace='/rates')
+        logger.debug(f"Emitted rate_limit_status")
+    except Exception as e:
+        logger.error(f"Error emitting rate_limit_status: {e}")
 
 if __name__ == '__main__':
     import os
