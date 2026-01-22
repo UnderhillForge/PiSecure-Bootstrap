@@ -9,8 +9,10 @@ bind = "0.0.0.0:8080"
 backlog = 2048
 
 # Worker processes
-workers = multiprocessing.cpu_count() * 2 + 1
-worker_class = "sync"
+# WebSocket support: Use 1 worker with gevent for Phase 2
+# For multi-worker scaling (Phase 3), add Redis backend
+workers = 1
+worker_class = "geventwebsocket.gunicorn.workers.GeventWebSocketWorker"
 worker_connections = 1000
 max_requests = 1000
 max_requests_jitter = 50

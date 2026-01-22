@@ -715,6 +715,19 @@ socketio = SocketIO(
     engineio_logger=False
 )
 
+# Register WebSocket namespaces
+nodes_ns = NodesNamespace('/nodes')
+threats_ns = ThreatsNamespace('/threats')
+health_ns = HealthNamespace('/health')
+dex_ns = DEXNamespace('/dex')
+rates_ns = RatesNamespace('/rates')
+
+socketio.on_namespace(nodes_ns)
+socketio.on_namespace(threats_ns)
+socketio.on_namespace(health_ns)
+socketio.on_namespace(dex_ns)
+socketio.on_namespace(rates_ns)
+
 logger.info("WebSocket support initialized with 5 namespaces: /nodes, /threats, /health, /dex, /rates")
 
 # DDoS Protection Middleware
@@ -6715,5 +6728,5 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     debug = os.environ.get('FLASK_ENV') == 'development'
 
-    logger.info(f"Starting Flask app on port={port}, debug={debug}")
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    logger.info(f"Starting Flask app with SocketIO support on port={port}, debug={debug}")
+    socketio.run(app, host='0.0.0.0', port=port, debug=debug, allow_unsafe_werkzeug=True)
