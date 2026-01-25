@@ -11,7 +11,7 @@
 1. [Overview](#1-overview)
 2. [Connection Protocol](#2-connection-protocol)
 3. [Namespaces](#3-namespaces)
-4. [Message Schemas](#4-message-schemas)
+4. [Message Schemas](#4-message-schemas)WEB
 5. [Event Types](#5-event-types)
 6. [Authentication](#6-authentication)
 7. [Rate Limiting](#7-rate-limiting)

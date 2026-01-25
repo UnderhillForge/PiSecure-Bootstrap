@@ -10,16 +10,23 @@ An intelligent, ML-powered bootstrap node for the PiSecure P2P network with adva
 - Builder: Metal (optimized for performance)
 
 **🆕 Latest Updates (Deployed 2026-01-21)**
-- ✅ **WebSocket Real-Time Communication**: 5 namespaces for 50-100x faster event delivery (Phase 2 Complete!)
   - `/nodes` - Node registration and heartbeat events
   - `/threats` - Real-time threat alerts and defense coordination
   - `/health` - Network metrics and consensus status
   - `/dex` - DEX pool updates and trading activity
   - `/rates` - Rate limit and quota updates
-- ✅ **Performance**: 3,945x bandwidth reduction, 50ms latency (vs 2.5-5 seconds polling)
-- ✅ **HTTP Fallback**: Automatic fallback to polling if WebSocket unavailable
-- ✅ **Complete Specification**: [WEBSOCKET_SPECIFICATION.md](docs/WEBSOCKET_SPECIFICATION.md) with Python/JS examples
-- ✅ **Production Ready**: All 5 namespaces tested and deployed
+
+**🆕 Latest Updates (Deployed 2026-01-25)**
+ ✅ **PiSecure Blockchain Integration**: Complete bidirectional integration with pisecured
+  - **Channel 1**: Blockchain Health Monitoring (difficulty, hashrate, threat level)
+  - **Channel 2**: Mining Template Caching (<2ms latency for pool operators)
+  - **Channel 3**: Transaction Monitoring (mempool health, fee data)
+  - **Channel 4**: Wallet Balance Validation (reward fraud detection)
+  - **Channel 5**: Peer Network Intelligence (cross-validation, diversity analysis)
+ ✅ **WebSocket Real-Time**: All channels broadcast via `/health`, `/dex`, `/nodes` namespaces
+ ✅ **HTTP Fallback**: All endpoints available via REST API
+ ✅ **Documentation**: [PISECURE_INTEGRATION_GUIDE.md](docs/PISECURE_INTEGRATION_GUIDE.md) with complete specifications
+ ✅ **Production Ready**: Thread-safe, failure-resistant, fully tested
 
 **Previous Updates (Deployed 2026-01-13)**
 - ✅ **Services Status API**: New `/api/v1/services/status` endpoint with real-time port information
@@ -79,6 +86,16 @@ An intelligent, ML-powered bootstrap node for the PiSecure P2P network with adva
 | `/api/v1/bootstrap/coordinate` | POST | Service distribution |
 
 ### Node Management & Real-Time
+
+### PiSecure Blockchain Integration
+| Endpoint | Method | Description | Spec |
+|----------|--------|-------------|------|
+| `/api/v1/blockchain/metrics` | GET | PiSecure chain health & threat level | [📋 PISECURE_INTEGRATION_GUIDE.md](docs/PISECURE_INTEGRATION_GUIDE.md#1️⃣-blockchain-health-monitoring) |
+| `/api/v1/mining/relay` | GET | Mining template cache & distribution | [📋 PISECURE_INTEGRATION_GUIDE.md](docs/PISECURE_INTEGRATION_GUIDE.md#2️⃣-mining-template-caching--distribution) |
+| `/api/v1/mempool` | GET | Transaction monitoring & mempool health | [📋 PISECURE_INTEGRATION_GUIDE.md](docs/PISECURE_INTEGRATION_GUIDE.md#3️⃣-transaction-monitoring--mempool-health) |
+| `/api/v1/wallet/validate` | POST | Wallet balance validation for fraud detection | [📋 PISECURE_INTEGRATION_GUIDE.md](docs/PISECURE_INTEGRATION_GUIDE.md#4️⃣-wallet-balance-validation) |
+| `/api/v1/network/peer-health` | GET | Peer network health & recommendations | [📋 PISECURE_INTEGRATION_GUIDE.md](docs/PISECURE_INTEGRATION_GUIDE.md#5️⃣-peer-network-intelligence-validation) |
+
 | Endpoint | Method | Description | Spec |
 |----------|--------|-------------|------|
 | `/api/v1/nodes/register` | POST | PiSecure node registration | [📋 api-node-registration.md](docs/api-node-registration.md) |
