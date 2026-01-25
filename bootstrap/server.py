@@ -4937,8 +4937,8 @@ def detected_attacks():
         # Get enhanced attack analysis (ML + statistical)
         attacks = network_intelligence.detect_attacks_ml()
 
-        # Get defense actions taken
-        recent_defense_actions = network_intelligence.defense_actions[-5:]  # Last 5 actions
+        # Get defense actions taken (collections.deque does not support slicing)
+        recent_defense_actions = list(network_intelligence.defense_actions)[-5:]
 
         return jsonify({
             'detected_attacks': attacks,
